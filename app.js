@@ -28,12 +28,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.3 · немає з’єднання");
+    setStatus("v1.3.2 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.3 · збереження…");
+    setStatus("v1.3.2 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +41,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.3 · хмара ✓");
+    setStatus("v1.3.2 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.3 · помилка хмари");
+    setStatus("v1.3.2 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1182,6 +1182,140 @@ function clearLogout(){
   document.querySelector("#authUser")?.remove();
 }
 
+
+async function ensureVoice14(){
+  if(!cloudDb || !cloudReady) return false;
+
+  // If Voice 14 already exists, do not duplicate it.
+  let p=db.projects.find(x=>String(x.name||"").toLowerCase().includes("голос 14"));
+  if(!p){
+    p={id:"voice14",name:"ГОЛОС 14",color:"#6D28D9",emoji:"🎤",description:"Вибір наосліп · Бої · Нокаути · Фінал"};
+    db.projects.push(p);
+  }
+
+  const norm=s=>String(s||"").toLowerCase().replace(/[’'`]/g,"").trim();
+  const findStudent=(surname,first="")=>db.students.find(s=>{
+    const n=norm(s.name);
+    return n.includes(norm(surname)) && (!first || n.includes(norm(first)));
+  });
+
+  const maria=findStudent("Міленіна","Марія");
+  const teamNames=[
+    ["Кропивка","Маргарита"],
+    ["Міленіна","Марія"],
+    ["Баленко","Ілля"],
+    ["Касєєв","Данило"],
+    ["Карпенко","Римма"]
+  ];
+  const team=teamNames.map(([a,b])=>findStudent(a,b)).filter(Boolean);
+
+  // Alternative seventh place: include whichever of these students exists in the database.
+  // If both exist, leave both OUT until the user chooses one, to avoid false occupancy.
+  const hostryk=findStudent("Гострик","Катерина");
+  const davydova=findStudent("Давидова","Світлана");
+  if(hostryk && !davydova) team.push(hostryk);
+  if(davydova && !hostryk) team.push(davydova);
+
+  // Анварі Осай may not yet exist in the current student list. If present, include automatically.
+  const anvari=findStudent("Анварі","Осай");
+  if(anvari) team.push(anvari);
+
+  const uniq=arr=>[...new Set(arr.map(x=>x.id))];
+  const allIds=uniq(team);
+  const mariaIds=maria?[maria.id]:[];
+
+  // Keep project-level assignment for everybody currently known on the Voice 14 team.
+  allIds.forEach(sid=>{
+    if(!db.assignments.some(a=>a.projectId===p.id&&a.studentId===sid)){
+      db.assignments.push({projectId:p.id,studentId:sid});
+    }
+  });
+
+  const entries=[
+    ["2026-09-15","Вибір наосліп · інтерв'ю учасників",mariaIds],
+    ["2026-09-16","Вибір наосліп · інтерв'ю учасників",mariaIds],
+    ["2026-09-17","Вибір наосліп · інтерв'ю учасників",mariaIds],
+    ["2026-09-18","Вибір наосліп · інтерв'ю учасників",mariaIds],
+    ["2026-09-19","Вибір наосліп · інтерв'ю учасників",mariaIds],
+    ["2026-09-20","Вибір наосліп · репетиція / саундчек",allIds],
+    ["2026-09-21","Вибір наосліп · репетиція / саундчек",allIds],
+    ["2026-09-22","Вибір наосліп · зйомка сліпих прослуховувань",allIds],
+    ["2026-09-23","Вибір наосліп · зйомка сліпих прослуховувань",allIds],
+    ["2026-09-24","Вибір наосліп · зйомка сліпих прослуховувань",allIds],
+
+    ["2026-10-20","Бої · інтерв'ю учасників",mariaIds],
+    ["2026-10-21","Бої · інтерв'ю учасників",mariaIds],
+    ["2026-10-22","Бої · інтерв'ю учасників",mariaIds],
+    ["2026-10-23","Бої · репетиція / саундчек",allIds],
+    ["2026-10-24","Бої · репетиція / саундчек",allIds],
+    ["2026-10-25","Бої · зйомка батлів",allIds],
+    ["2026-10-26","Бої · зйомка батлів",allIds],
+
+    ["2026-11-04","Нокаути · інтерв'ю учасників",mariaIds],
+    ["2026-11-05","Нокаути · інтерв'ю учасників",mariaIds],
+    ["2026-11-06","Нокаути · репетиція / саундчек",allIds],
+    ["2026-11-07","Нокаути · зйомка нокаутів",allIds],
+
+    ["2026-11-20","Фінал · інтерв'ю",mariaIds],
+    ["2026-11-22","Фінал · репетиція / саундчек",allIds],
+    ["2026-11-23","Фінал · репетиція / саундчек",allIds],
+    ["2026-11-24","Фінал · зйомка",allIds]
+  ];
+
+  entries.forEach(([date,type,studentIds])=>{
+    const exists=db.events.some(e=>e.projectId===p.id&&e.date===date&&e.type===type);
+    if(!exists) db.events.push({projectId:p.id,date,type,studentIds:[...studentIds]});
+  });
+
+  db.events.sort((a,b)=>a.date.localeCompare(b.date));
+  return await save();
+}
+
+
+async function ensureJescDates(){
+  if(!cloudDb || !cloudReady) return false;
+
+  let p=db.projects.find(x=>{
+    const n=String(x.name||"").toLowerCase();
+    return n.includes("дитяче євробачення") || x.id==="jesc";
+  });
+
+  if(!p){
+    p={
+      id:"jesc",
+      name:"Дитяче Євробачення",
+      color:"#F59E0B",
+      emoji:"⭐",
+      description:"Дитяче Євробачення 2026"
+    };
+    db.projects.push(p);
+  }
+
+  // Для цього проєкту вже є призначені студенти в базі.
+  // Окремий тип події користувач не уточнював, тому не вигадуємо його.
+  const studentIds=projectStudents(p.id).map(s=>s.id);
+
+  const entries=[
+    ["2026-09-12","Подія (тип уточнити)"],
+    ["2026-09-13","Подія (тип уточнити)"]
+  ];
+
+  entries.forEach(([date,type])=>{
+    const exists=db.events.some(e=>e.projectId===p.id && e.date===date);
+    if(!exists){
+      db.events.push({
+        projectId:p.id,
+        date,
+        type,
+        studentIds:[...studentIds]
+      });
+    }
+  });
+
+  db.events.sort((a,b)=>a.date.localeCompare(b.date));
+  return await save();
+}
+
 async function initCloud(){
   if(cloudInitializing) return;
   cloudInitializing=true;
@@ -1189,14 +1323,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3 · Firebase не налаштовано");
+    setStatus("v1.3.2 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.3 · завантаження хмари…");
+    setStatus("v1.3.2 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1218,7 +1352,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.3 · хмара ✓");
+    setStatus("v1.3.2 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -1238,19 +1372,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v1.3 · хмара ✓");
+      setStatus("v1.3.2 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.3 · хмара недоступна");
+      setStatus("v1.3.2 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.3 · хмара недоступна");
+    setStatus("v1.3.2 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1261,7 +1395,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3 · Firebase не налаштовано");
+    setStatus("v1.3.2 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1277,19 +1411,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.3 · вхід ✓");
+        setStatus("v1.3.2 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.3 · потрібен вхід");
+        setStatus("v1.3.2 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.3 · помилка авторизації");
+    setStatus("v1.3.2 · помилка авторизації");
     showLogin();
   }
 }
