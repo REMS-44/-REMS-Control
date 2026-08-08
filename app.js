@@ -479,12 +479,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v3.4 · немає з’єднання");
+    setStatus("v3.5 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v3.4 · збереження…");
+    setStatus("v3.5 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -492,7 +492,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v3.4 · хмара ✓");
+    setStatus("v3.5 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -503,7 +503,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v3.4 · помилка хмари");
+    setStatus("v3.5 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1895,10 +1895,10 @@ function calendar(){
   app.innerHTML=`
     <div class="calendar-toolbar">
       <select id="calPeriod">
+        <option value="year" selected>Увесь навчальний рік · вересень–травень</option>
         <option value="autumn">Вересень–листопад</option>
         <option value="winter">Грудень–лютий</option>
         <option value="spring">Березень–травень</option>
-        <option value="year">Вересень–травень</option>
       </select>
       <select id="calProject"><option value="">Усі проєкти</option>${db.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
       <input id="calStudent" placeholder="Пошук студента...">
@@ -2128,9 +2128,10 @@ function schedule(){
     const availableMonths=Object.keys(monthGroups);
     const activePeriod=$("#schPeriod").value;
     const rememberedMonth=$("#scheduleMonthTabs").dataset.activeMonth;
+    const currentMonth=new Date().toISOString().slice(0,7);
     let activeMonth=rememberedMonth && availableMonths.includes(rememberedMonth)
       ? rememberedMonth
-      : availableMonths[0];
+      : (availableMonths.includes(currentMonth)?currentMonth:availableMonths[0]);
 
     $("#scheduleMonthTabs").innerHTML=availableMonths.map(month=>`
       <button type="button" class="schedule-month-tab ${month===activeMonth?"active":""}" data-month="${month}">
@@ -2816,14 +2817,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.4 · Firebase не налаштовано");
+    setStatus("v3.5 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v3.4 · завантаження хмари…");
+    setStatus("v3.5 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2845,7 +2846,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v3.4 · хмара ✓");
+    setStatus("v3.5 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2886,19 +2887,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v3.4 · хмара ✓");
+      setStatus("v3.5 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v3.4 · хмара недоступна");
+      setStatus("v3.5 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v3.4 · хмара недоступна");
+    setStatus("v3.5 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2909,7 +2910,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.4 · Firebase не налаштовано");
+    setStatus("v3.5 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2925,19 +2926,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v3.4 · вхід ✓");
+        setStatus("v3.5 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v3.4 · потрібен вхід");
+        setStatus("v3.5 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v3.4 · помилка авторизації");
+    setStatus("v3.5 · помилка авторизації");
     showLogin();
   }
 }
