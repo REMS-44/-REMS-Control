@@ -1,4 +1,19 @@
 
+(function injectPublicIntegrationStyles(){
+  if(document.getElementById("remsPublicIntegrationStyles")) return;
+  const st=document.createElement("style");
+  st.id="remsPublicIntegrationStyles";
+  st.textContent=`
+    a.ghost.public-profile-btn,a.ghost.control-public-site-link{
+      display:inline-flex;align-items:center;justify-content:center;
+      text-decoration:none;box-sizing:border-box;
+    }
+    .public-profile-btn{font-weight:700}
+  `;
+  document.head.appendChild(st);
+})();
+
+
 (function injectProjectWatermarkStyles(){
   if(document.getElementById("remsProjectWatermarkStyles")) return;
   const st=document.createElement("style");
@@ -210,12 +225,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v2.8 · немає з’єднання");
+    setStatus("v2.9 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v2.8 · збереження…");
+    setStatus("v2.9 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -223,7 +238,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v2.8 · хмара ✓");
+    setStatus("v2.9 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -234,7 +249,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v2.8 · помилка хмари");
+    setStatus("v2.9 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -346,6 +361,25 @@ function ensureNewProjectLogoField(){
 
 const sBy=id=>db.students.find(s=>String(s.id)===String(id));
 const resolveStudentId=raw=>db.students.find(s=>String(s.id)===String(raw))?.id;
+
+const REMS44_PUBLIC_BASE="https://rems-44.github.io/REMS-44/";
+const REMS44_PUBLIC_PROFILES={"Вінцюк Андрій": "vintsiuk-andrii", "Власенко Даша": "vlasenko-dasha", "Гострик Катя": "hostryk-katya", "Давидова Світлана": "davydova-svitlana", "Жолуденко Поліна": "zholudenko-polina", "Касєєв Данило": "kasieiev-danylo", "Колишкін Андрій": "kolyshkin-andrii", "Кошелєва Мирослава": "koshelieva-myroslava", "Максімова Саміра": "maksimova-samira", "Міленіна Марія": "milenina-mariia", "Олейников Даніїл": "oleinykov-daniil", "Позняк Артур": "pozniak-artur", "Ташута Артем": "tashuta-artem", "Чиньонова Даша": "chynionova-dasha"};
+const normalizePersonName=name=>String(name||"").toLowerCase().replace(/[’'`]/g,"").replace(/[^a-zа-яіїєґ0-9 ]/gi," ").replace(/\s+/g," ").trim();
+const publicProfileIdFor=s=>{
+  if(REMS44_PUBLIC_PROFILES[s?.name]) return REMS44_PUBLIC_PROFILES[s.name];
+  const target=normalizePersonName(s?.name).split(" ").filter(Boolean);
+  const surname=target[0]||"", first=target[1]||"";
+  const entry=Object.entries(REMS44_PUBLIC_PROFILES).find(([name])=>{
+    const n=normalizePersonName(name).split(" ").filter(Boolean);
+    return n[0]===surname && (!first||!n[1]||n[1]===first);
+  });
+  return entry?.[1]||"";
+};
+const publicProfileUrlFor=s=>{
+  const pid=publicProfileIdFor(s);
+  return pid?`${REMS44_PUBLIC_BASE}student.html?id=${encodeURIComponent(pid)}`:"";
+};
+
 const eventsFor=id=>db.events.filter(e=>String(e.projectId)===String(id)).sort((a,b)=>a.date.localeCompare(b.date)||(a.startTime||"").localeCompare(b.startTime||""));
 const assForStudent=id=>db.assignments.filter(a=>String(a.studentId)===String(id));
 const studentProjects=id=>{
@@ -599,6 +633,7 @@ function openStudent(id){
             </div>
           </div>
           <div class="hero-actions">
+            ${publicProfileUrlFor(s)?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічний профіль ↗</a>`:""}
             <button class="ghost" id="editStudentBtn">Редагувати</button>
             <button class="ghost" id="closeStudentBtn">Закрити</button>
           </div>
@@ -2277,14 +2312,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.8 · Firebase не налаштовано");
+    setStatus("v2.9 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v2.8 · завантаження хмари…");
+    setStatus("v2.9 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2306,7 +2341,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v2.8 · хмара ✓");
+    setStatus("v2.9 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2347,19 +2382,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v2.8 · хмара ✓");
+      setStatus("v2.9 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v2.8 · хмара недоступна");
+      setStatus("v2.9 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v2.8 · хмара недоступна");
+    setStatus("v2.9 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2370,7 +2405,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.8 · Firebase не налаштовано");
+    setStatus("v2.9 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2386,19 +2421,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v2.8 · вхід ✓");
+        setStatus("v2.9 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v2.8 · потрібен вхід");
+        setStatus("v2.9 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v2.8 · помилка авторизації");
+    setStatus("v2.9 · помилка авторизації");
     showLogin();
   }
 }
