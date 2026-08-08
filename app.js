@@ -1,4 +1,34 @@
 
+(function injectV21Styles(){
+  if(document.getElementById("remsV21Styles")) return;
+  const st=document.createElement("style");
+  st.id="remsV21Styles";
+  st.textContent=`
+    button.student-card{font:inherit;color:inherit;text-align:left;width:100%;border:1px solid #e5e7eb;background:#fff;padding:14px;appearance:none}
+    button.student-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px #11182712}
+    .projects-grid-main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    button.project-card{font:inherit;color:inherit;text-align:left;width:100%;appearance:none;border:1px solid #e5e7eb;background:#fff}
+    .project-open-arrow{font-size:22px;color:#6b7280}
+    .dashboard-projects-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:22px 0 10px}
+    .dashboard-projects-head h2{margin:0}
+    .dashboard-project-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .dashboard-project-card{position:relative;overflow:hidden;text-align:left;background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:16px;cursor:pointer;font:inherit;color:inherit;box-shadow:inset 5px 0 0 var(--project-color)}
+    .dashboard-project-card:hover{transform:translateY(-2px);box-shadow:inset 5px 0 0 var(--project-color),0 12px 30px #11182712}
+    .dashboard-project-top{display:grid;grid-template-columns:78px 1fr auto;gap:12px;align-items:center}
+    .dashboard-project-logo{width:78px;height:52px;object-fit:contain;border-radius:9px;background:#f7f7f8}
+    .dashboard-project-copy h3{margin:0 0 4px;font-size:17px}
+    .dashboard-project-arrow{font-size:24px;color:#6b7280}
+    .dashboard-project-period{margin-top:14px;padding-top:12px;border-top:1px solid #eef0f3;font-size:12px;color:#6b7280}
+    .dashboard-project-next{margin-top:10px;background:#f7f7f8;border-radius:11px;padding:10px 11px;display:grid;gap:2px}
+    .dashboard-project-next span{font-size:10px;color:#6b7280}
+    .dashboard-project-next b{font-size:12px}
+    .dashboard-project-next small{font-size:10px;color:#6b7280}
+    @media(max-width:800px){.projects-grid-main,.dashboard-project-grid{grid-template-columns:1fr}}
+  `;
+  document.head.appendChild(st);
+})();
+
+
 (function injectProjectLogoStyles(){
   if(document.getElementById("remsProjectLogoStyles")) return;
   const st=document.createElement("style");
@@ -45,12 +75,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v2.0 · немає з’єднання");
+    setStatus("v2.1 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v2.0 · збереження…");
+    setStatus("v2.1 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -58,14 +88,14 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v2.0 · хмара ✓");
+    setStatus("v2.1 · хмара ✓");
     // Every derived screen must immediately reflect the edited cloud data.
     // This updates Dashboard / Projects / Calendar / Schedule behind any open dialog.
     refreshCurrentView();
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v2.0 · помилка хмари");
+    setStatus("v2.1 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -75,7 +105,7 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const app=$("#app");
 const fmt=d=>new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit"});
 const fullfmt=d=>new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{day:"numeric",month:"long",year:"numeric"});
-const pBy=id=>db.projects.find(p=>p.id===id);
+const pBy=id=>db.projects.find(p=>String(p.id)===String(id));
 
 const projectLogoFile=p=>{
   if(p?.logoData) return p.logoData;
@@ -148,7 +178,7 @@ function ensureNewProjectLogoField(){
 
 const sBy=id=>db.students.find(s=>String(s.id)===String(id));
 const resolveStudentId=raw=>db.students.find(s=>String(s.id)===String(raw))?.id;
-const eventsFor=id=>db.events.filter(e=>e.projectId===id).sort((a,b)=>a.date.localeCompare(b.date));
+const eventsFor=id=>db.events.filter(e=>String(e.projectId)===String(id)).sort((a,b)=>a.date.localeCompare(b.date)||(a.startTime||"").localeCompare(b.startTime||""));
 const assForStudent=id=>db.assignments.filter(a=>String(a.studentId)===String(id));
 const studentProjects=id=>{
   const ids=new Set(assForStudent(id).map(a=>a.projectId));
@@ -157,7 +187,7 @@ const studentProjects=id=>{
   });
   return [...ids].map(pBy).filter(Boolean);
 };
-const projectStudents=id=>db.assignments.filter(a=>a.projectId===id).map(a=>sBy(a.studentId)).filter(Boolean);
+const projectStudents=id=>db.assignments.filter(a=>String(a.projectId)===String(id)).map(a=>sBy(a.studentId)).filter(Boolean);
 const countDays=id=>new Set(
   db.events.filter(e=>studentsForEvent(e).some(s=>String(s.id)===String(id))).map(e=>e.date)
 ).size;
@@ -188,29 +218,15 @@ function refreshCurrentView(){
   views[v]();
 }
 function dashboard(){
-  const assigned=new Set(db.assignments.map(a=>a.studentId)).size;
+  const assigned=new Set(db.assignments.map(a=>String(a.studentId))).size;
   const conflicts=countConflicts();
-
-  const todayDate=new Date();
-  todayDate.setHours(12,0,0,0);
+  const todayDate=new Date(); todayDate.setHours(12,0,0,0);
   const iso=d=>d.toISOString().slice(0,10);
   const today=iso(todayDate);
-  const weekDates=Array.from({length:7},(_,i)=>{
-    const d=new Date(todayDate);
-    d.setDate(d.getDate()+i);
-    return iso(d);
-  });
-
-  const eventsOn=date=>db.events.filter(e=>e.date===date).map(e=>({
-    event:e,
-    project:pBy(e.projectId),
-    students:studentsForEvent(e)
-  })).filter(x=>x.project);
-
+  const weekDates=Array.from({length:7},(_,i)=>{const d=new Date(todayDate);d.setDate(d.getDate()+i);return iso(d);});
+  const eventsOn=date=>db.events.filter(e=>e.date===date).map(e=>({event:e,project:pBy(e.projectId),students:studentsForEvent(e)})).filter(x=>x.project);
   const todayEvents=eventsOn(today);
-  const todayBusyIds=new Set(todayEvents.flatMap(x=>x.students.map(s=>s.id)));
-  const todayFree=Math.max(0,db.students.length-todayBusyIds.size);
-
+  const todayBusyIds=new Set(todayEvents.flatMap(x=>x.students.map(s=>String(s.id))));
   const ukFull=new Intl.DateTimeFormat("uk-UA",{weekday:"long",day:"numeric",month:"long"});
   const ukShort=new Intl.DateTimeFormat("uk-UA",{weekday:"short"});
 
@@ -218,25 +234,14 @@ function dashboard(){
     <div class="today-panel">
       <div class="today-hero">
         <div class="today-hero-top">
-          <div>
-            <h2>Сьогодні · ${ukFull.format(todayDate)}</h2>
-            <div class="muted">${todayEvents.length?`${todayEvents.length} подій`:"Подій немає"}</div>
-          </div>
+          <div><h2>Сьогодні · ${ukFull.format(todayDate)}</h2><div class="muted">${todayEvents.length?`${todayEvents.length} подій`:"Подій немає"}</div></div>
           <div class="today-stats">
             <span class="today-stat">Зайнято: <b>${todayBusyIds.size}</b></span>
-            <span class="today-stat">Вільно: <b>${todayFree}</b></span>
+            <span class="today-stat">Вільно: <b>${Math.max(0,db.students.length-todayBusyIds.size)}</b></span>
           </div>
         </div>
-
         <div class="today-events">
-          ${todayEvents.map(x=>`<div class="today-event">
-            <span class="dot" style="background:${x.project.color}"></span>
-            <div>
-              <b>${esc(x.project.name)}</b>
-              <small>${esc(x.event.type)}${eventMetaText(x.event)?` · ${esc(eventMetaText(x.event))}`:""} · ${x.students.length} студентів</small>
-            </div>
-            <span class="chip" style="background:${x.project.color}">${shortType(x.event.type)}</span>
-          </div>`).join("")||'<div class="muted" style="margin-top:8px">Сьогодні можна спокійно планувати інші справи — у базі подій немає.</div>'}
+          ${todayEvents.map(x=>`<div class="today-event"><span class="dot" style="background:${x.project.color}"></span><div><b>${esc(x.project.name)}</b><small>${esc(x.event.type)}${eventMetaText(x.event)?` · ${esc(eventMetaText(x.event))}`:""} · ${x.students.length} студентів</small></div><span class="chip" style="background:${x.project.color}">${esc(shortType(x.event.type))}</span></div>`).join("")||'<div class="muted" style="margin-top:8px">Сьогодні у базі немає подій.</div>'}
         </div>
       </div>
 
@@ -244,30 +249,19 @@ function dashboard(){
         <h2 style="margin-top:0">Найближчі 7 днів</h2>
         <div class="week-strip">
           ${weekDates.map(date=>{
-            const dt=new Date(date+"T12:00:00");
-            const evs=eventsOn(date);
-            const busyIds=new Set(evs.flatMap(x=>x.students.map(s=>s.id)));
-            const free=Math.max(0,db.students.length-busyIds.size);
-            return `<div class="week-day-card ${date===today?"today":""}" data-date="${date}">
-              <div class="week-day-head">
-                <div>
-                  <div class="week-day-name">${ukShort.format(dt)}</div>
-                  <div class="week-day-num">${dt.getDate()}</div>
-                </div>
-                <div class="week-day-count">${evs.length} подій</div>
-              </div>
-              <div class="week-event-list">
-                ${evs.slice(0,3).map(x=>`<div class="week-event-pill" style="background:${x.project.color}" title="${esc(x.project.name)} · ${esc(x.event.type)}">${esc(x.project.name)} · ${shortType(x.event.type)}</div>`).join("")}
-                ${evs.length>3?`<div class="week-day-count">+ ще ${evs.length-3}</div>`:""}
-              </div>
-              <div class="week-free">${free} вільних</div>
-            </div>`;
+            const dt=new Date(date+"T12:00:00"),evs=eventsOn(date);
+            const busyIds=new Set(evs.flatMap(x=>x.students.map(s=>String(s.id))));
+            return `<button type="button" class="week-day-card ${date===today?"today":""}" data-date="${date}">
+              <div class="week-day-head"><div><div class="week-day-name">${ukShort.format(dt)}</div><div class="week-day-num">${dt.getDate()}</div></div><div class="week-day-count">${evs.length} подій</div></div>
+              <div class="week-event-list">${evs.slice(0,3).map(x=>`<div class="week-event-pill" style="background:${x.project.color}">${eventTimeText(x.event)?`${esc(eventTimeText(x.event))} · `:""}${esc(x.project.name)} · ${esc(shortType(x.event.type))}</div>`).join("")}${evs.length>3?`<div class="week-day-count">+ ще ${evs.length-3}</div>`:""}</div>
+              <div class="week-free">${Math.max(0,db.students.length-busyIds.size)} вільних</div>
+            </button>`;
           }).join("")}
         </div>
       </div>
     </div>
 
-    ${conflicts?`<div class="notice warn">⚠️ Знайдено конфліктів: <b>${conflicts}</b>. Відкрийте календар — вони підсвічені червоним.</div>`:`<div class="notice ok">✓ Конфліктів у поточних призначеннях не знайдено.</div>`}
+    ${conflicts?`<div class="notice warn">⚠️ Знайдено конфліктів: <b>${conflicts}</b>.</div>`:`<div class="notice ok">✓ Конфліктів у поточних призначеннях не знайдено.</div>`}
 
     <div class="grid kpis">
       <div class="card kpi"><span>Студентів</span><strong>${db.students.length}</strong></div>
@@ -276,44 +270,83 @@ function dashboard(){
       <div class="card kpi"><span>Подій у базі</span><strong>${db.events.length}</strong></div>
     </div>
 
-    <div class="grid two">
-      <div class="card"><h2>Активні проєкти</h2><div class="project-list">${db.projects.map(p=>`
-        <div class="project-row"><div class="project-left"><span class="dot" style="background:${p.color}"></span>${projectLogoHtml(p,"project-list-logo")}<div><b>${p.name}</b><div class="muted">${eventsFor(p.id).length} дат · ${projectStudents(p.id).length} студентів</div></div></div></div>`).join("")}</div></div>
-      <div class="card"><h2>Найбільш зайняті</h2><div class="student-list">${[...db.students].sort((a,b)=>countDays(b.id)-countDays(a.id)).slice(0,8).map(s=>`
-        <div class="student-row clickable-student" data-id="${s.id}" style="cursor:pointer"><div><b>${s.name}</b><div class="muted">${s.group}</div></div><strong>${countDays(s.id)} дн.</strong></div>`).join("")}</div></div>
+    <div class="dashboard-projects-head"><h2>Проєкти</h2><span class="muted">Натисни на картку, щоб відкрити проєкт</span></div>
+    <div class="dashboard-project-grid">
+      ${db.projects.map(p=>{
+        const evs=eventsFor(p.id), people=projectStudents(p.id);
+        const future=evs.filter(e=>e.date>=today);
+        const next=future[0]||null;
+        const period=evs.length?`${fmt(evs[0].date)} — ${fmt(evs[evs.length-1].date)}`:"Дат ще немає";
+        return `<button type="button" class="dashboard-project-card" data-project-id="${esc(String(p.id))}" style="--project-color:${p.color}">
+          <div class="dashboard-project-top">
+            ${projectLogoHtml(p,"dashboard-project-logo")}
+            <div class="dashboard-project-copy">
+              <h3>${esc(p.name)}</h3>
+              <div class="muted">${evs.length} подій · ${people.length} студентів</div>
+            </div>
+            <span class="dashboard-project-arrow">→</span>
+          </div>
+          <div class="dashboard-project-period">${period}</div>
+          <div class="dashboard-project-next">${next?`<span>Наступна</span><b>${fmt(next.date)} · ${esc(next.type)}</b>${eventMetaText(next)?`<small>${esc(eventMetaText(next))}</small>`:""}`:'<span>Майбутніх подій немає</span>'}</div>
+        </button>`;
+      }).join("")}
     </div>`;
 
-  $$(".clickable-student").forEach(x=>x.onclick=()=>{
-    const sid=resolveStudentId(x.dataset.id);
-    if(sid!==undefined) openStudent(sid);
-  });
   $$(".week-day-card").forEach(x=>x.onclick=()=>showDay(x.dataset.date));
+  $$(".dashboard-project-card").forEach(btn=>btn.onclick=()=>openProjectCard(btn.dataset.projectId));
 }
+
 function students(){
-  app.innerHTML=`<div class="toolbar"><input id="studentSearch" placeholder="Пошук студента..."><select id="studentProjectFilter"><option value="">Усі проєкти</option>${db.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join("")}</select></div><div class="students-grid" id="studentsGrid"></div>`;
+  app.innerHTML=`
+    <div class="toolbar">
+      <input id="studentSearch" placeholder="Пошук студента...">
+      <select id="studentProjectFilter">
+        <option value="">Усі проєкти</option>
+        ${db.projects.map(p=>`<option value="${esc(String(p.id))}">${esc(p.name)}</option>`).join("")}
+      </select>
+    </div>
+    <div class="students-grid" id="studentsGrid"></div>`;
+
   const render=()=>{
-    const q=($("#studentSearch").value||"").toLowerCase(), pf=$("#studentProjectFilter").value;
-    $("#studentsGrid").innerHTML=db.students.filter(s=>s.name.toLowerCase().includes(q)&&(!pf||assForStudent(s.id).some(a=>String(a.projectId)===String(pf)))).map(s=>`
-      <div class="student-card" data-id="${esc(String(s.id))}" role="button" tabindex="0" aria-label="Відкрити картку ${esc(s.name)}"><h3>${s.name}</h3><div class="muted">${s.group} · ${countDays(s.id)} зайнятих днів</div>
-      <div class="chips">${studentProjects(s.id).map(p=>`<span class="chip" style="background:${p.color}">${p.name}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}</div></div>`).join("")||'<div class="empty">Нічого не знайдено.</div>';
-    const grid=$("#studentsGrid");
-    grid.onclick=e=>{
-      const card=e.target.closest(".student-card");
-      if(!card||!grid.contains(card)) return;
-      const sid=resolveStudentId(card.dataset.id);
-      if(sid!==undefined) openStudent(sid);
-    };
-    grid.onkeydown=e=>{
-      if(e.key!=="Enter"&&e.key!==" ") return;
-      const card=e.target.closest(".student-card");
-      if(!card||!grid.contains(card)) return;
-      e.preventDefault();
-      const sid=resolveStudentId(card.dataset.id);
-      if(sid!==undefined) openStudent(sid);
-    };
+    const q=($("#studentSearch").value||"").toLowerCase().trim();
+    const pf=$("#studentProjectFilter").value;
+
+    const rows=db.students.filter(s=>{
+      if(!String(s.name||"").toLowerCase().includes(q)) return false;
+      if(!pf) return true;
+      return studentProjects(s.id).some(p=>String(p.id)===String(pf));
+    });
+
+    $("#studentsGrid").innerHTML=rows.map(s=>{
+      const ps=studentProjects(s.id);
+      return `<button type="button" class="student-card student-open-card" data-student-id="${esc(String(s.id))}">
+        <div style="text-align:left">
+          <h3>${esc(s.name)}</h3>
+          <div class="muted">${esc(s.group||"")} · ${countDays(s.id)} зайнятих днів</div>
+          <div class="chips">
+            ${ps.map(p=>`<span class="chip" style="background:${p.color}">${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}
+          </div>
+        </div>
+      </button>`;
+    }).join("")||'<div class="empty">Нічого не знайдено.</div>';
+
+    $$(".student-open-card").forEach(btn=>{
+      btn.onclick=()=>{
+        const sid=resolveStudentId(btn.dataset.studentId);
+        if(sid===undefined){
+          console.error("Student not found:",btn.dataset.studentId);
+          return;
+        }
+        openStudent(sid);
+      };
+    });
   };
-  $("#studentSearch").oninput=render; $("#studentProjectFilter").onchange=render; render();
+
+  $("#studentSearch").oninput=render;
+  $("#studentProjectFilter").onchange=render;
+  render();
 }
+
 function safeUrl(url){
   if(!url) return "";
   try{
@@ -331,190 +364,186 @@ function profileLink(label,url){
 }
 
 function openStudent(id){
-  const s=sBy(id); if(!s) return;
-  const ps=studentProjects(id);
-  const items=[];
-  ps.forEach(p=>eventsFor(p.id).forEach(e=>{
-    if(studentsForEvent(e).some(x=>String(x.id)===String(id))) items.push({...e,p});
-  }));
-  items.sort((a,b)=>a.date.localeCompare(b.date));
+  const s=sBy(id);
+  if(!s){
+    console.error("Student not found",id);
+    return;
+  }
 
-  const photo=safeUrl(s.photoUrl);
-  const photoBlock=photo
-    ? `<div class="profile-photo"><img src="${photo}" alt="${esc(s.name)}"></div>`
-    : `<div class="profile-photo">👤</div>`;
+  const dialog=document.querySelector("#studentDialog");
+  const body=document.querySelector("#studentDialogBody");
+  if(!dialog||!body){
+    console.error("Student dialog missing");
+    return;
+  }
 
-  const birthday=s.birthDate
-    ? new Date(s.birthDate+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit",year:"numeric"})
-    : "";
+  // Open immediately, before any derived data is calculated.
+  body.innerHTML=`<div class="student-profile"><div class="profile-body"><div class="profile-empty">Завантаження картки…</div></div></div>`;
+  if(!dialog.open) dialog.showModal();
 
-  const contacts=[
-    s.phone ? `<div class="contact-item"><b>Телефон</b><a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></div>` : "",
-    s.email ? `<div class="contact-item"><b>Email</b><a href="mailto:${esc(s.email)}">${esc(s.email)}</a></div>` : "",
-    s.instagram ? `<div class="contact-item"><b>Instagram</b><span>${esc(s.instagram)}</span></div>` : "",
-    s.telegram ? `<div class="contact-item"><b>Telegram</b><span>${esc(s.telegram)}</span></div>` : ""
-  ].filter(Boolean).join("");
+  try{
+    const ps=studentProjects(id);
+    const items=[];
+    db.events.forEach(e=>{
+      if(!studentsForEvent(e).some(x=>String(x.id)===String(id))) return;
+      const p=pBy(e.projectId);
+      if(p) items.push({...e,p});
+    });
+    items.sort((a,b)=>a.date.localeCompare(b.date)||(a.startTime||"").localeCompare(b.startTime||""));
 
-  const portfolioItems=[
-    ["Резюме",s.resumeUrl,"📄"],
-    ["Портфоліо",s.portfolioUrl,"🗂️"],
-    ["Відео / роботи",s.worksUrl,"🎬"]
-  ].map(([label,url,icon])=>{
-    const safe=safeUrl(url);
-    return safe ? `<a class="portfolio-card" href="${safe}" target="_blank" rel="noopener"><b>${icon} ${label}</b><span>Відкрити</span></a>` : "";
-  }).filter(Boolean).join("");
+    const photo=safeUrl(s.photoUrl);
+    const photoBlock=photo
+      ? `<div class="profile-photo"><img src="${photo}" alt="${esc(s.name)}"></div>`
+      : `<div class="profile-photo">👤</div>`;
 
-  $("#studentDialogBody").innerHTML=`<div class="student-profile">
-    <div class="profile-hero">
-      <div class="profile-hero-top">
-        <div class="profile-hero-title">
-          ${photoBlock}
-          <div class="profile-head-copy">
-            <h2>${esc(s.name)}</h2>
-            <div class="profile-meta">
-              <span>${esc(s.group||"")}</span>
-              ${birthday?`<span>🎂 ${birthday}</span>`:""}
-            </div>
-            <div class="chips" style="margin-top:14px">
-              ${ps.map(p=>`<span class="project-pill" style="background:${p.color}">${projectLogoHtml(p,"project-pill-logo")} ${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
+    const birthday=s.birthDate
+      ? new Date(s.birthDate+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit",year:"numeric"})
+      : "";
+
+    const contacts=[
+      s.phone ? `<div class="contact-item"><b>Телефон</b><a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></div>` : "",
+      s.email ? `<div class="contact-item"><b>Email</b><a href="mailto:${esc(s.email)}">${esc(s.email)}</a></div>` : "",
+      s.instagram ? `<div class="contact-item"><b>Instagram</b><span>${esc(s.instagram)}</span></div>` : "",
+      s.telegram ? `<div class="contact-item"><b>Telegram</b><span>${esc(s.telegram)}</span></div>` : ""
+    ].filter(Boolean).join("");
+
+    const portfolioItems=[
+      ["Резюме",s.resumeUrl,"📄"],["Портфоліо",s.portfolioUrl,"🗂️"],["Відео / роботи",s.worksUrl,"🎬"]
+    ].map(([label,url,icon])=>{
+      const safe=safeUrl(url);
+      return safe?`<a class="portfolio-card" href="${safe}" target="_blank" rel="noopener"><b>${icon} ${label}</b><span>Відкрити</span></a>`:"";
+    }).filter(Boolean).join("");
+
+    body.innerHTML=`<div class="student-profile">
+      <div class="profile-hero">
+        <div class="profile-hero-top">
+          <div class="profile-hero-title">
+            ${photoBlock}
+            <div class="profile-head-copy">
+              <h2>${esc(s.name)}</h2>
+              <div class="profile-meta">
+                <span>${esc(s.group||"")}</span>
+                ${birthday?`<span>🎂 ${birthday}</span>`:""}
+              </div>
+              <div class="chips" style="margin-top:14px">
+                ${ps.map(p=>`<span class="project-pill" style="background:${p.color}">${projectLogoHtml(p,"project-pill-logo")} ${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
+              </div>
             </div>
           </div>
-        </div>
-        <div class="hero-actions">
-          <button class="ghost" id="editStudentBtn">Редагувати</button>
-          <button class="ghost" onclick="document.querySelector('#studentDialog').close()">Закрити</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="profile-body">
-      <div class="contact-grid">${contacts||'<div class="profile-empty">Контакти ще не додані</div>'}</div>
-
-      <div class="profile-stats">
-        <div class="profile-stat"><span class="muted">Проєктів</span><strong>${ps.length}</strong></div>
-        <div class="profile-stat"><span class="muted">Зайнятих днів</span><strong>${countDays(id)}</strong></div>
-        <div class="profile-stat"><span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong></div>
-      </div>
-
-      <div class="profile-section">
-        <div class="profile-section-title"><b>Резюме та портфоліо</b></div>
-        <div class="portfolio-grid">${portfolioItems||'<div class="profile-empty">Посилань ще немає</div>'}</div>
-      </div>
-
-      ${s.notes?`<div class="profile-section">
-        <div class="profile-section-title"><b>Нотатки</b></div>
-        <div class="notes-card">${esc(s.notes)}</div>
-      </div>`:""}
-
-      <div class="profile-section">
-        <div class="profile-section-title"><b>Календар зайнятості</b><span class="muted">${items.length} подій</span></div>
-
-        <div class="student-cal-toolbar">
-          <div class="student-cal-toggle">
-            <button class="active" id="studentCalendarMode">Календар</button>
-            <button id="studentListMode">Список</button>
+          <div class="hero-actions">
+            <button class="ghost" id="editStudentBtn">Редагувати</button>
+            <button class="ghost" id="closeStudentBtn">Закрити</button>
           </div>
         </div>
+      </div>
 
-        <div id="studentMonthTabs" class="student-month-tabs"></div>
-        <div id="studentCalendarView" class="student-calendar-view"></div>
+      <div class="profile-body">
+        <div class="contact-grid">${contacts||'<div class="profile-empty">Контакти ще не додані</div>'}</div>
 
-        <div id="studentListView" class="student-list-view">
-          <div class="timeline-scroll">
-            <div class="timeline">
+        <div class="profile-stats">
+          <div class="profile-stat"><span class="muted">Проєктів</span><strong>${ps.length}</strong></div>
+          <div class="profile-stat"><span class="muted">Зайнятих днів</span><strong>${countDays(id)}</strong></div>
+          <div class="profile-stat"><span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong></div>
+        </div>
+
+        <div class="profile-section">
+          <div class="profile-section-title"><b>Резюме та портфоліо</b></div>
+          <div class="portfolio-grid">${portfolioItems||'<div class="profile-empty">Посилань ще немає</div>'}</div>
+        </div>
+
+        ${s.notes?`<div class="profile-section"><div class="profile-section-title"><b>Нотатки</b></div><div class="notes-card">${esc(s.notes)}</div></div>`:""}
+
+        <div class="profile-section">
+          <div class="profile-section-title"><b>Календар зайнятості</b><span class="muted">${items.length} подій</span></div>
+          <div class="student-cal-toolbar">
+            <div class="student-cal-toggle">
+              <button class="active" id="studentCalendarMode">Календар</button>
+              <button id="studentListMode">Список</button>
+            </div>
+          </div>
+          <div id="studentMonthTabs" class="student-month-tabs"></div>
+          <div id="studentCalendarView" class="student-calendar-view"></div>
+          <div id="studentListView" class="student-list-view">
+            <div class="timeline-scroll"><div class="timeline">
               ${items.map(x=>`<div class="timeline-row">
                 <div class="timeline-date">${fullfmt(x.date)}</div>
                 <div class="timeline-type">${esc(x.type)}${eventMetaText(x)?`<div class="muted">${esc(eventMetaText(x))}</div>`:""}</div>
                 <span class="chip" style="background:${x.p.color}">${esc(x.p.name)}</span>
               </div>`).join("")||'<div class="profile-empty">Подій немає</div>'}
-            </div>
+            </div></div>
           </div>
         </div>
       </div>
-    </div>
-  </div>`;
+    </div>`;
 
-  $("#editStudentBtn").onclick=()=>editStudent(id);
+    $("#closeStudentBtn").onclick=()=>dialog.close();
+    $("#editStudentBtn").onclick=()=>editStudent(id);
 
-  // Open the profile immediately. Calendar rendering below must never block the card.
-  if(!$("#studentDialog").open) $("#studentDialog").showModal();
+    const monthNames={"01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень","07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"};
+    const months=[...new Set(items.map(x=>x.date.slice(0,7)))].sort();
 
-  try{
-  const monthNames={
-    "01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень",
-    "07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"
-  };
-  const months=[...new Set(items.map(x=>x.date.slice(0,7)))].sort();
+    const renderMonth=month=>{
+      $$(".student-month-tab").forEach(b=>b.classList.toggle("active",b.dataset.month===month));
+      const [yy,mm]=month.split("-").map(Number);
+      const first=new Date(yy,mm-1,1);
+      const last=new Date(yy,mm,0);
+      const mondayIndex=(first.getDay()+6)%7;
+      const heads=["Пн","Вт","Ср","Чт","Пт","Сб","Нд"].map(w=>`<div class="student-month-head">${w}</div>`).join("");
+      const blanks=Array.from({length:mondayIndex},()=>`<div class="student-month-day empty"></div>`).join("");
+      const cells=Array.from({length:last.getDate()},(_,i)=>{
+        const day=i+1;
+        const date=`${yy}-${String(mm).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+        const dayItems=items.filter(x=>x.date===date);
+        const dow=new Date(date+"T12:00:00").getDay();
+        return `<div class="student-month-day ${dow===0||dow===6?"weekend":""}">
+          <div class="student-month-number">${day}</div>
+          <div class="student-day-events">
+            ${dayItems.map((x,idx)=>`<button type="button" class="student-day-event" data-date="${date}" data-index="${idx}" style="background:${x.p.color}" title="${esc(x.p.name)} · ${esc(x.type)}">${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${esc(shortType(x.type))}</button>`).join("")}
+          </div>
+        </div>`;
+      }).join("");
+      $("#studentCalendarView").innerHTML=`<div class="student-month-grid">${heads}${blanks}${cells}</div>`;
 
-  const renderStudentMonth=(month)=>{
-    $("#studentMonthTabs").querySelectorAll(".student-month-tab").forEach(b=>b.classList.toggle("active",b.dataset.month===month));
+      $("#studentCalendarView").querySelectorAll(".student-day-event").forEach(el=>el.onclick=()=>{
+        const dayItems=items.filter(x=>x.date===el.dataset.date);
+        const item=dayItems[Number(el.dataset.index||0)]||dayItems[0];
+        if(item) showStudentEventInfo(id,item);
+      });
+    };
 
-    const [yy,mm]=month.split("-").map(Number);
-    const first=new Date(yy,mm-1,1);
-    const last=new Date(yy,mm,0);
-    const mondayIndex=(first.getDay()+6)%7;
-    const heads=["Пн","Вт","Ср","Чт","Пт","Сб","Нд"].map(w=>`<div class="student-month-head">${w}</div>`).join("");
-    const blanks=Array.from({length:mondayIndex},()=>`<div class="student-month-day empty"></div>`).join("");
+    if(months.length){
+      $("#studentMonthTabs").innerHTML=months.map(m=>{
+        const [y,mo]=m.split("-");
+        return `<button type="button" class="student-month-tab" data-month="${m}">${monthNames[mo]} ${y}</button>`;
+      }).join("");
+      $("#studentMonthTabs").querySelectorAll(".student-month-tab").forEach(b=>b.onclick=()=>renderMonth(b.dataset.month));
+      renderMonth(months[0]);
+    }else{
+      $("#studentCalendarView").innerHTML='<div class="profile-empty">Подій немає</div>';
+    }
 
-    const cells=Array.from({length:last.getDate()},(_,i)=>{
-      const day=i+1;
-      const date=`${yy}-${String(mm).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-      const dt=new Date(date+"T12:00:00");
-      const dow=dt.getDay();
-      const dayItems=items.filter(x=>x.date===date);
-      return `<div class="student-month-day ${dow===0||dow===6?"weekend":""}">
-        <div class="student-month-number">${day}</div>
-        ${dayItems.length>1?`<span class="student-day-count">${dayItems.length}</span>`:""}
-        <div class="student-day-events">
-          ${dayItems.map((x,idx)=>`<div class="student-day-event" data-date="${date}" data-index="${idx}" style="background:${x.p.color}" title="${esc(x.p.name)} · ${esc(x.type)}${eventMetaText(x)?` · ${esc(eventMetaText(x))}`:""}">${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${shortType(x.type)}</div>`).join("")}
-        </div>
-      </div>`;
-    }).join("");
-
-    $("#studentCalendarView").innerHTML=`<div class="student-month-grid">${heads}${blanks}${cells}</div>`;
-    $("#studentCalendarView").querySelectorAll(".student-day-event").forEach(el=>el.onclick=()=>{
-      const date=el.dataset.date;
-      const idx=Number(el.dataset.index||0);
-      const dayItems=items.filter(x=>x.date===date);
-      const item=dayItems[idx]||dayItems[0];
-      if(item) showStudentEventInfo(id,item);
-    });
-  };
-
-  if(months.length){
-    $("#studentMonthTabs").innerHTML=months.map(m=>{
-      const [y,mo]=m.split("-");
-      return `<button class="student-month-tab" data-month="${m}">${monthNames[mo]} ${y}</button>`;
-    }).join("");
-    $("#studentMonthTabs").querySelectorAll(".student-month-tab").forEach(b=>b.onclick=()=>renderStudentMonth(b.dataset.month));
-    renderStudentMonth(months[0]);
-  }else{
-    $("#studentMonthTabs").innerHTML="";
-    $("#studentCalendarView").innerHTML='<div class="profile-empty">Подій немає</div>';
-  }
-
-  $("#studentCalendarMode").onclick=()=>{
-    $("#studentCalendarMode").classList.add("active");
-    $("#studentListMode").classList.remove("active");
-    $("#studentCalendarView").classList.remove("hidden");
-    $("#studentMonthTabs").style.display="";
-    $("#studentListView").classList.remove("active");
-  };
-  $("#studentListMode").onclick=()=>{
-    $("#studentListMode").classList.add("active");
-    $("#studentCalendarMode").classList.remove("active");
-    $("#studentCalendarView").classList.add("hidden");
-    $("#studentMonthTabs").style.display="none";
-    $("#studentListView").classList.add("active");
-  };
+    $("#studentCalendarMode").onclick=()=>{
+      $("#studentCalendarMode").classList.add("active");
+      $("#studentListMode").classList.remove("active");
+      $("#studentCalendarView").classList.remove("hidden");
+      $("#studentMonthTabs").style.display="";
+      $("#studentListView").classList.remove("active");
+    };
+    $("#studentListMode").onclick=()=>{
+      $("#studentListMode").classList.add("active");
+      $("#studentCalendarMode").classList.remove("active");
+      $("#studentCalendarView").classList.add("hidden");
+      $("#studentMonthTabs").style.display="none";
+      $("#studentListView").classList.add("active");
+    };
   }catch(err){
-    console.error("Student calendar render error:",err);
-    const tabs=$("#studentMonthTabs");
-    const cal=$("#studentCalendarView");
-    const list=$("#studentListView");
-    if(tabs) tabs.style.display="none";
-    if(cal) cal.innerHTML='<div class="profile-empty">Календар тимчасово недоступний. Список подій нижче працює.</div>';
-    if(list) list.classList.add("active");
+    console.error("Student profile error:",err);
+    body.innerHTML=`<div class="student-profile"><div class="profile-body">
+      <h2>${esc(s.name)}</h2>
+      <div class="muted">${esc(s.group||"")}</div>
+      <div class="notice warn" style="margin-top:16px">Картка відкрилася, але частину даних не вдалося показати. Помилка записана в консолі.</div>
+      <button class="ghost" style="margin-top:12px" onclick="document.querySelector('#studentDialog').close()">Закрити</button>
+    </div></div>`;
   }
 }
 
@@ -590,38 +619,28 @@ function studentConflicts(id){
   const map=eventAssignments(); return Object.entries(map).filter(([k,v])=>k.startsWith(id+"|")&&v.length>1).length;
 }
 function projects(){
-  app.innerHTML=db.projects.map(p=>{
+  app.innerHTML=`<div class="projects-grid-main">${db.projects.map(p=>{
     const assigned=projectStudents(p.id);
     const evs=eventsFor(p.id);
-    return `<div class="project-card" data-id="${esc(String(p.id))}" role="button" tabindex="0" style="cursor:pointer">
+    const next=evs.find(e=>e.date>=new Date().toISOString().slice(0,10))||evs[0];
+    return `<button type="button" class="project-card project-open-card" data-project-id="${esc(String(p.id))}">
       <div class="project-card-header">
-        <div>
-          <h3><span class="dot" style="background:${p.color}"></span> ${projectLogoHtml(p,"project-card-logo")} ${esc(p.name)}</h3>
-          <div class="muted">${evs.length} дат · ${assigned.length} студентів</div>
+        <div style="display:flex;gap:12px;align-items:center;min-width:0">
+          ${projectLogoHtml(p,"project-card-logo")}
+          <div style="text-align:left;min-width:0">
+            <h3 style="margin:0">${esc(p.name)}</h3>
+            <div class="muted">${evs.length} подій · ${assigned.length} студентів</div>
+          </div>
         </div>
-        <button class="ghost open-project" data-id="${esc(String(p.id))}">Відкрити</button>
+        <span class="project-open-arrow">→</span>
       </div>
-      <div class="events">${evs.slice(0,8).map(e=>`<span class="event">${fmt(e.date)} · ${esc(e.type)}</span>`).join("")}${evs.length>8?`<span class="event">+${evs.length-8}</span>`:""}</div>
-    </div>`;
-  }).join("")||'<div class="empty">Проєктів ще немає.</div>';
+      <div class="events">${evs.slice(0,4).map(e=>`<span class="event">${fmt(e.date)} · ${esc(e.type)}</span>`).join("")}${evs.length>4?`<span class="event">+${evs.length-4}</span>`:""}</div>
+    </button>`;
+  }).join("")||'<div class="empty">Проєктів ще немає.</div>'}</div>`;
 
-  app.onclick=e=>{
-    const openBtn=e.target.closest(".open-project");
-    if(openBtn){
-      e.stopPropagation();
-      openProjectCard(openBtn.dataset.id);
-      return;
-    }
-    const card=e.target.closest(".project-card");
-    if(card&&app.contains(card)) openProjectCard(card.dataset.id);
-  };
-  app.onkeydown=e=>{
-    if(e.key!=="Enter"&&e.key!==" ") return;
-    const card=e.target.closest(".project-card");
-    if(!card||!app.contains(card)) return;
-    e.preventDefault();
-    openProjectCard(card.dataset.id);
-  };
+  $$(".project-open-card").forEach(btn=>{
+    btn.onclick=()=>openProjectCard(btn.dataset.projectId);
+  });
 }
 
 function projectMonthLabel(month){
@@ -2073,14 +2092,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.0 · Firebase не налаштовано");
+    setStatus("v2.1 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v2.0 · завантаження хмари…");
+    setStatus("v2.1 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2102,7 +2121,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v2.0 · хмара ✓");
+    setStatus("v2.1 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2134,19 +2153,19 @@ async function initCloud(){
 
       currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
       refreshCurrentView();
-      setStatus("v2.0 · хмара ✓");
+      setStatus("v2.1 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v2.0 · хмара недоступна");
+      setStatus("v2.1 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v2.0 · хмара недоступна");
+    setStatus("v2.1 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -2157,7 +2176,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.0 · Firebase не налаштовано");
+    setStatus("v2.1 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2173,19 +2192,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v2.0 · вхід ✓");
+        setStatus("v2.1 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v2.0 · потрібен вхід");
+        setStatus("v2.1 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v2.0 · помилка авторизації");
+    setStatus("v2.1 · помилка авторизації");
     showLogin();
   }
 }
