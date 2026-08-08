@@ -45,12 +45,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.6 · немає з’єднання");
+    setStatus("v1.7 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.6 · збереження…");
+    setStatus("v1.7 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -58,14 +58,14 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.6 · хмара ✓");
+    setStatus("v1.7 · хмара ✓");
     // Every derived screen must immediately reflect the edited cloud data.
     // This updates Dashboard / Projects / Calendar / Schedule behind any open dialog.
     refreshCurrentView();
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.6 · помилка хмари");
+    setStatus("v1.7 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -444,7 +444,7 @@ function openStudent(id){
         <div class="student-month-number">${day}</div>
         ${dayItems.length>1?`<span class="student-day-count">${dayItems.length}</span>`:""}
         <div class="student-day-events">
-          ${dayItems.map((x,idx)=>`<div class="student-day-event" data-date="${date}" data-index="${idx}" style="background:${x.p.color}" title="${esc(x.p.name)} · ${esc(x.type)}">${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${shortType(x.type)}</div>`).join("")}
+          ${dayItems.map((x,idx)=>`<div class="student-day-event" data-date="${date}" data-index="${idx}" style="background:${x.p.color}" title="${esc(x.p.name)} · ${esc(x.type)}${eventMetaText(x)?` · ${esc(eventMetaText(x))}`:""}">${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${shortType(x.type)}</div>`).join("")}
         </div>
       </div>`;
     }).join("");
@@ -452,9 +452,10 @@ function openStudent(id){
     $("#studentCalendarView").innerHTML=`<div class="student-month-grid">${heads}${blanks}${cells}</div>`;
     $("#studentCalendarView").querySelectorAll(".student-day-event").forEach(el=>el.onclick=()=>{
       const date=el.dataset.date;
+      const idx=Number(el.dataset.index||0);
       const dayItems=items.filter(x=>x.date===date);
-      const details=dayItems.map(x=>`${x.p.name}: ${x.type}`).join("\\n");
-      alert(`${fullfmt(date)}\\n\\n${details}`);
+      const item=dayItems[idx]||dayItems[0];
+      if(item) showStudentEventInfo(id,item);
     });
   };
 
@@ -634,6 +635,7 @@ function showProjectDay(projectId,date){
         <div style="display:flex;gap:6px;align-items:center">
           <button class="ghost project-day-edit-event" data-index="${i}">Редагувати</button>
           <button class="ghost project-day-people-event" data-index="${i}">Учасники</button>
+          <button class="ghost danger-inline project-day-delete-event" data-index="${i}">Видалити</button>
           <span class="chip" style="background:${p.color}">${esc(shortType(e.type))}</span>
         </div>
       </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
@@ -645,6 +647,29 @@ function showProjectDay(projectId,date){
   dialog.querySelector("#backToProjectCalendar").onclick=()=>openProjectCard(projectId);
   dialog.querySelectorAll(".project-day-edit-event").forEach(b=>b.onclick=()=>editProjectEvent(projectId,evs[+b.dataset.index]));
   dialog.querySelectorAll(".project-day-people-event").forEach(b=>b.onclick=()=>editEventPeople(projectId,evs[+b.dataset.index]));
+  dialog.querySelectorAll(".project-day-delete-event").forEach(b=>{
+    b.onclick=async()=>{
+      const ev=evs[+b.dataset.index];
+      if(!b.classList.contains("armed")){
+        b.classList.add("armed");
+        b.textContent="Точно видалити?";
+        setTimeout(()=>{
+          if(document.body.contains(b)){
+            b.classList.remove("armed");
+            b.textContent="Видалити";
+          }
+        },3500);
+        return;
+      }
+      const i=db.events.findIndex(x=>x.projectId===projectId&&x.date===ev.date&&x.type===ev.type);
+      if(i>=0) db.events.splice(i,1);
+      const ok=await save();
+      if(!ok) return;
+      const remain=eventsFor(projectId).filter(x=>x.date===date);
+      if(remain.length) showProjectDay(projectId,date);
+      else openProjectCard(projectId);
+    };
+  });
   dialog.querySelectorAll(".project-day-student").forEach(b=>b.onclick=()=>openStudent(+b.dataset.id));
 }
 
@@ -992,6 +1017,46 @@ function eventKey(e){
 function studentsForEvent(e){
   if(Array.isArray(e.studentIds)) return db.students.filter(s=>e.studentIds.includes(s.id));
   return projectStudents(e.projectId);
+}
+
+
+function ensureEventInfoDialog(){
+  let d=document.querySelector("#eventInfoDialog");
+  if(d) return d;
+  d=document.createElement("dialog");
+  d.id="eventInfoDialog";
+  d.className="student-dialog";
+  d.innerHTML=`<div id="eventInfoBody"></div>`;
+  document.body.appendChild(d);
+  return d;
+}
+
+function showStudentEventInfo(studentId,item){
+  const d=ensureEventInfoDialog();
+  const s=sBy(studentId);
+  const meta=eventMetaText(item);
+  d.querySelector("#eventInfoBody").innerHTML=`<div class="event-info-card">
+    <div class="event-info-head" style="box-shadow:inset 6px 0 0 ${item.p.color}">
+      <h2>${esc(item.type)}</h2>
+      <div class="muted">${fullfmt(item.date)} · ${esc(item.p.name)}</div>
+    </div>
+    <div class="event-info-body">
+      ${eventTimeText(item)?`<div class="event-info-row"><span>Час</span><b>${esc(eventTimeText(item))}</b></div>`:""}
+      ${item.location?`<div class="event-info-row"><span>Локація</span><b>${esc(item.location)}</b></div>`:""}
+      <div class="event-info-row"><span>Студент</span><b>${esc(s?.name||"")}</b></div>
+    </div>
+    <div class="event-info-actions">
+      <button class="ghost" id="eventInfoOpenProject">Відкрити проєкт</button>
+      <button class="primary" id="eventInfoClose">Закрити</button>
+    </div>
+  </div>`;
+  d.querySelector("#eventInfoClose").onclick=()=>d.close();
+  d.querySelector("#eventInfoOpenProject").onclick=()=>{
+    d.close();
+    document.querySelector("#studentDialog")?.close();
+    openProjectCard(item.p.id);
+  };
+  d.showModal();
 }
 
 function ensureProjectCardDialog(){
@@ -1475,6 +1540,18 @@ function ensureAuthStyles(){
     .student-day-events{display:grid;gap:3px}
     .student-day-event{font-size:9px;color:#fff;border-radius:5px;padding:3px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
     .student-day-count{position:absolute;top:5px;right:5px;font-size:9px;color:#6b7280}
+    .event-info-card{padding:0;overflow:hidden;border-radius:18px}
+    .event-info-head{padding:20px 22px;background:linear-gradient(135deg,#111827,#232936);color:#fff}
+    .event-info-head h2{margin:0;font-size:22px}
+    .event-info-head .muted{color:#cbd5e1;margin-top:5px}
+    .event-info-body{padding:20px 22px;display:grid;gap:12px}
+    .event-info-row{background:#f7f7f8;border-radius:12px;padding:12px 14px}
+    .event-info-row span{display:block;font-size:10px;color:#6b7280;margin-bottom:3px}
+    .event-info-row b{font-size:14px}
+    .event-info-actions{display:flex;justify-content:flex-end;gap:8px;padding:0 22px 20px}
+    .danger-inline{border:1px solid #fecaca!important;color:#b91c1c!important;background:#fff!important}
+    .danger-inline.armed{background:#b91c1c!important;color:#fff!important;border-color:#b91c1c!important}
+
     .student-list-view{display:none}
     .student-list-view.active{display:block}
     .student-calendar-view{display:block}
@@ -1919,14 +1996,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.6 · Firebase не налаштовано");
+    setStatus("v1.7 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.6 · завантаження хмари…");
+    setStatus("v1.7 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1948,7 +2025,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.6 · хмара ✓");
+    setStatus("v1.7 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -1980,19 +2057,19 @@ async function initCloud(){
 
       currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
       refreshCurrentView();
-      setStatus("v1.6 · хмара ✓");
+      setStatus("v1.7 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.6 · хмара недоступна");
+      setStatus("v1.7 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.6 · хмара недоступна");
+    setStatus("v1.7 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -2003,7 +2080,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.6 · Firebase не налаштовано");
+    setStatus("v1.7 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2019,19 +2096,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.6 · вхід ✓");
+        setStatus("v1.7 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.6 · потрібен вхід");
+        setStatus("v1.7 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.6 · помилка авторизації");
+    setStatus("v1.7 · помилка авторизації");
     showLogin();
   }
 }
