@@ -1,4 +1,77 @@
 
+(function injectScheduleMonthTabsV34(){
+  if(document.getElementById("remsScheduleMonthTabsV34")) return;
+  const st=document.createElement("style");
+  st.id="remsScheduleMonthTabsV34";
+  st.textContent=`
+    .schedule-month-tabs{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin:18px 0 12px;
+      padding:10px;
+      border:1px solid #e5e7eb;
+      border-radius:14px;
+      background:#fff;
+      position:sticky;
+      top:0;
+      z-index:5;
+    }
+    .schedule-month-tab{
+      border:1px solid #dfe3e8;
+      background:#fff;
+      color:#374151;
+      padding:9px 12px;
+      border-radius:10px;
+      font:inherit;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .schedule-month-tab.active{
+      background:#111827;
+      color:#fff;
+      border-color:#111827;
+      font-weight:700;
+    }
+    .schedule-month-single{margin-top:0!important}
+    .schedule-month-nav{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .schedule-month-nav span{
+      color:#6b7280;
+      font-size:11px;
+    }
+    .schedule-month-nav button:disabled{
+      opacity:.35;
+      cursor:not-allowed;
+    }
+    @media(max-width:700px){
+      .schedule-month-tabs{
+        flex-wrap:nowrap;
+        overflow-x:auto;
+        scrollbar-width:thin;
+      }
+      .schedule-month-tab{white-space:nowrap}
+      .schedule-month-head{
+        align-items:flex-start!important;
+        gap:10px;
+      }
+      .schedule-month-nav{
+        justify-content:flex-start;
+      }
+      .schedule-month-nav span{
+        width:100%;
+      }
+    }
+  `;
+  document.head.appendChild(st);
+})();
+
+
 (function injectSharedStudentPhotoStyles(){
   if(document.getElementById("remsSharedStudentPhotoStyles")) return;
   const st=document.createElement("style");
@@ -406,12 +479,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v3.3 · немає з’єднання");
+    setStatus("v3.4 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v3.3 · збереження…");
+    setStatus("v3.4 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -419,7 +492,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v3.3 · хмара ✓");
+    setStatus("v3.4 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -430,7 +503,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v3.3 · помилка хмари");
+    setStatus("v3.4 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1969,6 +2042,7 @@ function schedule(){
     </div>
     <div id="scheduleKpis" class="schedule-kpis"></div>
     <div id="scheduleRecommended"></div>
+    <div id="scheduleMonthTabs" class="schedule-month-tabs"></div>
     <div id="scheduleCalendar"></div>`;
 
   const render=()=>{
@@ -2051,7 +2125,29 @@ function schedule(){
     };
     const weekdays=["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 
-    $("#scheduleCalendar").innerHTML=Object.entries(monthGroups).map(([month,dates])=>{
+    const availableMonths=Object.keys(monthGroups);
+    const activePeriod=$("#schPeriod").value;
+    const rememberedMonth=$("#scheduleMonthTabs").dataset.activeMonth;
+    let activeMonth=rememberedMonth && availableMonths.includes(rememberedMonth)
+      ? rememberedMonth
+      : availableMonths[0];
+
+    $("#scheduleMonthTabs").innerHTML=availableMonths.map(month=>`
+      <button type="button" class="schedule-month-tab ${month===activeMonth?"active":""}" data-month="${month}">
+        ${monthNames[month]||month}
+      </button>`).join("");
+
+    const renderScheduleMonth=month=>{
+      activeMonth=month;
+      $("#scheduleMonthTabs").dataset.activeMonth=month;
+      $$(".schedule-month-tab").forEach(b=>b.classList.toggle("active",b.dataset.month===month));
+
+      const dates=monthGroups[month]||[];
+      if(!dates.length){
+        $("#scheduleCalendar").innerHTML='<div class="empty">У цьому місяці немає дат.</div>';
+        return;
+      }
+
       const first=new Date(dates[0]+"T12:00:00");
       const jsDay=first.getDay();
       const mondayIndex=(jsDay+6)%7;
@@ -2080,21 +2176,43 @@ function schedule(){
         </div>`;
       }).join("");
 
-      return `<section class="schedule-month">
-        <div class="schedule-month-head"><h2>${monthNames[month]||month}</h2><span>Натисни на день, щоб побачити деталі</span></div>
+      $("#scheduleCalendar").innerHTML=`<section class="schedule-month schedule-month-single">
+        <div class="schedule-month-head">
+          <h2>${monthNames[month]||month}</h2>
+          <div class="schedule-month-nav">
+            <button type="button" class="ghost schedule-prev-month" ${availableMonths.indexOf(month)===0?"disabled":""}>← Попередній</button>
+            <span>Натисни на день, щоб побачити деталі</span>
+            <button type="button" class="ghost schedule-next-month" ${availableMonths.indexOf(month)===availableMonths.length-1?"disabled":""}>Наступний →</button>
+          </div>
+        </div>
         <div class="schedule-cal">
           ${weekdays.map(w=>`<div class="schedule-cal-head">${w}</div>`).join("")}
           ${blanks}${cells}
         </div>
       </section>`;
-    }).join("");
 
-    $$(".schedule-day[data-date], .schedule-open-day").forEach(el=>el.onclick=()=>{
+      $$(".schedule-day[data-date]").forEach(el=>el.onclick=()=>showDay(el.dataset.date));
+
+      const idx=availableMonths.indexOf(month);
+      const prev=$(".schedule-prev-month");
+      const next=$(".schedule-next-month");
+      if(prev) prev.onclick=()=>idx>0&&renderScheduleMonth(availableMonths[idx-1]);
+      if(next) next.onclick=()=>idx<availableMonths.length-1&&renderScheduleMonth(availableMonths[idx+1]);
+    };
+
+    $$(".schedule-month-tab").forEach(btn=>btn.onclick=()=>renderScheduleMonth(btn.dataset.month));
+    renderScheduleMonth(activeMonth);
+
+    $$(".schedule-open-day").forEach(el=>el.onclick=()=>{
       if(el.dataset.date) showDay(el.dataset.date);
     });
   };
 
-  $("#schPeriod").onchange=render;
+  $("#schPeriod").onchange=()=>{
+    const tabs=$("#scheduleMonthTabs");
+    if(tabs) delete tabs.dataset.activeMonth;
+    render();
+  };
   $("#schWeekday").onchange=render;
   $("#schMinFree").onchange=render;
   render();
@@ -2698,14 +2816,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.3 · Firebase не налаштовано");
+    setStatus("v3.4 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v3.3 · завантаження хмари…");
+    setStatus("v3.4 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2727,7 +2845,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v3.3 · хмара ✓");
+    setStatus("v3.4 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2768,19 +2886,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v3.3 · хмара ✓");
+      setStatus("v3.4 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v3.3 · хмара недоступна");
+      setStatus("v3.4 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v3.3 · хмара недоступна");
+    setStatus("v3.4 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2791,7 +2909,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.3 · Firebase не налаштовано");
+    setStatus("v3.4 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2807,19 +2925,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v3.3 · вхід ✓");
+        setStatus("v3.4 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v3.3 · потрібен вхід");
+        setStatus("v3.4 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v3.3 · помилка авторизації");
+    setStatus("v3.4 · помилка авторизації");
     showLogin();
   }
 }
