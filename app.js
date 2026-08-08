@@ -1,3 +1,4 @@
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
@@ -27,21 +28,21 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v0.4 · немає з’єднання");
+    setStatus("v0.5 · немає з’єднання");
     return false;
   }
   try{
-    setStatus("v0.4 · збереження…");
+    setStatus("v0.5 · збереження…");
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
       {...clone(db),updatedAt:new Date().toISOString()},
       {merge:false}
     );
-    setStatus("v0.4 · хмара ✓");
+    setStatus("v0.5 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v0.4 · помилка хмари");
+    setStatus("v0.5 · помилка хмари");
     return false;
   }
 };
@@ -103,19 +104,114 @@ function students(){
   };
   $("#studentSearch").oninput=render; $("#studentProjectFilter").onchange=render; render();
 }
+function safeUrl(url){
+  if(!url) return "";
+  try{
+    const u=new URL(url,window.location.href);
+    if(!["http:","https:"].includes(u.protocol)) return "";
+    return u.href;
+  }catch{return "";}
+}
+function esc(v=""){
+  return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+function profileLink(label,url){
+  const safe=safeUrl(url);
+  return safe ? `<div><b>${label}:</b> <a href="${safe}" target="_blank" rel="noopener">відкрити</a></div>` : "";
+}
+
 function openStudent(id){
   const s=sBy(id); if(!s) return;
   const ps=studentProjects(id);
   const items=[];
   ps.forEach(p=>eventsFor(p.id).forEach(e=>items.push({...e,p})));
   items.sort((a,b)=>a.date.localeCompare(b.date));
+
+  const photo=safeUrl(s.photoUrl);
+  const photoBlock=photo
+    ? `<div class="profile-photo"><img src="${photo}" alt="${esc(s.name)}"></div>`
+    : `<div class="profile-photo">👤</div>`;
+
+  const contacts=[
+    s.phone ? `<div><b>Телефон:</b> ${esc(s.phone)}</div>` : "",
+    s.email ? `<div><b>Email:</b> ${esc(s.email)}</div>` : "",
+    s.instagram ? `<div><b>Instagram:</b> ${esc(s.instagram)}</div>` : "",
+    s.telegram ? `<div><b>Telegram:</b> ${esc(s.telegram)}</div>` : ""
+  ].filter(Boolean).join("") || `<div class="muted">Контакти ще не додані</div>`;
+
+  const links=[
+    profileLink("Резюме",s.resumeUrl),
+    profileLink("Портфоліо",s.portfolioUrl),
+    profileLink("Відео / роботи",s.worksUrl)
+  ].filter(Boolean).join("") || `<div class="muted">Посилань ще немає</div>`;
+
   $("#studentDialogBody").innerHTML=`<div class="student-profile">
-    <div class="profile-head"><div><h2>${s.name}</h2><div class="muted">${s.group}</div></div><button class="ghost" onclick="document.querySelector('#studentDialog').close()">Закрити</button></div>
-    <div class="profile-stats"><div class="profile-stat"><span class="muted">Проєктів</span><strong>${ps.length}</strong></div><div class="profile-stat"><span class="muted">Зайнятих днів</span><strong>${countDays(id)}</strong></div><div class="profile-stat"><span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong></div></div>
-    <div class="profile-section"><b>Проєкти</b><div class="chips">${ps.map(p=>`<span class="chip" style="background:${p.color}">${p.name}</span>`).join("")||'<span class="muted">Немає</span>'}</div></div>
-    <div class="profile-section"><b>Календар зайнятості</b><div class="timeline">${items.map(x=>`<div class="timeline-row"><span>${fullfmt(x.date)} · ${x.type}</span><span class="chip" style="background:${x.p.color}">${x.p.name}</span></div>`).join("")||'<div class="muted">Подій немає</div>'}</div></div>
+    <div class="profile-head">
+      <div><h2>${esc(s.name)}</h2><div class="muted">${esc(s.group||"")}</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="ghost" id="editStudentBtn">Редагувати</button>
+        <button class="ghost" onclick="document.querySelector('#studentDialog').close()">Закрити</button>
+      </div>
+    </div>
+    <div class="profile-main">
+      ${photoBlock}
+      <div class="profile-contact">${contacts}</div>
+    </div>
+    <div class="profile-stats">
+      <div class="profile-stat"><span class="muted">Проєктів</span><strong>${ps.length}</strong></div>
+      <div class="profile-stat"><span class="muted">Зайнятих днів</span><strong>${countDays(id)}</strong></div>
+      <div class="profile-stat"><span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong></div>
+    </div>
+    <div class="profile-section"><b>Проєкти</b><div class="chips">${ps.map(p=>`<span class="chip" style="background:${p.color}">${esc(p.name)}</span>`).join("")||'<span class="muted">Немає</span>'}</div></div>
+    <div class="profile-section"><b>Резюме та портфоліо</b><div class="link-list">${links}</div></div>
+    ${s.notes?`<div class="profile-section"><b>Нотатки</b><div style="margin-top:8px;white-space:pre-wrap">${esc(s.notes)}</div></div>`:""}
+    <div class="profile-section"><b>Календар зайнятості</b><div class="timeline">${items.map(x=>`<div class="timeline-row"><span>${fullfmt(x.date)} · ${esc(x.type)}</span><span class="chip" style="background:${x.p.color}">${esc(x.p.name)}</span></div>`).join("")||'<div class="muted">Подій немає</div>'}</div></div>
   </div>`;
+
+  $("#editStudentBtn").onclick=()=>editStudent(id);
   $("#studentDialog").showModal();
+}
+
+function editStudent(id){
+  const s=sBy(id); if(!s) return;
+  $("#studentDialogBody").innerHTML=`<div class="student-profile">
+    <div class="profile-head"><div><h2>Редагувати картку</h2><div class="muted">${esc(s.name)}</div></div></div>
+    <form id="studentEditForm" class="profile-edit-form" style="margin-top:18px">
+      <label>Телефон<input id="stPhone" value="${esc(s.phone||"")}" placeholder="+380..."></label>
+      <label>Email<input id="stEmail" type="email" value="${esc(s.email||"")}"></label>
+      <label>Instagram<input id="stInstagram" value="${esc(s.instagram||"")}" placeholder="@username або посилання"></label>
+      <label>Telegram<input id="stTelegram" value="${esc(s.telegram||"")}" placeholder="@username"></label>
+      <label class="full">Фото — посилання<input id="stPhoto" value="${esc(s.photoUrl||"")}" placeholder="https://..."></label>
+      <label class="full">Резюме — посилання<input id="stResume" value="${esc(s.resumeUrl||"")}" placeholder="https://..."></label>
+      <label class="full">Портфоліо — посилання<input id="stPortfolio" value="${esc(s.portfolioUrl||"")}" placeholder="https://..."></label>
+      <label class="full">Відео / роботи — посилання<input id="stWorks" value="${esc(s.worksUrl||"")}" placeholder="https://..."></label>
+      <label class="full">Нотатки<textarea id="stNotes" placeholder="Внутрішні нотатки">${esc(s.notes||"")}</textarea></label>
+      <div class="full profile-actions">
+        <button type="button" class="ghost" id="cancelStudentEdit">Скасувати</button>
+        <button type="submit" class="primary">Зберегти</button>
+      </div>
+    </form>
+  </div>`;
+
+  $("#cancelStudentEdit").onclick=()=>openStudent(id);
+  $("#studentEditForm").onsubmit=async e=>{
+    e.preventDefault();
+    s.phone=$("#stPhone").value.trim();
+    s.email=$("#stEmail").value.trim();
+    s.instagram=$("#stInstagram").value.trim();
+    s.telegram=$("#stTelegram").value.trim();
+    s.photoUrl=$("#stPhoto").value.trim();
+    s.resumeUrl=$("#stResume").value.trim();
+    s.portfolioUrl=$("#stPortfolio").value.trim();
+    s.worksUrl=$("#stWorks").value.trim();
+    s.notes=$("#stNotes").value.trim();
+    const ok=await save();
+    if(!ok){
+      alert("Не вдалося зберегти картку в хмару.");
+      return;
+    }
+    openStudent(id);
+  };
 }
 function studentConflicts(id){
   const map=eventAssignments(); return Object.entries(map).filter(([k,v])=>k.startsWith(id+"|")&&v.length>1).length;
@@ -217,6 +313,20 @@ function ensureAuthStyles(){
     #authGate .auth-error{min-height:20px;margin-top:10px;color:#b91c1c;font-size:12px}
     #logoutBtn{border:1px solid #343944;color:#c8ccd4;background:#1a1d23;border-radius:9px;padding:8px 10px;font-size:12px;text-align:center;cursor:pointer}
     #authUser{color:#6f7683;font-size:10px;line-height:1.3;padding:4px 8px;overflow-wrap:anywhere}
+    .profile-main{display:grid;grid-template-columns:110px 1fr;gap:16px;align-items:start;margin-top:18px}
+    .profile-photo{width:110px;height:138px;border-radius:14px;background:#eef0f3;object-fit:cover;display:grid;place-items:center;color:#9ca3af;font-size:28px;overflow:hidden}
+    .profile-photo img{width:100%;height:100%;object-fit:cover}
+    .profile-contact{display:grid;gap:7px;font-size:13px}
+    .profile-contact a{color:#111827;text-decoration:none}
+    .profile-edit-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .profile-edit-form label{display:grid;gap:5px;font-size:12px;color:#4b5563}
+    .profile-edit-form input,.profile-edit-form textarea{border:1px solid #e5e7eb;border-radius:10px;padding:9px 10px;font:inherit;width:100%}
+    .profile-edit-form textarea{min-height:86px;resize:vertical}
+    .profile-edit-form .full{grid-column:1/-1}
+    .profile-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+    .link-list{display:grid;gap:7px;margin-top:8px}
+    .link-list a{display:inline-block;color:#111827;text-decoration:underline;text-underline-offset:2px}
+    @media(max-width:640px){.profile-main{grid-template-columns:1fr}.profile-photo{width:96px;height:120px}.profile-edit-form{grid-template-columns:1fr}.profile-edit-form .full{grid-column:auto}}
   `;
   document.head.appendChild(style);
 }
@@ -301,14 +411,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.4 · Firebase не налаштовано");
+    setStatus("v0.5 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v0.4 · завантаження хмари…");
+    setStatus("v0.5 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -330,7 +440,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v0.4 · хмара ✓");
+    setStatus("v0.5 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -349,19 +459,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v0.4 · хмара ✓");
+      setStatus("v0.5 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v0.4 · хмара недоступна");
+      setStatus("v0.5 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v0.4 · хмара недоступна");
+    setStatus("v0.5 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -372,7 +482,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.4 · Firebase не налаштовано");
+    setStatus("v0.5 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -388,19 +498,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v0.4 · вхід ✓");
+        setStatus("v0.5 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v0.4 · потрібен вхід");
+        setStatus("v0.5 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v0.4 · помилка авторизації");
+    setStatus("v0.5 · помилка авторизації");
     showLogin();
   }
 }
