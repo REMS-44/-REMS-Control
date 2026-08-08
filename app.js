@@ -406,12 +406,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v3.2 · немає з’єднання");
+    setStatus("v3.3 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v3.2 · збереження…");
+    setStatus("v3.3 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -419,7 +419,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v3.2 · хмара ✓");
+    setStatus("v3.3 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -430,7 +430,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v3.2 · помилка хмари");
+    setStatus("v3.3 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -607,15 +607,26 @@ const sanitizePublicProfile=(s,profile)=>{
     gallery:Array.isArray(profile?.gallery)?profile.gallery.map(x=>String(x).trim()).filter(Boolean):[]
   };
 };
+const publishOnePublicProfile=async s=>{
+  if(!cloudReady||!cloudDb||!currentUser) throw new Error("Хмара не готова");
+  const profile=publicProfileFor(s);
+  const clean=profile&&sanitizePublicProfile(s,profile);
+  if(!clean) return null;
+  await setDoc(doc(cloudDb,"rems_public_profiles",clean.id),{
+    ...clean,
+    updatedAt:new Date().toISOString()
+  },{merge:false});
+  return clean;
+};
+
 const publishPublicProfiles=async()=>{
   if(!cloudReady||!cloudDb||!currentUser) throw new Error("Хмара не готова");
-  const profiles={};
-  db.students.forEach(s=>{
-    const p=publicProfileFor(s), clean=p&&sanitizePublicProfile(s,p);
-    if(clean) profiles[clean.id]=clean;
-  });
-  await setDoc(doc(cloudDb,"rems_public","profiles"),{profiles,updatedAt:new Date().toISOString()},{merge:false});
-  return profiles;
+  const published={};
+  for(const s of db.students){
+    const clean=await publishOnePublicProfile(s);
+    if(clean) published[clean.id]=clean;
+  }
+  return published;
 };
 
 const eventsFor=id=>db.events.filter(e=>String(e.projectId)===String(id)).sort((a,b)=>a.date.localeCompare(b.date)||(a.startTime||"").localeCompare(b.startTime||""));
@@ -1067,7 +1078,8 @@ function editPublicProfile(id){
       alert("Не вдалося зберегти зміни в REMS Control."); return;
     }
     try{
-      await publishPublicProfiles();
+      const updated=sBy(id);
+      if(updated) await publishOnePublicProfile(updated);
       alert("Публічний профіль оновлено.");
       openStudent(id);
     }catch(err){
@@ -1180,6 +1192,15 @@ function editStudent(id){
     if(!updated){
       alert("Картку збережено, але не вдалося відкрити студента.");
       return;
+    }
+
+    if(publicProfileIdFor(updated)){
+      try{
+        await publishOnePublicProfile(updated);
+      }catch(err){
+        console.error("Public sync failed:",err);
+        alert("Фото збережено в REMS Control, але публічний сайт ще не оновився. Після оновлення Firestore Rules повтори збереження.");
+      }
     }
 
     openStudent(id);
@@ -2677,14 +2698,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.2 · Firebase не налаштовано");
+    setStatus("v3.3 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v3.2 · завантаження хмари…");
+    setStatus("v3.3 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2706,7 +2727,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v3.2 · хмара ✓");
+    setStatus("v3.3 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2747,19 +2768,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v3.2 · хмара ✓");
+      setStatus("v3.3 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v3.2 · хмара недоступна");
+      setStatus("v3.3 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v3.2 · хмара недоступна");
+    setStatus("v3.3 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2770,7 +2791,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.2 · Firebase не налаштовано");
+    setStatus("v3.3 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2786,19 +2807,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v3.2 · вхід ✓");
+        setStatus("v3.3 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v3.2 · потрібен вхід");
+        setStatus("v3.3 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v3.2 · помилка авторизації");
+    setStatus("v3.3 · помилка авторизації");
     showLogin();
   }
 }
