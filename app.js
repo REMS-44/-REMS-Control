@@ -1,4 +1,19 @@
 
+(function injectSharedStudentPhotoStyles(){
+  if(document.getElementById("remsSharedStudentPhotoStyles")) return;
+  const st=document.createElement("style");
+  st.id="remsSharedStudentPhotoStyles";
+  st.textContent=`
+    .shared-photo-editor{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;align-items:center;padding:12px;border:1px solid #e5e7eb;border-radius:14px;background:#f8fafc}
+    .shared-photo-preview{width:150px;aspect-ratio:4/5;display:grid;place-items:center;overflow:hidden;border-radius:12px;background:#111318;color:#9ca3af;font-size:11px}
+    .shared-photo-preview img{width:100%;height:100%;object-fit:cover}
+    .shared-photo-controls{display:grid;gap:8px;min-width:0}
+    @media(max-width:620px){.shared-photo-editor{grid-template-columns:1fr}.shared-photo-preview{width:120px}}
+  `;
+  document.head.appendChild(st);
+})();
+
+
 (function injectStudentCardV31Styles(){
   if(document.getElementById("remsStudentCardV31Styles")) return;
   const st=document.createElement("style");
@@ -391,12 +406,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v3.1 · немає з’єднання");
+    setStatus("v3.2 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v3.1 · збереження…");
+    setStatus("v3.2 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -404,7 +419,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v3.1 · хмара ✓");
+    setStatus("v3.2 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -415,7 +430,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v3.1 · помилка хмари");
+    setStatus("v3.2 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -454,6 +469,29 @@ const projectLogoHtml=(p,cls="project-logo-img")=>{
   const src=projectLogoFile(p);
   return src?`<img class="${cls}" src="${src}" alt="${esc(p.name)}">`:`<span>${p.emoji||"◆"}</span>`;
 };
+
+async function compressStudentPhoto(file){
+  if(!file) return "";
+  if(!file.type.startsWith("image/")) throw new Error("Оберіть файл зображення.");
+  if(file.size>12*1024*1024) throw new Error("Фото завелике. Максимум 12 МБ.");
+  const bitmap=await createImageBitmap(file);
+  const maxW=900,maxH=1200;
+  const scale=Math.min(1,maxW/bitmap.width,maxH/bitmap.height);
+  const w=Math.max(1,Math.round(bitmap.width*scale));
+  const h=Math.max(1,Math.round(bitmap.height*scale));
+  const canvas=document.createElement("canvas");
+  canvas.width=w; canvas.height=h;
+  canvas.getContext("2d").drawImage(bitmap,0,0,w,h);
+  let q=.82, data=canvas.toDataURL("image/webp",q);
+  while(data.length>420000 && q>.50){q-=.08;data=canvas.toDataURL("image/webp",q);}
+  if(data.length>500000) throw new Error("Фото не вдалося достатньо стиснути. Спробуйте менший файл.");
+  return data;
+}
+const sharedStudentPhoto=s=>{
+  const pub=publicProfileFor?.(s);
+  return String(s?.photoData||pub?.photoData||s?.photoUrl||pub?.photo||"").trim();
+};
+
 const projectWatermarkStyle=p=>`--project-color:${p?.color||"#4b5563"};`;
 const projectWatermarkInner=(p,text)=>{
   const src=projectLogoFile(p);
@@ -556,7 +594,7 @@ const sanitizePublicProfile=(s,profile)=>{
   const pid=publicProfileIdFor(s)||profile?.id;
   if(!pid) return null;
   return {
-    id:pid,name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),
+    id:pid,name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),photoData:String(profile?.photoData||s?.photoData||"").trim(),
     bio:Array.isArray(profile?.bio)?profile.bio.map(x=>String(x).trim()).filter(Boolean):[],
     skills:Array.isArray(profile?.skills)?profile.skills.map(x=>String(x).trim()).filter(Boolean):[],
     achievements:Array.isArray(profile?.achievements)?profile.achievements.map(x=>String(x).trim()).filter(Boolean):[],
@@ -793,7 +831,7 @@ function openStudent(id){
     });
     items.sort((a,b)=>a.date.localeCompare(b.date)||(a.startTime||"").localeCompare(b.startTime||""));
 
-    const photo=safeUrl(s.photoUrl);
+    const photo=sharedStudentPhoto(s);
     const photoBlock=photo
       ? `<div class="profile-photo"><img src="${photo}" alt="${esc(s.name)}"></div>`
       : `<div class="profile-photo">👤</div>`;
@@ -970,7 +1008,15 @@ function editPublicProfile(id){
     <form id="publicProfileForm" class="profile-edit-form" style="margin-top:18px">
       <label class="full">Ім’я на сайті<input id="pubName" value="${esc(profile.name||s.name)}"></label>
       <label class="full">Спеціальність / роль<input id="pubRole" value="${esc(profile.role||"")}"></label>
-      <label class="full">Фото<input id="pubPhoto" value="${esc(profile.photo||"")}" placeholder="images/Фото.jpeg або https://..."></label>
+      <div class="full shared-photo-editor">
+        <div class="shared-photo-preview" id="pubPhotoPreview">${sharedStudentPhoto(s)?`<img src="${sharedStudentPhoto(s)}" alt="${esc(s.name)}">`:'<span>Фото ще немає</span>'}</div>
+        <div class="shared-photo-controls">
+          <b>Спільне фото</b>
+          <input id="pubPhotoFile" type="file" accept="image/*">
+          <span class="muted">Це фото буде одночасно в Control і на REMS-44.</span>
+          <input id="pubPhoto" value="${esc(profile.photo||"")}" placeholder="Або старий шлях images/...">
+        </div>
+      </div>
       <label class="full">Про себе — один абзац на рядок<textarea id="pubBio" rows="6">${esc(lines(profile.bio))}</textarea></label>
       <label class="full">Навички — одна на рядок<textarea id="pubSkills" rows="5">${esc(lines(profile.skills))}</textarea></label>
       <label class="full">Досягнення — одне на рядок<textarea id="pubAchievements" rows="5">${esc(lines(profile.achievements))}</textarea></label>
@@ -990,6 +1036,14 @@ function editPublicProfile(id){
     </form>
   </div>`;
   $("#cancelPublicEdit").onclick=()=>openStudent(id);
+  if($("#pubPhotoFile")) $("#pubPhotoFile").onchange=async e=>{
+    const f=e.target.files?.[0]; if(!f) return;
+    try{
+      const data=await compressStudentPhoto(f);
+      $("#pubPhotoPreview").innerHTML=`<img src="${data}" alt="Попередній перегляд">`;
+    }catch(err){alert(err.message||"Не вдалося обробити фото.");e.target.value="";}
+  };
+
   $("#publicProfileForm").onsubmit=async e=>{
     e.preventDefault();
     const submit=e.submitter||$("#publicProfileForm button[type='submit']");
@@ -999,12 +1053,14 @@ function editPublicProfile(id){
       const parts=line.split("|");
       return {title:(parts.shift()||"Відеоробота").trim(),youtube:parts.join("|").trim()};
     }).filter(v=>v.youtube);
-    const next={...profile,name:$("#pubName").value.trim(),role:$("#pubRole").value.trim(),photo:$("#pubPhoto").value.trim(),
+    const pubPhotoFile=$("#pubPhotoFile")?.files?.[0];
+    const sharedPhotoData=pubPhotoFile?await compressStudentPhoto(pubPhotoFile):String(s.photoData||profile.photoData||"");
+    const next={...profile,name:$("#pubName").value.trim(),role:$("#pubRole").value.trim(),photo:$("#pubPhoto").value.trim(),photoData:sharedPhotoData,
       bio:splitLines($("#pubBio").value),skills:splitLines($("#pubSkills").value),achievements:splitLines($("#pubAchievements").value),
       socials:{instagram:$("#pubInstagram").value.trim(),tiktok:$("#pubTiktok").value.trim(),youtube:$("#pubYoutube").value.trim(),
         telegram:$("#pubTelegram").value.trim(),facebook:$("#pubFacebook").value.trim(),email:$("#pubEmail").value.trim()},
       videos:parsedVideos,gallery:splitLines($("#pubGallery").value)};
-    db.students=db.students.map(st=>String(st.id)===String(id)?{...st,publicProfile:next}:st);
+    db.students=db.students.map(st=>String(st.id)===String(id)?{...st,photoData:sharedPhotoData||st.photoData||"",publicProfile:next}:st);
     const ok=await save();
     if(!ok){
       if(submit){submit.disabled=false;submit.textContent="Зберегти й опублікувати";}
@@ -1032,7 +1088,16 @@ function editStudent(id){
       <label>Дата народження<input id="stBirthDate" type="date" value="${esc(s.birthDate||"")}"></label>
       <label>Instagram<input id="stInstagram" value="${esc(s.instagram||"")}" placeholder="@username або посилання"></label>
       <label>Telegram<input id="stTelegram" value="${esc(s.telegram||"")}" placeholder="@username"></label>
-      <label class="full">Фото — посилання<input id="stPhoto" value="${esc(s.photoUrl||"")}" placeholder="https://..."></label>
+      <div class="full shared-photo-editor">
+        <div class="shared-photo-preview" id="studentPhotoPreview">${sharedStudentPhoto(s)?`<img src="${sharedStudentPhoto(s)}" alt="${esc(s.name)}">`:'<span>Фото ще немає</span>'}</div>
+        <div class="shared-photo-controls">
+          <b>Спільне фото студента</b>
+          <input id="studentPhotoFile" type="file" accept="image/*">
+          <span class="muted">Одне фото для REMS Control і REMS-44.</span>
+          <input id="stPhoto" value="${esc(s.photoUrl||"")}" placeholder="Або старе посилання https://...">
+          <button type="button" class="ghost" id="removeStudentPhoto">Прибрати фото</button>
+        </div>
+      </div>
       <label class="full">Резюме — посилання<input id="stResume" value="${esc(s.resumeUrl||"")}" placeholder="https://..."></label>
       <label class="full">Портфоліо — посилання<input id="stPortfolio" value="${esc(s.portfolioUrl||"")}" placeholder="https://..."></label>
       <label class="full">Відео / роботи — посилання<input id="stWorks" value="${esc(s.worksUrl||"")}" placeholder="https://..."></label>
@@ -1045,6 +1110,23 @@ function editStudent(id){
   </div>`;
 
   $("#cancelStudentEdit").onclick=()=>openStudent(id);
+
+  let removeStudentPhotoRequested=false;
+  if($("#removeStudentPhoto")) $("#removeStudentPhoto").onclick=()=>{
+    removeStudentPhotoRequested=true;
+    if($("#studentPhotoFile")) $("#studentPhotoFile").value="";
+    $("#stPhoto").value="";
+    $("#studentPhotoPreview").innerHTML="<span>Фото буде прибрано</span>";
+  };
+  if($("#studentPhotoFile")) $("#studentPhotoFile").onchange=async e=>{
+    const f=e.target.files?.[0]; if(!f) return;
+    try{
+      const data=await compressStudentPhoto(f);
+      removeStudentPhotoRequested=false;
+      $("#studentPhotoPreview").innerHTML=`<img src="${data}" alt="Попередній перегляд">`;
+    }catch(err){alert(err.message||"Не вдалося обробити фото.");e.target.value="";}
+  };
+
   $("#studentEditForm").onsubmit=async e=>{
     e.preventDefault();
 
@@ -1067,8 +1149,21 @@ function editStudent(id){
       notes:$("#stNotes").value.trim()
     };
 
+    const photoFile=$("#studentPhotoFile")?.files?.[0];
+    if(photoFile){
+      patch.photoData=await compressStudentPhoto(photoFile);
+      patch.photoUrl="";
+      const pub=publicProfileFor(s);
+      if(pub) patch.publicProfile={...pub,photoData:patch.photoData};
+    }else if(removeStudentPhotoRequested){
+      patch.photoData="";
+      patch.photoUrl="";
+      const pub=publicProfileFor(s);
+      if(pub) patch.publicProfile={...pub,photoData:"",photo:""};
+    }
+
     db.students=db.students.map(student =>
-      student.id===id ? {...student,...patch} : student
+      String(student.id)===String(id) ? {...student,...patch} : student
     );
 
     const ok=await save();
@@ -2582,14 +2677,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.1 · Firebase не налаштовано");
+    setStatus("v3.2 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v3.1 · завантаження хмари…");
+    setStatus("v3.2 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2611,7 +2706,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v3.1 · хмара ✓");
+    setStatus("v3.2 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2652,19 +2747,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v3.1 · хмара ✓");
+      setStatus("v3.2 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v3.1 · хмара недоступна");
+      setStatus("v3.2 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v3.1 · хмара недоступна");
+    setStatus("v3.2 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2675,7 +2770,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.1 · Firebase не налаштовано");
+    setStatus("v3.2 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2691,19 +2786,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v3.1 · вхід ✓");
+        setStatus("v3.2 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v3.1 · потрібен вхід");
+        setStatus("v3.2 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v3.1 · помилка авторизації");
+    setStatus("v3.2 · помилка авторизації");
     showLogin();
   }
 }
