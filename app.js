@@ -28,12 +28,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v0.9 · немає з’єднання");
+    setStatus("v1.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v0.9 · збереження…");
+    setStatus("v1.0 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +41,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v0.9 · хмара ✓");
+    setStatus("v1.0 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v0.9 · помилка хмари");
+    setStatus("v1.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -291,22 +291,135 @@ function studentConflicts(id){
 }
 function projects(){
   app.innerHTML=db.projects.map(p=>{
-    const assigned=projectStudents(p.id).map(s=>s.id);
-    return `<div class="project-card">
-      <div class="project-card-header"><div><h3><span class="dot" style="background:${p.color}"></span> ${p.emoji||"◆"} ${p.name}</h3><div class="muted">${eventsFor(p.id).length} дат · ${assigned.length} студентів</div></div>
-      <button class="ghost add-event" data-id="${p.id}">+ Дата</button></div>
-      <div class="events">${eventsFor(p.id).map((e,i)=>`<span class="event">${fmt(e.date)} · ${e.type}</span>`).join("")||'<span class="muted">Дат ще немає</span>'}</div>
-      <div class="assign"><b>Призначити студентів</b><div class="muted">Натискання одразу додає або знімає студента з усього проєкту.</div><div class="assign-grid">${db.students.map(s=>`<button class="person-toggle ${assigned.includes(s.id)?"on":""}" data-project="${p.id}" data-student="${s.id}" title="${s.name}">${s.name.split(" ")[0]}</button>`).join("")}</div></div>
+    const assigned=projectStudents(p.id);
+    const evs=eventsFor(p.id);
+    return `<div class="project-card" data-id="${p.id}" style="cursor:pointer">
+      <div class="project-card-header">
+        <div>
+          <h3><span class="dot" style="background:${p.color}"></span> ${p.emoji||"◆"} ${esc(p.name)}</h3>
+          <div class="muted">${evs.length} дат · ${assigned.length} студентів</div>
+        </div>
+        <button class="ghost open-project" data-id="${p.id}">Відкрити</button>
+      </div>
+      <div class="events">${evs.slice(0,8).map(e=>`<span class="event">${fmt(e.date)} · ${esc(e.type)}</span>`).join("")}${evs.length>8?`<span class="event">+${evs.length-8}</span>`:""}</div>
     </div>`;
   }).join("")||'<div class="empty">Проєктів ще немає.</div>';
-  $$(".person-toggle").forEach(b=>b.onclick=async()=>{
-    const pid=b.dataset.project, sid=+b.dataset.student;
-    const i=db.assignments.findIndex(a=>a.projectId===pid&&a.studentId===sid);
-    if(i>=0) db.assignments.splice(i,1); else db.assignments.push({projectId:pid,studentId:sid});
-    await save(); projects();
+
+  $$(".project-card").forEach(card=>card.onclick=e=>{
+    if(e.target.closest("button")) return;
+    openProjectCard(card.dataset.id);
   });
-  $$(".add-event").forEach(b=>b.onclick=()=>{ $("#eventProjectId").value=b.dataset.id; $("#eventDialog").showModal(); });
+  $$(".open-project").forEach(b=>b.onclick=()=>openProjectCard(b.dataset.id));
 }
+
+function openProjectCard(id){
+  const p=pBy(id); if(!p) return;
+  const dialog=ensureProjectCardDialog();
+  const evs=eventsFor(id);
+  const assigned=projectStudents(id);
+  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-detail">
+    <div class="project-hero" style="box-shadow:inset 6px 0 0 ${p.color}">
+      <div class="project-hero-top">
+        <div class="project-title-wrap">
+          <div class="project-logo">${p.emoji||"◆"}</div>
+          <div><h2>${esc(p.name)}</h2><div class="muted">${esc(p.description||"")}</div></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="ghost" id="editProjectBtn">Редагувати</button>
+          <button class="ghost" onclick="document.querySelector('#projectCardDialog').close()">Закрити</button>
+        </div>
+      </div>
+    </div>
+    <div class="project-body">
+      <div class="project-meta-grid">
+        <div class="project-meta"><span>Подій</span><strong>${evs.length}</strong></div>
+        <div class="project-meta"><span>Студентів</span><strong>${assigned.length}</strong></div>
+        <div class="project-meta"><span>Період</span><strong style="font-size:14px">${evs.length?`${fmt(evs[0].date)} — ${fmt(evs[evs.length-1].date)}`:"—"}</strong></div>
+      </div>
+
+      <div class="project-section">
+        <div class="project-section-head"><b>Студенти</b><span class="muted">${assigned.length}</span></div>
+        <div class="project-students">
+          ${db.students.map(s=>`<button class="project-student-chip ${assigned.some(x=>x.id===s.id)?"active":""}" data-student="${s.id}">${esc(s.name.split(" ")[0])}</button>`).join("")}
+        </div>
+      </div>
+
+      <div class="project-section">
+        <div class="project-section-head"><b>Календар проєкту</b><button class="ghost" id="addProjectEventBtn">+ Дата</button></div>
+        <div class="project-event-list">
+          ${evs.map((e,i)=>`<div class="project-event-row">
+            <b>${fmt(e.date)}</b>
+            <span>${esc(e.type)}</span>
+            <button class="ghost delete-event" data-index="${i}">Видалити</button>
+          </div>`).join("")||'<div class="empty">Дат ще немає.</div>'}
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  dialog.querySelectorAll(".project-student-chip").forEach(b=>b.onclick=async()=>{
+    const sid=+b.dataset.student;
+    const i=db.assignments.findIndex(a=>a.projectId===id&&a.studentId===sid);
+    if(i>=0) db.assignments.splice(i,1); else db.assignments.push({projectId:id,studentId:sid});
+    await save(); openProjectCard(id);
+  });
+
+  dialog.querySelector("#addProjectEventBtn").onclick=()=>{
+    $("#eventProjectId").value=id;
+    $("#eventDialog").showModal();
+  };
+
+  dialog.querySelectorAll(".delete-event").forEach(b=>b.onclick=async()=>{
+    const ev=eventsFor(id)[+b.dataset.index];
+    const i=db.events.findIndex(x=>x.projectId===id&&x.date===ev.date&&x.type===ev.type);
+    if(i>=0) db.events.splice(i,1);
+    await save(); openProjectCard(id);
+  });
+
+  dialog.querySelector("#editProjectBtn").onclick=()=>editProjectCard(id);
+  dialog.showModal();
+}
+
+function editProjectCard(id){
+  const p=pBy(id); if(!p) return;
+  const dialog=ensureProjectCardDialog();
+  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
+    <div class="project-section-head"><div><h2 style="margin:0">Редагувати проєкт</h2><div class="muted">${esc(p.name)}</div></div><button class="ghost" onclick="openProjectCard('${id}')">Назад</button></div>
+    <form id="projectEditForm" class="project-edit-form">
+      <label>Назва<input id="prName" value="${esc(p.name||"")}"></label>
+      <label>Позначка<input id="prEmoji" value="${esc(p.emoji||"◆")}"></label>
+      <label>Колір<input id="prColor" type="color" value="${esc(p.color||"#2563EB")}"></label>
+      <label class="full">Опис<textarea id="prDescription">${esc(p.description||"")}</textarea></label>
+      <div class="full profile-actions">
+        <button type="button" class="ghost" onclick="openProjectCard('${id}')">Скасувати</button>
+        <button type="submit" class="primary">Зберегти</button>
+      </div>
+    </form>
+    <div class="project-danger">
+      <button class="danger" id="deleteProjectBtn">Видалити проєкт</button>
+    </div>
+  </div>`;
+
+  dialog.querySelector("#projectEditForm").onsubmit=async e=>{
+    e.preventDefault();
+    p.name=$("#prName").value.trim()||p.name;
+    p.emoji=$("#prEmoji").value.trim()||"◆";
+    p.color=$("#prColor").value;
+    p.description=$("#prDescription").value.trim();
+    await save(); openProjectCard(id);
+  };
+
+  dialog.querySelector("#deleteProjectBtn").onclick=async()=>{
+    if(!confirm(`Видалити проєкт «${p.name}» разом з його датами та призначеннями?`)) return;
+    db.projects=db.projects.filter(x=>x.id!==id);
+    db.events=db.events.filter(x=>x.projectId!==id);
+    db.assignments=db.assignments.filter(x=>x.projectId!==id);
+    await save();
+    dialog.close();
+    projects();
+  };
+}
+
 function datesBetween(start,end){
   const a=[], d=new Date(start+"T12:00:00"), e=new Date(end+"T12:00:00");
   for(;d<=e;d.setDate(d.getDate()+1)) a.push(d.toISOString().slice(0,10));
@@ -320,6 +433,18 @@ function ensureDayDialog(){
   d.id="dayDialog";
   d.className="student-dialog";
   d.innerHTML=`<div id="dayDialogBody"></div>`;
+  document.body.appendChild(d);
+  return d;
+}
+
+
+function ensureProjectCardDialog(){
+  let d=document.querySelector("#projectCardDialog");
+  if(d) return d;
+  d=document.createElement("dialog");
+  d.id="projectCardDialog";
+  d.className="student-dialog";
+  d.innerHTML=`<div id="projectCardBody"></div>`;
   document.body.appendChild(d);
   return d;
 }
@@ -636,7 +761,10 @@ $("#saveEvent").onclick=async e=>{
   if(!date||!type)return;
   db.events.push({projectId,date,type});
   const ok=await save();
-  $("#eventDialog").close(); $("#eventForm").reset(); projects();
+  $("#eventDialog").close(); $("#eventForm").reset();
+  const openProjectId=projectId;
+  if(document.querySelector("#projectCardDialog")?.open) openProjectCard(openProjectId);
+  else projects();
   if(!ok) alert("Дата залишилась тільки на цьому пристрої. Перевірте з’єднання з Firebase.");
 };
 $("#backupBtn").onclick=()=>{
@@ -809,6 +937,31 @@ function ensureAuthStyles(){
     .recommended-list{display:flex;gap:8px;flex-wrap:wrap}
     .recommended-item{background:#fff;border:1px solid #d1fae5;border-radius:12px;padding:10px 12px;font-size:12px}
     @media(max-width:760px){.schedule-kpis{grid-template-columns:repeat(2,1fr)}}
+
+    .project-detail{padding:0}
+    .project-hero{padding:24px;background:linear-gradient(135deg,#111827,#222936);color:#fff;border-radius:16px 16px 0 0}
+    .project-hero-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+    .project-title-wrap{display:flex;gap:14px;align-items:center}
+    .project-logo{width:64px;height:64px;border-radius:16px;display:grid;place-items:center;font-size:30px;background:#ffffff16;border:1px solid #ffffff20}
+    .project-hero h2{margin:0;font-size:26px}
+    .project-body{padding:22px}
+    .project-meta-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+    .project-meta{background:#f6f7f9;border-radius:12px;padding:12px}
+    .project-meta span{display:block;font-size:11px;color:#6b7280}
+    .project-meta strong{display:block;font-size:22px;margin-top:4px}
+    .project-section{border-top:1px solid #e5e7eb;padding-top:16px;margin-top:16px}
+    .project-section-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
+    .project-event-list{display:grid;gap:8px}
+    .project-event-row{display:grid;grid-template-columns:90px 1fr auto;gap:10px;align-items:center;background:#f7f7f8;border-radius:11px;padding:10px 11px}
+    .project-students{display:flex;flex-wrap:wrap;gap:7px}
+    .project-student-chip{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:6px 9px;font-size:12px;cursor:pointer}
+    .project-student-chip.active{background:#111827;color:#fff;border-color:#111827}
+    .project-edit-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .project-edit-form label{display:grid;gap:5px;font-size:12px;color:#4b5563}
+    .project-edit-form input,.project-edit-form textarea{border:1px solid #e5e7eb;border-radius:10px;padding:9px 10px;font:inherit;width:100%}
+    .project-edit-form textarea{min-height:80px;resize:vertical}
+    .project-edit-form .full{grid-column:1/-1}
+    .project-danger{margin-top:18px;padding-top:14px;border-top:1px solid #fee2e2}
     @media(max-width:520px){
       .profile-hero-title{display:block}
       .profile-photo{width:96px;height:120px;margin-bottom:12px}
@@ -900,14 +1053,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.9 · Firebase не налаштовано");
+    setStatus("v1.0 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v0.9 · завантаження хмари…");
+    setStatus("v1.0 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -929,7 +1082,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v0.9 · хмара ✓");
+    setStatus("v1.0 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -949,19 +1102,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v0.9 · хмара ✓");
+      setStatus("v1.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v0.9 · хмара недоступна");
+      setStatus("v1.0 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v0.9 · хмара недоступна");
+    setStatus("v1.0 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -972,7 +1125,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.9 · Firebase не налаштовано");
+    setStatus("v1.0 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -988,19 +1141,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v0.9 · вхід ✓");
+        setStatus("v1.0 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v0.9 · потрібен вхід");
+        setStatus("v1.0 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v0.9 · помилка авторизації");
+    setStatus("v1.0 · помилка авторизації");
     showLogin();
   }
 }
