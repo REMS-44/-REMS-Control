@@ -5,36 +5,61 @@
   st.id="remsProjectWatermarkStyles";
   st.textContent=`
     .project-watermark{
-      position:relative;
-      overflow:hidden;
+      position:relative!important;
+      overflow:hidden!important;
+      isolation:isolate;
       color:#fff!important;
-      background-color:var(--project-color,#4b5563)!important;
-      background-image:
-        linear-gradient(rgba(0,0,0,.36),rgba(0,0,0,.36)),
-        var(--project-logo)!important;
-      background-repeat:no-repeat,no-repeat!important;
-      background-position:center,center!important;
-      background-size:cover,82% auto!important;
-      text-shadow:0 1px 2px rgba(0,0,0,.55);
+      background:var(--project-color,#4b5563)!important;
+      text-shadow:0 1px 2px rgba(0,0,0,.65);
+    }
+    .project-watermark .project-watermark-logo{
+      position:absolute;
+      z-index:-2;
+      left:50%;
+      top:50%;
+      width:92%;
+      height:92%;
+      transform:translate(-50%,-50%);
+      object-fit:contain;
+      opacity:.52;
+      filter:none;
+      pointer-events:none;
+    }
+    .project-watermark .project-watermark-shade{
+      position:absolute;
+      inset:0;
+      z-index:-1;
+      background:rgba(0,0,0,.24);
+      pointer-events:none;
+    }
+    .project-watermark .project-watermark-text{
+      position:relative;
+      z-index:1;
     }
 
-    .student-day-event.project-watermark,
-    .project-cal-event.project-watermark,
+    /* У календарях робимо плашки трохи вищими, щоб реальний логотип читався */
+    .student-day-event.project-watermark{
+      min-height:25px;
+      padding:5px 5px!important;
+    }
+    .project-cal-event.project-watermark{
+      min-height:24px;
+      padding:5px 5px!important;
+    }
     .busy.project-watermark,
     .week-event-pill.project-watermark,
     .schedule-mini-project.project-watermark{
-      background-image:
-        linear-gradient(rgba(0,0,0,.26),rgba(0,0,0,.26)),
-        var(--project-logo)!important;
-      background-size:cover,92% auto!important;
+      min-height:24px;
+      padding-top:5px!important;
+      padding-bottom:5px!important;
     }
 
-    .chip.project-watermark,
-    .project-pill.project-watermark{
-      background-image:
-        linear-gradient(rgba(0,0,0,.30),rgba(0,0,0,.30)),
-        var(--project-logo)!important;
-      background-size:cover,86% auto!important;
+    /* У великих бейджах логотип можна бачити ще чіткіше */
+    .chip.project-watermark .project-watermark-logo,
+    .project-pill.project-watermark .project-watermark-logo{
+      width:82%;
+      height:82%;
+      opacity:.42;
     }
   `;
   document.head.appendChild(st);
@@ -116,12 +141,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v2.6 · немає з’єднання");
+    setStatus("v2.7 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v2.6 · збереження…");
+    setStatus("v2.7 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -129,7 +154,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v2.6 · хмара ✓");
+    setStatus("v2.7 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -140,7 +165,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v2.6 · помилка хмари");
+    setStatus("v2.7 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -179,10 +204,10 @@ const projectLogoHtml=(p,cls="project-logo-img")=>{
   const src=projectLogoFile(p);
   return src?`<img class="${cls}" src="${src}" alt="${esc(p.name)}">`:`<span>${p.emoji||"◆"}</span>`;
 };
-const projectWatermarkStyle=p=>{
+const projectWatermarkStyle=p=>`--project-color:${p?.color||"#4b5563"};`;
+const projectWatermarkInner=(p,text)=>{
   const src=projectLogoFile(p);
-  const safeSrc=String(src||"").replace(/["\\]/g,"\\$&");
-  return `${p?.color?`--project-color:${p.color};`:""}${src?`--project-logo:url("${safeSrc}");`:""}`;
+  return `${src?`<img class="project-watermark-logo" src="${esc(src)}" alt="">`:""}<span class="project-watermark-shade"></span><span class="project-watermark-text">${text}</span>`;
 };
 
 
@@ -306,7 +331,7 @@ function dashboard(){
           </div>
         </div>
         <div class="today-events">
-          ${todayEvents.map(x=>`<div class="today-event"><span class="dot" style="background:${x.project.color}"></span><div><b>${esc(x.project.name)}</b><small>${esc(x.event.type)}${eventMetaText(x.event)?` · ${esc(eventMetaText(x.event))}`:""} · ${x.students.length} студентів</small></div><span class="chip project-watermark" style="${projectWatermarkStyle(x.project)}">${esc(shortType(x.event.type))}</span></div>`).join("")||'<div class="muted" style="margin-top:8px">Сьогодні у базі немає подій.</div>'}
+          ${todayEvents.map(x=>`<div class="today-event"><span class="dot" style="background:${x.project.color}"></span><div><b>${esc(x.project.name)}</b><small>${esc(x.event.type)}${eventMetaText(x.event)?` · ${esc(eventMetaText(x.event))}`:""} · ${x.students.length} студентів</small></div><span class="chip project-watermark" style="${projectWatermarkStyle(x.project)}">${projectWatermarkInner(x.project,esc(shortType(x.event.type)))}</span></div>`).join("")||'<div class="muted" style="margin-top:8px">Сьогодні у базі немає подій.</div>'}
         </div>
       </div>
 
@@ -318,7 +343,7 @@ function dashboard(){
             const busyIds=new Set(evs.flatMap(x=>x.students.map(s=>String(s.id))));
             return `<button type="button" class="week-day-card ${date===today?"today":""}" data-date="${date}">
               <div class="week-day-head"><div><div class="week-day-name">${ukShort.format(dt)}</div><div class="week-day-num">${dt.getDate()}</div></div><div class="week-day-count">${evs.length} подій</div></div>
-              <div class="week-event-list">${evs.slice(0,3).map(x=>`<div class="week-event-pill project-watermark" style="${projectWatermarkStyle(x.project)}">${eventTimeText(x.event)?`${esc(eventTimeText(x.event))} · `:""}${esc(x.project.name)} · ${esc(shortType(x.event.type))}</div>`).join("")}${evs.length>3?`<div class="week-day-count">+ ще ${evs.length-3}</div>`:""}</div>
+              <div class="week-event-list">${evs.slice(0,3).map(x=>`<div class="week-event-pill project-watermark" style="${projectWatermarkStyle(x.project)}">${projectWatermarkInner(x.project,`${eventTimeText(x.event)?`${esc(eventTimeText(x.event))} · `:""}${esc(x.project.name)} · ${esc(shortType(x.event.type))}`)}</div>`).join("")}${evs.length>3?`<div class="week-day-count">+ ще ${evs.length-3}</div>`:""}</div>
               <div class="week-free">${Math.max(0,db.students.length-busyIds.size)} вільних</div>
             </button>`;
           }).join("")}
@@ -389,7 +414,7 @@ function students(){
           <h3>${esc(s.name)}</h3>
           <div class="muted">${esc(s.group||"")} · ${countDays(s.id)} зайнятих днів</div>
           <div class="chips">
-            ${ps.map(p=>`<span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}
+            ${ps.map(p=>`<span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,esc(p.name))}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}
           </div>
         </div>
       </button>`;
@@ -491,7 +516,7 @@ function openStudent(id){
                 ${birthday?`<span>🎂 ${birthday}</span>`:""}
               </div>
               <div class="chips" style="margin-top:14px">
-                ${ps.map(p=>`<span class="project-pill project-watermark" style="${projectWatermarkStyle(p)}">${esc(p.name||"Проєкт")}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
+                ${ps.map(p=>`<span class="project-pill project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,esc(p.name||"Проєкт"))}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
               </div>
             </div>
           </div>
@@ -533,7 +558,7 @@ function openStudent(id){
               ${items.map(x=>`<div class="timeline-row">
                 <div class="timeline-date">${fullfmt(x.date)}</div>
                 <div class="timeline-type">${esc(x.type)}${eventMetaText(x)?`<div class="muted">${esc(eventMetaText(x))}</div>`:""}</div>
-                <span class="chip project-watermark" style="${projectWatermarkStyle(x.p)}">${esc(x.p.name)}</span>
+                <span class="chip project-watermark" style="${projectWatermarkStyle(x.p)}">${projectWatermarkInner(x.p,esc(x.p.name))}</span>
               </div>`).join("")||'<div class="profile-empty">Подій немає</div>'}
             </div></div>
           </div>
@@ -563,7 +588,7 @@ function openStudent(id){
         return `<div class="student-month-day ${dow===0||dow===6?"weekend":""}">
           <div class="student-month-number">${day}</div>
           <div class="student-day-events">
-            ${dayItems.map((x,idx)=>`<button type="button" class="student-day-event project-watermark" data-date="${date}" data-index="${idx}" style="${projectWatermarkStyle(x.p)}" title="${esc(x.p.name)} · ${esc(x.type)}">${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${esc(shortType(x.type))}</button>`).join("")}
+            ${dayItems.map((x,idx)=>`<button type="button" class="student-day-event project-watermark" data-date="${date}" data-index="${idx}" style="${projectWatermarkStyle(x.p)}" title="${esc(x.p.name)} · ${esc(x.type)}">${projectWatermarkInner(x.p,`${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${esc(shortType(x.type))}`)}</button>`).join("")}
           </div>
         </div>`;
       }).join("");
@@ -731,7 +756,7 @@ function projectCalendarMonthHtml(projectId,month){
     const dow=new Date(date+"T12:00:00").getDay();
     return `<button class="project-cal-day ${dow===0||dow===6?"weekend":""} ${items.length?"has-event":""}" data-project-day="${date}" type="button">
       <span class="project-cal-number">${day}</span>
-      <span class="project-cal-events">${items.map(e=>`<span class="project-cal-event project-watermark" style="${projectWatermarkStyle(p)};border-left-color:${p.color}">${esc(shortType(e.type))}</span>`).join("")}</span>
+      <span class="project-cal-events">${items.map(e=>`<span class="project-cal-event project-watermark" style="${projectWatermarkStyle(p)};border-left-color:${p.color}">${projectWatermarkInner(p,esc(shortType(e.type)))}</span>`).join("")}</span>
     </button>`;
   }).join("");
   return `<div class="project-cal-panel" data-project-month="${month}">
@@ -763,7 +788,7 @@ function showProjectDay(projectId,date){
           <button class="ghost project-day-edit-event" data-index="${i}">Редагувати</button>
           <button class="ghost project-day-people-event" data-index="${i}">Учасники</button>
           <button class="ghost danger-inline project-day-delete-event" data-index="${i}">Видалити</button>
-          <span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${esc(shortType(e.type))}</span>
+          <span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,esc(shortType(e.type)))}</span>
         </div>
       </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
     </div>
@@ -1275,7 +1300,7 @@ function showDay(date){
       ${dayEvents.map(x=>`<div class="day-event-row">
         <span class="dot" style="background:${x.project.color}"></span>
         <div><b>${esc(x.project.name)}</b><div class="day-event-meta">${esc(x.event.type)} · ${x.students.length} студентів</div></div>
-        <span class="chip project-watermark" style="${projectWatermarkStyle(x.project)}">${shortType(x.event.type)}</span>
+        <span class="chip project-watermark" style="${projectWatermarkStyle(x.project)}">${projectWatermarkInner(x.project,esc(shortType(x.event.type)))}</span>
       </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
     </div>
     <div class="availability-card">
@@ -1400,7 +1425,7 @@ function calendar(){
                 const types=[...new Set(eventsFor(p.id)
                   .filter(e=>e.date===d && studentsForEvent(e).some(x=>x.id===s.id))
                   .map(e=>shortType(e.type)))];
-                return `<div class="busy" style="background:${p.color}">${esc(p.name)}${types.length?` · ${types.map(esc).join(" / ")}`:""}</div>`;
+                return `<div class="busy project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,`${esc(p.name)}${types.length?` · ${types.map(esc).join(" / ")}`:""}`)}</div>`;
               }).join("")}
             </td>`;
           }).join("")}
@@ -1550,7 +1575,7 @@ function schedule(){
           <div class="schedule-day-projects">
             ${projectEntries.map(([name,count])=>{
               const p=db.projects.find(x=>x.name===name);
-              return `<span class="schedule-mini-project project-watermark" style="${p?projectWatermarkStyle(p):"--project-color:#6b7280;"}">${esc(name)} ${count}</span>`;
+              return `<span class="schedule-mini-project project-watermark" style="${p?projectWatermarkStyle(p):"--project-color:#6b7280;"}">${p?projectWatermarkInner(p,`${esc(name)} ${count}`):`<span class="project-watermark-text">${esc(name)} ${count}</span>`}</span>`;
             }).join("")}
           </div>
         </div>`;
@@ -2174,14 +2199,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.6 · Firebase не налаштовано");
+    setStatus("v2.7 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v2.6 · завантаження хмари…");
+    setStatus("v2.7 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2203,7 +2228,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v2.6 · хмара ✓");
+    setStatus("v2.7 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2244,19 +2269,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v2.6 · хмара ✓");
+      setStatus("v2.7 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v2.6 · хмара недоступна");
+      setStatus("v2.7 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v2.6 · хмара недоступна");
+    setStatus("v2.7 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2267,7 +2292,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.6 · Firebase не налаштовано");
+    setStatus("v2.7 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2283,19 +2308,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v2.6 · вхід ✓");
+        setStatus("v2.7 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v2.6 · потрібен вхід");
+        setStatus("v2.7 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v2.6 · помилка авторизації");
+    setStatus("v2.7 · помилка авторизації");
     showLogin();
   }
 }
