@@ -75,12 +75,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v2.2 · немає з’єднання");
+    setStatus("v2.3 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v2.2 · збереження…");
+    setStatus("v2.3 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -88,14 +88,18 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v2.2 · хмара ✓");
-    // Every derived screen must immediately reflect the edited cloud data.
-    // This updates Dashboard / Projects / Calendar / Schedule behind any open dialog.
-    refreshCurrentView();
+    setStatus("v2.3 · хмара ✓");
+    // Every derived screen should reflect the edited cloud data.
+    // A rendering error must not turn a successful Firestore write into a failed save.
+    try{
+      refreshCurrentView();
+    }catch(renderErr){
+      console.error("View refresh after save failed:",renderErr);
+    }
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v2.2 · помилка хмари");
+    setStatus("v2.3 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -105,6 +109,20 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const app=$("#app");
 const fmt=d=>new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit"});
 const fullfmt=d=>new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{day:"numeric",month:"long",year:"numeric"});
+const eventTimeText=e=>{
+  const start=String(e?.startTime||"").trim();
+  const end=String(e?.endTime||"").trim();
+  if(start&&end) return `${start}–${end}`;
+  return start||end||"";
+};
+const eventMetaText=e=>{
+  const parts=[];
+  const time=eventTimeText(e);
+  if(time) parts.push(time);
+  const location=String(e?.location||"").trim();
+  if(location) parts.push(location);
+  return parts.join(" · ");
+};
 const pBy=id=>db.projects.find(p=>String(p.id)===String(id));
 
 const projectLogoFile=p=>{
@@ -2112,14 +2130,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.2 · Firebase не налаштовано");
+    setStatus("v2.3 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v2.2 · завантаження хмари…");
+    setStatus("v2.3 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2141,7 +2159,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v2.2 · хмара ✓");
+    setStatus("v2.3 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2154,7 +2172,12 @@ async function initCloud(){
     }
 
     currentView="dashboard";
-    dashboard();
+    try{
+      dashboard();
+    }catch(renderErr){
+      console.error("Dashboard render error:",renderErr);
+      // UI rendering errors must not disable a healthy Firebase connection.
+    }
 
     onSnapshot(ref,s=>{
       if(!s.exists()) return;
@@ -2172,21 +2195,25 @@ async function initCloud(){
       applyingRemote=false;
 
       currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
-      refreshCurrentView();
-      setStatus("v2.2 · хмара ✓");
+      try{
+        refreshCurrentView();
+      }catch(renderErr){
+        console.error("View refresh error:",renderErr);
+      }
+      setStatus("v2.3 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v2.2 · хмара недоступна");
+      setStatus("v2.3 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v2.2 · хмара недоступна");
-    dashboard();
+    setStatus("v2.3 · хмара недоступна");
+    try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
   }
@@ -2196,7 +2223,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.2 · Firebase не налаштовано");
+    setStatus("v2.3 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2212,19 +2239,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v2.2 · вхід ✓");
+        setStatus("v2.3 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v2.2 · потрібен вхід");
+        setStatus("v2.3 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v2.2 · помилка авторизації");
+    setStatus("v2.3 · помилка авторизації");
     showLogin();
   }
 }
