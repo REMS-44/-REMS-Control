@@ -43,12 +43,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.3.4 · немає з’єднання");
+    setStatus("v1.3.5 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.3.4 · збереження…");
+    setStatus("v1.3.5 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -56,11 +56,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.3.4 · хмара ✓");
+    setStatus("v1.3.5 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.3.4 · помилка хмари");
+    setStatus("v1.3.5 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -158,7 +158,9 @@ function openStudent(id){
   const s=sBy(id); if(!s) return;
   const ps=studentProjects(id);
   const items=[];
-  ps.forEach(p=>eventsFor(p.id).forEach(e=>items.push({...e,p})));
+  ps.forEach(p=>eventsFor(p.id).forEach(e=>{
+    if(studentsForEvent(e).some(x=>x.id===id)) items.push({...e,p});
+  }));
   items.sort((a,b)=>a.date.localeCompare(b.date));
 
   const photo=safeUrl(s.photoUrl);
@@ -230,13 +232,26 @@ function openStudent(id){
 
       <div class="profile-section">
         <div class="profile-section-title"><b>Календар зайнятості</b><span class="muted">${items.length} подій</span></div>
-        <div class="timeline-scroll">
-          <div class="timeline">
-            ${items.map(x=>`<div class="timeline-row">
-              <div class="timeline-date">${fullfmt(x.date)}</div>
-              <div class="timeline-type">${esc(x.type)}</div>
-              <span class="chip" style="background:${x.p.color}">${esc(x.p.name)}</span>
-            </div>`).join("")||'<div class="profile-empty">Подій немає</div>'}
+
+        <div class="student-cal-toolbar">
+          <div class="student-cal-toggle">
+            <button class="active" id="studentCalendarMode">Календар</button>
+            <button id="studentListMode">Список</button>
+          </div>
+        </div>
+
+        <div id="studentMonthTabs" class="student-month-tabs"></div>
+        <div id="studentCalendarView" class="student-calendar-view"></div>
+
+        <div id="studentListView" class="student-list-view">
+          <div class="timeline-scroll">
+            <div class="timeline">
+              ${items.map(x=>`<div class="timeline-row">
+                <div class="timeline-date">${fullfmt(x.date)}</div>
+                <div class="timeline-type">${esc(x.type)}</div>
+                <span class="chip" style="background:${x.p.color}">${esc(x.p.name)}</span>
+              </div>`).join("")||'<div class="profile-empty">Подій немає</div>'}
+            </div>
           </div>
         </div>
       </div>
@@ -244,6 +259,74 @@ function openStudent(id){
   </div>`;
 
   $("#editStudentBtn").onclick=()=>editStudent(id);
+
+  const monthNames={
+    "01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень",
+    "07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"
+  };
+  const months=[...new Set(items.map(x=>x.date.slice(0,7)))].sort();
+
+  const renderStudentMonth=(month)=>{
+    $("#studentMonthTabs").querySelectorAll(".student-month-tab").forEach(b=>b.classList.toggle("active",b.dataset.month===month));
+
+    const [yy,mm]=month.split("-").map(Number);
+    const first=new Date(yy,mm-1,1);
+    const last=new Date(yy,mm,0);
+    const mondayIndex=(first.getDay()+6)%7;
+    const heads=["Пн","Вт","Ср","Чт","Пт","Сб","Нд"].map(w=>`<div class="student-month-head">${w}</div>`).join("");
+    const blanks=Array.from({length:mondayIndex},()=>`<div class="student-month-day empty"></div>`).join("");
+
+    const cells=Array.from({length:last.getDate()},(_,i)=>{
+      const day=i+1;
+      const date=`${yy}-${String(mm).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+      const dt=new Date(date+"T12:00:00");
+      const dow=dt.getDay();
+      const dayItems=items.filter(x=>x.date===date);
+      return `<div class="student-month-day ${dow===0||dow===6?"weekend":""}">
+        <div class="student-month-number">${day}</div>
+        ${dayItems.length>1?`<span class="student-day-count">${dayItems.length}</span>`:""}
+        <div class="student-day-events">
+          ${dayItems.map((x,idx)=>`<div class="student-day-event" data-date="${date}" data-index="${idx}" style="background:${x.p.color}" title="${esc(x.p.name)} · ${esc(x.type)}">${shortType(x.type)}</div>`).join("")}
+        </div>
+      </div>`;
+    }).join("");
+
+    $("#studentCalendarView").innerHTML=`<div class="student-month-grid">${heads}${blanks}${cells}</div>`;
+    $("#studentCalendarView").querySelectorAll(".student-day-event").forEach(el=>el.onclick=()=>{
+      const date=el.dataset.date;
+      const dayItems=items.filter(x=>x.date===date);
+      const details=dayItems.map(x=>`${x.p.name}: ${x.type}`).join("\\n");
+      alert(`${fullfmt(date)}\\n\\n${details}`);
+    });
+  };
+
+  if(months.length){
+    $("#studentMonthTabs").innerHTML=months.map(m=>{
+      const [y,mo]=m.split("-");
+      return `<button class="student-month-tab" data-month="${m}">${monthNames[mo]} ${y}</button>`;
+    }).join("");
+    $("#studentMonthTabs").querySelectorAll(".student-month-tab").forEach(b=>b.onclick=()=>renderStudentMonth(b.dataset.month));
+    renderStudentMonth(months[0]);
+  }else{
+    $("#studentMonthTabs").innerHTML="";
+    $("#studentCalendarView").innerHTML='<div class="profile-empty">Подій немає</div>';
+  }
+
+  $("#studentCalendarMode").onclick=()=>{
+    $("#studentCalendarMode").classList.add("active");
+    $("#studentListMode").classList.remove("active");
+    $("#studentCalendarView").classList.remove("hidden");
+    $("#studentMonthTabs").style.display="";
+    $("#studentListView").classList.remove("active");
+  };
+  $("#studentListMode").onclick=()=>{
+    $("#studentListMode").classList.add("active");
+    $("#studentCalendarMode").classList.remove("active");
+    $("#studentCalendarView").classList.add("hidden");
+    $("#studentMonthTabs").style.display="none";
+    $("#studentListView").classList.add("active");
+  };
+
   $("#studentDialog").showModal();
 }
 
@@ -1051,6 +1134,29 @@ function ensureAuthStyles(){
     .portfolio-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
     .portfolio-card{border:1px solid #e5e7eb;border-radius:12px;padding:11px 12px;background:#fff;text-decoration:none;color:#111827;font-size:12px}
     .portfolio-card b{display:block;margin-bottom:3px}
+    .student-cal-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+    .student-cal-toggle{display:flex;gap:6px}
+    .student-cal-toggle button,.student-month-tab{border:1px solid #e5e7eb;background:#fff;border-radius:9px;padding:7px 9px;font-size:11px;cursor:pointer}
+    .student-cal-toggle button.active,.student-month-tab.active{background:#111827;color:#fff;border-color:#111827}
+    .student-month-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+    .student-month-grid{display:grid;grid-template-columns:repeat(7,minmax(64px,1fr));gap:1px;background:#e5e7eb;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden}
+    .student-month-head{background:#171a20;color:#fff;text-align:center;padding:7px 4px;font-size:10px;font-weight:700}
+    .student-month-day{background:#fff;min-height:78px;padding:6px;position:relative}
+    .student-month-day.empty{background:#f5f6f8}
+    .student-month-day.weekend{background:#fafafa}
+    .student-month-number{font-size:11px;font-weight:800;margin-bottom:5px}
+    .student-day-events{display:grid;gap:3px}
+    .student-day-event{font-size:9px;color:#fff;border-radius:5px;padding:3px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+    .student-day-count{position:absolute;top:5px;right:5px;font-size:9px;color:#6b7280}
+    .student-list-view{display:none}
+    .student-list-view.active{display:block}
+    .student-calendar-view{display:block}
+    .student-calendar-view.hidden{display:none}
+    @media(max-width:700px){
+      .student-month-grid{grid-template-columns:repeat(7,minmax(54px,1fr))}
+      .student-month-day{min-height:68px;padding:4px}
+      .student-day-event{font-size:8px}
+    }
     .timeline-scroll{max-height:300px;overflow:auto;padding-right:4px}
     .timeline{display:grid;gap:8px}
     .timeline-row{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;background:#f7f7f8;border-radius:11px;padding:10px 11px;font-size:12px}
@@ -1453,14 +1559,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.4 · Firebase не налаштовано");
+    setStatus("v1.3.5 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.3.4 · завантаження хмари…");
+    setStatus("v1.3.5 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1482,7 +1588,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.3.4 · хмара ✓");
+    setStatus("v1.3.5 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -1513,19 +1619,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v1.3.4 · хмара ✓");
+      setStatus("v1.3.5 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.3.4 · хмара недоступна");
+      setStatus("v1.3.5 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.3.4 · хмара недоступна");
+    setStatus("v1.3.5 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1536,7 +1642,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.4 · Firebase не налаштовано");
+    setStatus("v1.3.5 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1552,19 +1658,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.3.4 · вхід ✓");
+        setStatus("v1.3.5 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.3.4 · потрібен вхід");
+        setStatus("v1.3.5 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.3.4 · помилка авторизації");
+    setStatus("v1.3.5 · помилка авторизації");
     showLogin();
   }
 }
