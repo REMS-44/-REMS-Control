@@ -28,12 +28,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v0.6 · немає з’єднання");
+    setStatus("v0.6.1 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v0.6 · збереження…");
+    setStatus("v0.6.1 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +41,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v0.6 · хмара ✓");
+    setStatus("v0.6.1 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v0.6 · помилка хмари");
+    setStatus("v0.6.1 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -137,6 +137,10 @@ function openStudent(id){
     ? `<div class="profile-photo"><img src="${photo}" alt="${esc(s.name)}"></div>`
     : `<div class="profile-photo">👤</div>`;
 
+  const birthday=s.birthDate
+    ? new Date(s.birthDate+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit",year:"numeric"})
+    : "";
+
   const contacts=[
     s.phone ? `<div class="contact-item"><b>Телефон</b><a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></div>` : "",
     s.email ? `<div class="contact-item"><b>Email</b><a href="mailto:${esc(s.email)}">${esc(s.email)}</a></div>` : "",
@@ -158,10 +162,13 @@ function openStudent(id){
       <div class="profile-hero-top">
         <div class="profile-hero-title">
           ${photoBlock}
-          <div>
+          <div class="profile-head-copy">
             <h2>${esc(s.name)}</h2>
-            <div class="muted">${esc(s.group||"")}</div>
-            <div class="chips" style="margin-top:12px">
+            <div class="profile-meta">
+              <span>${esc(s.group||"")}</span>
+              ${birthday?`<span>🎂 ${birthday}</span>`:""}
+            </div>
+            <div class="chips" style="margin-top:14px">
               ${ps.map(p=>`<span class="project-pill" style="background:${p.color}">${p.emoji||"◆"} ${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
             </div>
           </div>
@@ -194,12 +201,14 @@ function openStudent(id){
 
       <div class="profile-section">
         <div class="profile-section-title"><b>Календар зайнятості</b><span class="muted">${items.length} подій</span></div>
-        <div class="timeline">
-          ${items.map(x=>`<div class="timeline-row">
-            <div class="timeline-date">${fullfmt(x.date)}</div>
-            <div class="timeline-type">${esc(x.type)}</div>
-            <span class="chip" style="background:${x.p.color}">${esc(x.p.name)}</span>
-          </div>`).join("")||'<div class="profile-empty">Подій немає</div>'}
+        <div class="timeline-scroll">
+          <div class="timeline">
+            ${items.map(x=>`<div class="timeline-row">
+              <div class="timeline-date">${fullfmt(x.date)}</div>
+              <div class="timeline-type">${esc(x.type)}</div>
+              <span class="chip" style="background:${x.p.color}">${esc(x.p.name)}</span>
+            </div>`).join("")||'<div class="profile-empty">Подій немає</div>'}
+          </div>
         </div>
       </div>
     </div>
@@ -216,6 +225,7 @@ function editStudent(id){
     <form id="studentEditForm" class="profile-edit-form" style="margin-top:18px">
       <label>Телефон<input id="stPhone" value="${esc(s.phone||"")}" placeholder="+380..."></label>
       <label>Email<input id="stEmail" type="email" value="${esc(s.email||"")}"></label>
+      <label>Дата народження<input id="stBirthDate" type="date" value="${esc(s.birthDate||"")}"></label>
       <label>Instagram<input id="stInstagram" value="${esc(s.instagram||"")}" placeholder="@username або посилання"></label>
       <label>Telegram<input id="stTelegram" value="${esc(s.telegram||"")}" placeholder="@username"></label>
       <label class="full">Фото — посилання<input id="stPhoto" value="${esc(s.photoUrl||"")}" placeholder="https://..."></label>
@@ -243,6 +253,7 @@ function editStudent(id){
     const patch={
       phone:$("#stPhone").value.trim(),
       email:$("#stEmail").value.trim(),
+      birthDate:$("#stBirthDate").value,
       instagram:$("#stInstagram").value.trim(),
       telegram:$("#stTelegram").value.trim(),
       photoUrl:$("#stPhoto").value.trim(),
@@ -388,19 +399,21 @@ function ensureAuthStyles(){
     .profile-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
     .link-list{display:grid;gap:7px;margin-top:8px}
     .link-list a{display:inline-block;color:#111827;text-decoration:underline;text-underline-offset:2px}
-    .student-dialog{width:min(760px,96vw)!important}
+    .student-dialog{width:min(820px,96vw)!important;max-height:90vh}
     .student-profile{padding:0!important}
-    .profile-hero{padding:24px;background:linear-gradient(135deg,#111827,#232936);color:#fff;border-radius:16px 16px 0 0}
-    .profile-hero-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
-    .profile-hero-title{display:flex;gap:16px;align-items:center}
-    .profile-photo{width:112px;height:140px;border-radius:16px;background:#2f3542;object-fit:cover;display:grid;place-items:center;color:#cbd5e1;font-size:30px;overflow:hidden;box-shadow:0 10px 25px #0003}
+    .profile-hero{padding:26px;background:linear-gradient(135deg,#111827,#232936);color:#fff;border-radius:16px 16px 0 0}
+    .profile-hero-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+    .profile-hero-title{display:flex;gap:20px;align-items:flex-start;min-width:0}
+    .profile-photo{width:124px;height:156px;border-radius:18px;background:#2f3542;object-fit:cover;display:grid;place-items:center;color:#cbd5e1;font-size:34px;overflow:hidden;box-shadow:0 10px 25px #0003;flex:0 0 auto}
     .profile-photo img{width:100%;height:100%;object-fit:cover}
-    .profile-hero h2{margin:0;font-size:26px;color:#fff}
+    .profile-head-copy{min-width:0;padding-top:4px}
+    .profile-hero h2{margin:0;font-size:28px;line-height:1.08;color:#fff;max-width:430px}
     .profile-hero .muted{color:#b9c0cc}
-    .profile-hero .hero-actions{display:flex;gap:8px}
+    .profile-meta{display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:8px;color:#d1d5db;font-size:12px}
+    .profile-hero .hero-actions{display:flex;gap:8px;flex:0 0 auto}
     .profile-hero .hero-actions .ghost{background:#ffffff14;color:#fff;border:1px solid #ffffff26}
     .profile-body{padding:22px}
-    .contact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .contact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:2px}
     .contact-item{background:#f6f7f9;border-radius:12px;padding:11px 12px;font-size:13px}
     .contact-item b{display:block;font-size:11px;color:#6b7280;margin-bottom:3px}
     .contact-item a{color:#111827;text-decoration:none}
@@ -414,6 +427,7 @@ function ensureAuthStyles(){
     .portfolio-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
     .portfolio-card{border:1px solid #e5e7eb;border-radius:12px;padding:11px 12px;background:#fff;text-decoration:none;color:#111827;font-size:12px}
     .portfolio-card b{display:block;margin-bottom:3px}
+    .timeline-scroll{max-height:300px;overflow:auto;padding-right:4px}
     .timeline{display:grid;gap:8px}
     .timeline-row{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;background:#f7f7f8;border-radius:11px;padding:10px 11px;font-size:12px}
     .timeline-date{font-weight:700}
@@ -519,14 +533,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.6 · Firebase не налаштовано");
+    setStatus("v0.6.1 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v0.6 · завантаження хмари…");
+    setStatus("v0.6.1 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -548,7 +562,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v0.6 · хмара ✓");
+    setStatus("v0.6.1 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -568,19 +582,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v0.6 · хмара ✓");
+      setStatus("v0.6.1 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v0.6 · хмара недоступна");
+      setStatus("v0.6.1 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v0.6 · хмара недоступна");
+    setStatus("v0.6.1 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -591,7 +605,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.6 · Firebase не налаштовано");
+    setStatus("v0.6.1 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -607,19 +621,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v0.6 · вхід ✓");
+        setStatus("v0.6.1 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v0.6 · потрібен вхід");
+        setStatus("v0.6.1 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v0.6 · помилка авторизації");
+    setStatus("v0.6.1 · помилка авторизації");
     showLogin();
   }
 }
