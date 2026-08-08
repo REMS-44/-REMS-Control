@@ -225,12 +225,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v2.9 · немає з’єднання");
+    setStatus("v3.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v2.9 · збереження…");
+    setStatus("v3.0 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -238,7 +238,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v2.9 · хмара ✓");
+    setStatus("v3.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -249,7 +249,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v2.9 · помилка хмари");
+    setStatus("v3.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -378,6 +378,40 @@ const publicProfileIdFor=s=>{
 const publicProfileUrlFor=s=>{
   const pid=publicProfileIdFor(s);
   return pid?`${REMS44_PUBLIC_BASE}student.html?id=${encodeURIComponent(pid)}`:"";
+};
+
+const REMS44_PUBLIC_SEED={"vintsiuk-andrii":{"id":"vintsiuk-andrii","name":"Вінцюк Андрій","role":"Режисер естради і шоу","photo":"images/Вінцюк Андрій.jpeg","bio":["Андрій Вінцюк — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться режисурою концертів, музичних шоу, сценічних номерів і сучасних перформативних форматів."],"skills":["Режисура","Сценарна робота","Робота з виконавцями","Концертні програми"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[{"title":"Відеоробота","youtube":"https://www.youtube.com/watch?v=58ZgRSbX6tU"}],"gallery":[]},"vlasenko-dasha":{"id":"vlasenko-dasha","name":"Власенко Даша","role":"Режисерка естради і шоу","photo":"images/Власенко Даша.jpeg","bio":["Даша Власенко — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює зі сценічними образами, музикою, пластикою, світлом і візуальним оформленням творчих проєктів."],"skills":["Режисура","Сценічний образ","Музична драматургія","Візуальна концепція"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"hostryk-katya":{"id":"hostryk-katya","name":"Гострик Катя","role":"Режисерка естради і шоу","photo":"images/Гострик Катя.jpeg","bio":["Катя Гострик — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться створенням сценічних номерів, перформансів, концертних програм і культурно-мистецьких подій."],"skills":["Режисура","Перформанс","Сценаристика","Організація подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"davydova-svitlana":{"id":"davydova-svitlana","name":"Давидова Світлана","role":"Режисерка естради і шоу","photo":"images/Давидова Світлана.jpeg","bio":["Світлана Давидова — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У своїх роботах досліджує взаємодію виконавця, музики, сценічного простору та емоційного контакту з глядачем."],"skills":["Робота з виконавцями","Режисура номера","Сценічна композиція","Музичне шоу"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"zholudenko-polina":{"id":"zholudenko-polina","name":"Жолуденко Поліна","role":"Режисерка естради і шоу","photo":"images/Жолуденко Поліна.jpeg","bio":["Поліна Жолуденко — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться образною режисурою, сучасними музичними форматами, сценічною пластикою та візуальною драматургією."],"skills":["Образна режисура","Сценічна пластика","Музичні формати","Візуальна драматургія"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"kasieiev-danylo":{"id":"kasieiev-danylo","name":"Касєєв Данило","role":"Режисер естради і шоу","photo":"images/Касєєв Данило.jpeg","bio":["Данило Касєєв — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з концертними постановками, сценічною дією, музичним матеріалом і сучасними видовищними форматами."],"skills":["Концертна режисура","Сценаристика","Робота з музичним матеріалом","Постановка номерів"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"kolyshkin-andrii":{"id":"kolyshkin-andrii","name":"Колишкін Андрій","role":"Режисер естради і шоу","photo":"images/Колишкін Андрій.jpeg","bio":["Андрій Колишкін — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться режисурою концертів, сценічних номерів, телевізійних форматів і великих культурно-мистецьких подій."],"skills":["Концертна режисура","Телеверсія шоу","Сценічна композиція","Організація подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"koshelieva-myroslava":{"id":"koshelieva-myroslava","name":"Кошелєва Мирослава","role":"Режисерка естради і шоу","photo":"images/Кошелєва Мирослава.jpeg","bio":["Мирослава Кошелєва — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У центрі її творчих інтересів — атмосфера події, робота з виконавцем, музикою, світлом і сценічним простором."],"skills":["Робота з виконавцями","Сценічна атмосфера","Світлове рішення","Режисура подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"maksimova-samira":{"id":"maksimova-samira","name":"Максімова Саміра","role":"Режисерка естради і шоу","photo":"images/Максімова Саміра.jpeg","bio":["Саміра Максімова — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться сценічною драматургією, сучасним перформансом, роботою з музикою та візуальними технологіями."],"skills":["Сценічна драматургія","Перформанс","Музичні проєкти","Візуальна концепція"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"milenina-mariia":{"id":"milenina-mariia","name":"Міленіна Марія","role":"Режисерка естради і шоу","photo":"images/Міленіна Марія.jpeg","bio":["Марія Міленіна — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з музичними номерами, сценічною композицією, образністю та емоційною побудовою видовища."],"skills":["Музичний номер","Композиція","Образне рішення","Робота з артистами"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"oleinykov-daniil":{"id":"oleinykov-daniil","name":"Олейников Даніїл","role":"Режисер естради і шоу","photo":"images/Олейников Даніїл.jpeg","bio":["Даніїл Олейников — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться концертними постановками, сучасними шоу, сценічними технологіями та роботою з виконавцями."],"skills":["Режисура шоу","Сценічні технології","Концертна постановка","Робота з артистами"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"pozniak-artur":{"id":"pozniak-artur","name":"Позняк Артур","role":"Режисер естради і шоу","photo":"images/Позняк Артур.jpeg","bio":["Артур Позняк — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з музичними шоу, сценічними номерами, сценарною структурою та сучасними форматами видовищ."],"skills":["Музичне шоу","Сценарна структура","Постановка номерів","Режисура подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"tashuta-artem":{"id":"tashuta-artem","name":"Ташута Артем","role":"Режисер естради і шоу","photo":"images/Ташута Артем.jpeg","bio":["Артем Ташута — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться постановкою концертних програм, роботою з музикою, світлом, відео та сценічним простором."],"skills":["Концертна програма","Світло","Відеоконтент","Сценічний простір"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"chynionova-dasha":{"id":"chynionova-dasha","name":"Чиньонова Даша","role":"Режисерка естради і шоу","photo":"images/Чиньонова Даша.jpeg","bio":["Даша Чиньонова — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У своїх роботах досліджує сценічний образ, музичну драматургію, атмосферу та сучасні візуальні рішення."],"skills":["Сценічний образ","Музична драматургія","Атмосфера події","Візуальні рішення"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]}};
+const publicProfileFor=s=>{
+  const pid=publicProfileIdFor(s);
+  if(!pid) return null;
+  return clone(s?.publicProfile||REMS44_PUBLIC_SEED[pid]||{id:pid,name:s?.name||"",role:"Режисер/ка естради і шоу",photo:"",bio:[],skills:[],achievements:[],socials:{instagram:"",tiktok:"",youtube:"",telegram:"",facebook:"",email:""},videos:[],gallery:[]});
+};
+const sanitizePublicProfile=(s,profile)=>{
+  const pid=publicProfileIdFor(s)||profile?.id;
+  if(!pid) return null;
+  return {
+    id:pid,name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),
+    bio:Array.isArray(profile?.bio)?profile.bio.map(x=>String(x).trim()).filter(Boolean):[],
+    skills:Array.isArray(profile?.skills)?profile.skills.map(x=>String(x).trim()).filter(Boolean):[],
+    achievements:Array.isArray(profile?.achievements)?profile.achievements.map(x=>String(x).trim()).filter(Boolean):[],
+    socials:{
+      instagram:String(profile?.socials?.instagram||"").trim(),tiktok:String(profile?.socials?.tiktok||"").trim(),
+      youtube:String(profile?.socials?.youtube||"").trim(),telegram:String(profile?.socials?.telegram||"").trim(),
+      facebook:String(profile?.socials?.facebook||"").trim(),email:String(profile?.socials?.email||"").trim()
+    },
+    videos:Array.isArray(profile?.videos)?profile.videos.map(v=>({title:String(v?.title||"Відеоробота").trim(),youtube:String(v?.youtube||"").trim()})).filter(v=>v.youtube):[],
+    gallery:Array.isArray(profile?.gallery)?profile.gallery.map(x=>String(x).trim()).filter(Boolean):[]
+  };
+};
+const publishPublicProfiles=async()=>{
+  if(!cloudReady||!cloudDb||!currentUser) throw new Error("Хмара не готова");
+  const profiles={};
+  db.students.forEach(s=>{
+    const p=publicProfileFor(s), clean=p&&sanitizePublicProfile(s,p);
+    if(clean) profiles[clean.id]=clean;
+  });
+  await setDoc(doc(cloudDb,"rems_public","profiles"),{profiles,updatedAt:new Date().toISOString()},{merge:false});
+  return profiles;
 };
 
 const eventsFor=id=>db.events.filter(e=>String(e.projectId)===String(id)).sort((a,b)=>a.date.localeCompare(b.date)||(a.startTime||"").localeCompare(b.startTime||""));
@@ -633,7 +667,7 @@ function openStudent(id){
             </div>
           </div>
           <div class="hero-actions">
-            ${publicProfileUrlFor(s)?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічний профіль ↗</a>`:""}
+            ${publicProfileUrlFor(s)?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічний профіль ↗</a><button class="ghost" id="editPublicProfileBtn">Редагувати публічний профіль</button>`:""}
             <button class="ghost" id="editStudentBtn">Редагувати</button>
             <button class="ghost" id="closeStudentBtn">Закрити</button>
           </div>
@@ -681,6 +715,7 @@ function openStudent(id){
 
     $("#closeStudentBtn").onclick=()=>dialog.close();
     $("#editStudentBtn").onclick=()=>editStudent(id);
+    if($("#editPublicProfileBtn")) $("#editPublicProfileBtn").onclick=()=>editPublicProfile(id);
 
     const monthNames={"01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень","07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"};
     const months=["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"];
@@ -750,6 +785,73 @@ function openStudent(id){
     body.querySelector("#fallbackEditStudent").onclick=()=>editStudent(id);
     body.querySelector("#fallbackCloseStudent").onclick=()=>dialog.close();
   }
+}
+
+
+function editPublicProfile(id){
+  const s=sBy(id); if(!s) return;
+  const profile=publicProfileFor(s);
+  if(!profile){ alert("Для цього студента ще немає публічного профілю REMS-44."); return; }
+  const lines=a=>(Array.isArray(a)?a:[]).join("\n");
+  const videos=(profile.videos||[]).map(v=>`${v.title||"Відеоробота"} | ${v.youtube||""}`).join("\n");
+  $("#studentDialogBody").innerHTML=`<div class="student-profile">
+    <div class="profile-head">
+      <div><h2>Публічний профіль</h2><div class="muted">${esc(s.name)} · REMS-44</div></div>
+      <a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Переглянути ↗</a>
+    </div>
+    <form id="publicProfileForm" class="profile-edit-form" style="margin-top:18px">
+      <label class="full">Ім’я на сайті<input id="pubName" value="${esc(profile.name||s.name)}"></label>
+      <label class="full">Спеціальність / роль<input id="pubRole" value="${esc(profile.role||"")}"></label>
+      <label class="full">Фото<input id="pubPhoto" value="${esc(profile.photo||"")}" placeholder="images/Фото.jpeg або https://..."></label>
+      <label class="full">Про себе — один абзац на рядок<textarea id="pubBio" rows="6">${esc(lines(profile.bio))}</textarea></label>
+      <label class="full">Навички — одна на рядок<textarea id="pubSkills" rows="5">${esc(lines(profile.skills))}</textarea></label>
+      <label class="full">Досягнення — одне на рядок<textarea id="pubAchievements" rows="5">${esc(lines(profile.achievements))}</textarea></label>
+      <label>Instagram<input id="pubInstagram" value="${esc(profile.socials?.instagram||"")}"></label>
+      <label>TikTok<input id="pubTiktok" value="${esc(profile.socials?.tiktok||"")}"></label>
+      <label>YouTube<input id="pubYoutube" value="${esc(profile.socials?.youtube||"")}"></label>
+      <label>Telegram<input id="pubTelegram" value="${esc(profile.socials?.telegram||"")}"></label>
+      <label>Facebook<input id="pubFacebook" value="${esc(profile.socials?.facebook||"")}"></label>
+      <label>Email<input id="pubEmail" value="${esc(profile.socials?.email||"")}"></label>
+      <label class="full">Відеороботи — Назва | YouTube-посилання<textarea id="pubVideos" rows="6">${esc(videos)}</textarea></label>
+      <label class="full">Галерея — одне посилання/шлях на рядок<textarea id="pubGallery" rows="5">${esc(lines(profile.gallery))}</textarea></label>
+      <div class="full notice ok">Публікуються тільки поля з цієї форми. Телефон, календар, внутрішні нотатки та зайнятість сюди не потрапляють.</div>
+      <div class="full profile-actions">
+        <button type="button" class="ghost" id="cancelPublicEdit">Скасувати</button>
+        <button type="submit" class="primary">Зберегти й опублікувати</button>
+      </div>
+    </form>
+  </div>`;
+  $("#cancelPublicEdit").onclick=()=>openStudent(id);
+  $("#publicProfileForm").onsubmit=async e=>{
+    e.preventDefault();
+    const submit=e.submitter||$("#publicProfileForm button[type='submit']");
+    if(submit){submit.disabled=true;submit.textContent="Публікація…";}
+    const splitLines=v=>String(v||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
+    const parsedVideos=splitLines($("#pubVideos").value).map(line=>{
+      const parts=line.split("|");
+      return {title:(parts.shift()||"Відеоробота").trim(),youtube:parts.join("|").trim()};
+    }).filter(v=>v.youtube);
+    const next={...profile,name:$("#pubName").value.trim(),role:$("#pubRole").value.trim(),photo:$("#pubPhoto").value.trim(),
+      bio:splitLines($("#pubBio").value),skills:splitLines($("#pubSkills").value),achievements:splitLines($("#pubAchievements").value),
+      socials:{instagram:$("#pubInstagram").value.trim(),tiktok:$("#pubTiktok").value.trim(),youtube:$("#pubYoutube").value.trim(),
+        telegram:$("#pubTelegram").value.trim(),facebook:$("#pubFacebook").value.trim(),email:$("#pubEmail").value.trim()},
+      videos:parsedVideos,gallery:splitLines($("#pubGallery").value)};
+    db.students=db.students.map(st=>String(st.id)===String(id)?{...st,publicProfile:next}:st);
+    const ok=await save();
+    if(!ok){
+      if(submit){submit.disabled=false;submit.textContent="Зберегти й опублікувати";}
+      alert("Не вдалося зберегти зміни в REMS Control."); return;
+    }
+    try{
+      await publishPublicProfiles();
+      alert("Публічний профіль оновлено.");
+      openStudent(id);
+    }catch(err){
+      console.error(err);
+      if(submit){submit.disabled=false;submit.textContent="Зберегти й опублікувати";}
+      alert("У Control зміни збережені, але публікація на REMS-44 заблокована правилами Firestore. Встанови правила з пакета v3.0.");
+    }
+  };
 }
 
 function editStudent(id){
@@ -2312,14 +2414,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.9 · Firebase не налаштовано");
+    setStatus("v3.0 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v2.9 · завантаження хмари…");
+    setStatus("v3.0 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2341,7 +2443,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v2.9 · хмара ✓");
+    setStatus("v3.0 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2382,19 +2484,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v2.9 · хмара ✓");
+      setStatus("v3.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v2.9 · хмара недоступна");
+      setStatus("v3.0 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v2.9 · хмара недоступна");
+    setStatus("v3.0 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2405,7 +2507,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.9 · Firebase не налаштовано");
+    setStatus("v3.0 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2421,19 +2523,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v2.9 · вхід ✓");
+        setStatus("v3.0 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v2.9 · потрібен вхід");
+        setStatus("v3.0 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v2.9 · помилка авторизації");
+    setStatus("v3.0 · помилка авторизації");
     showLogin();
   }
 }
