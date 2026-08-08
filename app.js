@@ -45,12 +45,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.7 · немає з’єднання");
+    setStatus("v1.9 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.7 · збереження…");
+    setStatus("v1.9 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -58,14 +58,14 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.7 · хмара ✓");
+    setStatus("v1.9 · хмара ✓");
     // Every derived screen must immediately reflect the edited cloud data.
     // This updates Dashboard / Projects / Calendar / Schedule behind any open dialog.
     refreshCurrentView();
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.7 · помилка хмари");
+    setStatus("v1.9 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -146,7 +146,8 @@ function ensureNewProjectLogoField(){
   else form.appendChild(wrap);
 }
 
-const sBy=id=>db.students.find(s=>s.id===id);
+const sBy=id=>db.students.find(s=>String(s.id)===String(id));
+const resolveStudentId=raw=>db.students.find(s=>String(s.id)===String(raw))?.id;
 const eventsFor=id=>db.events.filter(e=>e.projectId===id).sort((a,b)=>a.date.localeCompare(b.date));
 const assForStudent=id=>db.assignments.filter(a=>a.studentId===id);
 const studentProjects=id=>{
@@ -282,7 +283,10 @@ function dashboard(){
         <div class="student-row clickable-student" data-id="${s.id}" style="cursor:pointer"><div><b>${s.name}</b><div class="muted">${s.group}</div></div><strong>${countDays(s.id)} дн.</strong></div>`).join("")}</div></div>
     </div>`;
 
-  $$(".clickable-student").forEach(x=>x.onclick=()=>openStudent(+x.dataset.id));
+  $$(".clickable-student").forEach(x=>x.onclick=()=>{
+    const sid=resolveStudentId(x.dataset.id);
+    if(sid!==undefined) openStudent(sid);
+  });
   $$(".week-day-card").forEach(x=>x.onclick=()=>showDay(x.dataset.date));
 }
 function students(){
@@ -290,9 +294,22 @@ function students(){
   const render=()=>{
     const q=($("#studentSearch").value||"").toLowerCase(), pf=$("#studentProjectFilter").value;
     $("#studentsGrid").innerHTML=db.students.filter(s=>s.name.toLowerCase().includes(q)&&(!pf||assForStudent(s.id).some(a=>a.projectId===pf))).map(s=>`
-      <div class="student-card" data-id="${s.id}"><h3>${s.name}</h3><div class="muted">${s.group} · ${countDays(s.id)} зайнятих днів</div>
+      <div class="student-card" data-id="${esc(String(s.id))}" role="button" tabindex="0" aria-label="Відкрити картку ${esc(s.name)}"><h3>${s.name}</h3><div class="muted">${s.group} · ${countDays(s.id)} зайнятих днів</div>
       <div class="chips">${studentProjects(s.id).map(p=>`<span class="chip" style="background:${p.color}">${p.name}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}</div></div>`).join("")||'<div class="empty">Нічого не знайдено.</div>';
-    $$(".student-card").forEach(x=>x.onclick=()=>openStudent(+x.dataset.id));
+    $$(".student-card").forEach(x=>{
+      const open=()=>{
+        const sid=resolveStudentId(x.dataset.id);
+        if(sid===undefined) return;
+        openStudent(sid);
+      };
+      x.onclick=open;
+      x.onkeydown=e=>{
+        if(e.key==="Enter"||e.key===" "){
+          e.preventDefault();
+          open();
+        }
+      };
+    });
   };
   $("#studentSearch").oninput=render; $("#studentProjectFilter").onchange=render; render();
 }
@@ -631,7 +648,7 @@ function showProjectDay(projectId,date){
     <div class="day-event-list">
       ${evs.map((e,i)=>`<div class="day-event-row">
         <span class="dot" style="background:${p.color}"></span>
-        <div><b>${esc(e.type)}</b>${eventMetaText(e)?`<div class="day-event-meta">${esc(eventMetaText(e))}</div>`:""}<div class="day-event-meta">${studentsForEvent(e).length} учасників</div></div>
+        <div><b>${esc(e.type)}</b>${eventMetaText(e)?`<div class="day-event-meta">${esc(eventMetaText(e))}</div>`:""}${e.note?`<div class="day-event-meta">${esc(e.note)}</div>`:""}<div class="day-event-meta">${studentsForEvent(e).length} учасників</div></div>
         <div style="display:flex;gap:6px;align-items:center">
           <button class="ghost project-day-edit-event" data-index="${i}">Редагувати</button>
           <button class="ghost project-day-people-event" data-index="${i}">Учасники</button>
@@ -670,7 +687,10 @@ function showProjectDay(projectId,date){
       else openProjectCard(projectId);
     };
   });
-  dialog.querySelectorAll(".project-day-student").forEach(b=>b.onclick=()=>openStudent(+b.dataset.id));
+  dialog.querySelectorAll(".project-day-student").forEach(b=>b.onclick=()=>{
+    const sid=resolveStudentId(b.dataset.id);
+    if(sid!==undefined) openStudent(sid);
+  });
 }
 
 function openProjectCard(id){
@@ -805,16 +825,32 @@ function editProjectEvent(projectId,ev){
       <button class="ghost" id="cancelProjectEventEdit">Назад</button>
     </div>
 
-    <form id="projectEventEditForm" class="project-edit-form" style="margin-top:16px">
-      <label>Дата
+    <form id="projectEventEditForm" class="project-edit-form event-edit-form" style="margin-top:16px">
+      <label class="full">Дата
         <input id="editEventDate" type="date" value="${esc(ev.date||"")}">
       </label>
+
       <label class="full">Що відбувається
         <input id="editEventType" value="${esc(ev.type||"")}" placeholder="Наприклад: Репетиція, Зйомка, Генеральний прогін">
       </label>
-      <label>Початок<input id="editEventStartTime" type="time" value="${esc(ev.startTime||"")}"></label>
-      <label>Завершення<input id="editEventEndTime" type="time" value="${esc(ev.endTime||"")}"></label>
-      <label class="full">Локація<input id="editEventLocation" value="${esc(ev.location||"")}" placeholder="Напр. ВДНГ · павільйон 3 / ауд. 230 / студія"></label>
+
+      <div class="event-time-grid full">
+        <label>Початок
+          <input id="editEventStartTime" type="time" value="${esc(ev.startTime||"")}">
+        </label>
+        <label>Завершення
+          <input id="editEventEndTime" type="time" value="${esc(ev.endTime||"")}">
+        </label>
+      </div>
+
+      <label class="full">Локація
+        <input id="editEventLocation" value="${esc(ev.location||"")}" placeholder="Наприклад: ВДНГ · павільйон 3 / ауд. 230 / студія">
+      </label>
+
+      <label class="full">Примітка
+        <textarea id="editEventNote" placeholder="Наприклад: збір о 09:30, форма чорна, мати паспорт">${esc(ev.note||"")}</textarea>
+      </label>
+
       <div class="full profile-actions">
         <button type="button" class="ghost" id="cancelProjectEventEditBottom">Скасувати</button>
         <button type="submit" class="primary">Зберегти</button>
@@ -848,9 +884,10 @@ function editProjectEvent(projectId,ev){
 
     target.date=newDate;
     target.type=newType;
-    target.startTime=dialog.querySelector("#editEventStartTime").value||"";
-    target.endTime=dialog.querySelector("#editEventEndTime").value||"";
-    target.location=dialog.querySelector("#editEventLocation").value.trim();
+    target.startTime=dialog.querySelector("#editEventStartTime")?.value||"";
+    target.endTime=dialog.querySelector("#editEventEndTime")?.value||"";
+    target.location=dialog.querySelector("#editEventLocation")?.value.trim()||"";
+    target.note=dialog.querySelector("#editEventNote")?.value.trim()||"";
     db.events.sort((a,b)=>a.date.localeCompare(b.date)||(a.startTime||"").localeCompare(b.startTime||""));
 
     const ok=await save();
@@ -1043,6 +1080,7 @@ function showStudentEventInfo(studentId,item){
     <div class="event-info-body">
       ${eventTimeText(item)?`<div class="event-info-row"><span>Час</span><b>${esc(eventTimeText(item))}</b></div>`:""}
       ${item.location?`<div class="event-info-row"><span>Локація</span><b>${esc(item.location)}</b></div>`:""}
+      ${item.note?`<div class="event-info-row"><span>Примітка</span><b>${esc(item.note)}</b></div>`:""}
       <div class="event-info-row"><span>Студент</span><b>${esc(s?.name||"")}</b></div>
     </div>
     <div class="event-info-actions">
@@ -1119,8 +1157,9 @@ function showDay(date){
   </div>`;
 
   dialog.querySelectorAll(".day-student").forEach(b=>b.onclick=()=>{
+    const sid=resolveStudentId(b.dataset.id);
     dialog.close();
-    openStudent(+b.dataset.id);
+    if(sid!==undefined) openStudent(sid);
   });
   dialog.showModal();
 }
@@ -1584,6 +1623,7 @@ function ensureAuthStyles(){
     .students-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
     .student-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;cursor:pointer;transition:.16s transform,.16s box-shadow}
     .student-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px #11182712}
+    .student-card:focus{outline:2px solid #111827;outline-offset:2px}.student-card:active{transform:translateY(0);box-shadow:inset 0 0 0 1px #11182722}
     .student-card-top{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center;padding:14px}
     .student-avatar{width:72px;height:90px;border-radius:12px;background:#eef0f3;display:grid;place-items:center;overflow:hidden;color:#9ca3af;font-size:24px}
     .student-avatar img{width:100%;height:100%;object-fit:cover}
@@ -1686,6 +1726,13 @@ function ensureAuthStyles(){
     .project-edit-form input,.project-edit-form textarea{border:1px solid #e5e7eb;border-radius:10px;padding:9px 10px;font:inherit;width:100%}
     .project-edit-form textarea{min-height:80px;resize:vertical}
     .project-edit-form .full{grid-column:1/-1}
+    .event-edit-form{grid-template-columns:1fr!important;gap:14px!important}
+    .event-edit-form label{display:grid;gap:7px;font-size:12px;color:#4b5563}
+    .event-edit-form input,.event-edit-form textarea{width:100%;border:1px solid #dfe3e8;border-radius:11px;padding:11px 12px;font:inherit;background:#fff}
+    .event-edit-form textarea{min-height:90px;resize:vertical}
+    .event-time-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media(max-width:620px){.event-time-grid{grid-template-columns:1fr}}
+
     .project-logo-editor{display:flex;gap:14px;align-items:center;padding:12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px}
     .project-logo-preview{width:150px;height:90px;display:grid;place-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
     .project-logo-preview img{width:100%;height:100%;object-fit:contain}
@@ -1996,14 +2043,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.7 · Firebase не налаштовано");
+    setStatus("v1.9 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.7 · завантаження хмари…");
+    setStatus("v1.9 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2025,7 +2072,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.7 · хмара ✓");
+    setStatus("v1.9 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2057,19 +2104,19 @@ async function initCloud(){
 
       currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
       refreshCurrentView();
-      setStatus("v1.7 · хмара ✓");
+      setStatus("v1.9 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.7 · хмара недоступна");
+      setStatus("v1.9 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.7 · хмара недоступна");
+    setStatus("v1.9 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -2080,7 +2127,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.7 · Firebase не налаштовано");
+    setStatus("v1.9 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2096,19 +2143,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.7 · вхід ✓");
+        setStatus("v1.9 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.7 · потрібен вхід");
+        setStatus("v1.9 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.7 · помилка авторизації");
+    setStatus("v1.9 · помилка авторизації");
     showLogin();
   }
 }
