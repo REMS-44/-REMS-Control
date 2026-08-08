@@ -1,4 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 const KEY="rems-control-v031-cache";
@@ -8,6 +9,7 @@ const CLOUD_DOC="main";
 const clone=x=>JSON.parse(JSON.stringify(x));
 let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||localStorage.getItem(OLDERKEY)||"null")||clone(window.REMS_SEED);
 let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false;
+let firebaseApp=null, auth=null, currentUser=null;
 const statusEl=()=>document.querySelector("#cloudStatus");
 const setStatus=(text)=>{ if(statusEl()) statusEl().textContent=text; };
 const cache=()=>localStorage.setItem(KEY,JSON.stringify(db));
@@ -25,21 +27,21 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v0.3.1 · немає з’єднання");
+    setStatus("v0.4 · немає з’єднання");
     return false;
   }
   try{
-    setStatus("v0.3.1 · збереження…");
+    setStatus("v0.4 · збереження…");
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
       {...clone(db),updatedAt:new Date().toISOString()},
       {merge:false}
     );
-    setStatus("v0.3.1 · хмара ✓");
+    setStatus("v0.4 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v0.3.1 · помилка хмари");
+    setStatus("v0.4 · помилка хмари");
     return false;
   }
 };
@@ -196,6 +198,102 @@ $("#restoreInput").onchange=async e=>{
   catch{alert("Не вдалося прочитати файл резервної копії.");}
   e.target.value="";
 };
+
+function ensureAuthStyles(){
+  if(document.querySelector("#remsAuthStyles")) return;
+  const style=document.createElement("style");
+  style.id="remsAuthStyles";
+  style.textContent=`
+    #authGate{position:fixed;inset:0;z-index:9999;background:#111318;display:grid;place-items:center;padding:24px}
+    #authGate .auth-card{width:min(420px,94vw);background:#fff;border-radius:22px;padding:26px;box-shadow:0 30px 90px #0007}
+    #authGate .auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+    #authGate .auth-logo{width:44px;height:44px;border-radius:13px;background:#111318;color:#fff;display:grid;place-items:center;font-weight:900}
+    #authGate h2{margin:0;font-size:23px}
+    #authGate p{margin:5px 0 0;color:#6b7280;font-size:13px}
+    #authGate label{display:grid;gap:6px;margin:13px 0;color:#374151;font-size:13px}
+    #authGate input{width:100%;border:1px solid #e5e7eb;border-radius:11px;padding:12px 13px;font-size:16px}
+    #authGate button{width:100%;border:0;border-radius:11px;padding:12px 14px;background:#111827;color:#fff;font-weight:700;cursor:pointer;margin-top:8px}
+    #authGate button:disabled{opacity:.55;cursor:not-allowed}
+    #authGate .auth-error{min-height:20px;margin-top:10px;color:#b91c1c;font-size:12px}
+    #logoutBtn{border:1px solid #343944;color:#c8ccd4;background:#1a1d23;border-radius:9px;padding:8px 10px;font-size:12px;text-align:center;cursor:pointer}
+    #authUser{color:#6f7683;font-size:10px;line-height:1.3;padding:4px 8px;overflow-wrap:anywhere}
+  `;
+  document.head.appendChild(style);
+}
+
+function showLogin(){
+  ensureAuthStyles();
+  let gate=document.querySelector("#authGate");
+  if(!gate){
+    gate=document.createElement("div");
+    gate.id="authGate";
+    gate.innerHTML=`
+      <form class="auth-card" id="authForm">
+        <div class="auth-brand">
+          <div class="auth-logo">R</div>
+          <div><h2>REMS Control</h2><p>Увійдіть, щоб відкрити систему</p></div>
+        </div>
+        <label>Email<input id="authEmail" type="email" autocomplete="username" required></label>
+        <label>Пароль<input id="authPassword" type="password" autocomplete="current-password" required></label>
+        <button id="authSubmit" type="submit">Увійти</button>
+        <div class="auth-error" id="authError"></div>
+      </form>`;
+    document.body.appendChild(gate);
+
+    gate.querySelector("#authForm").onsubmit=async e=>{
+      e.preventDefault();
+      const email=gate.querySelector("#authEmail").value.trim();
+      const password=gate.querySelector("#authPassword").value;
+      const btn=gate.querySelector("#authSubmit");
+      const err=gate.querySelector("#authError");
+      err.textContent="";
+      btn.disabled=true;
+      btn.textContent="Вхід…";
+      try{
+        await signInWithEmailAndPassword(auth,email,password);
+      }catch(ex){
+        console.error(ex);
+        err.textContent="Не вдалося увійти. Перевірте email і пароль.";
+        btn.disabled=false;
+        btn.textContent="Увійти";
+      }
+    };
+  }
+  gate.style.display="grid";
+}
+
+function hideLogin(){
+  const gate=document.querySelector("#authGate");
+  if(gate) gate.style.display="none";
+}
+
+function ensureLogout(){
+  ensureAuthStyles();
+  const box=document.querySelector(".sidebar-bottom");
+  if(!box) return;
+  let userEl=document.querySelector("#authUser");
+  if(!userEl){
+    userEl=document.createElement("div");
+    userEl.id="authUser";
+    box.prepend(userEl);
+  }
+  userEl.textContent=currentUser?.email||"";
+
+  let btn=document.querySelector("#logoutBtn");
+  if(!btn){
+    btn=document.createElement("button");
+    btn.id="logoutBtn";
+    btn.textContent="Вийти";
+    btn.onclick=async()=>{ await signOut(auth); };
+    box.prepend(btn);
+  }
+}
+
+function clearLogout(){
+  document.querySelector("#logoutBtn")?.remove();
+  document.querySelector("#authUser")?.remove();
+}
+
 async function initCloud(){
   if(cloudInitializing) return;
   cloudInitializing=true;
@@ -203,15 +301,15 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.3.1 · Firebase не налаштовано");
+    setStatus("v0.4 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v0.3.1 · завантаження хмари…");
-    const firebaseApp=initializeApp(cfg);
+    setStatus("v0.4 · завантаження хмари…");
+    if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
     const snap=await getDoc(ref);
@@ -232,7 +330,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v0.3.1 · хмара ✓");
+    setStatus("v0.4 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -251,25 +349,65 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v0.3.1 · хмара ✓");
+      setStatus("v0.4 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v0.3.1 · хмара недоступна");
+      setStatus("v0.4 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v0.3.1 · хмара недоступна");
+    setStatus("v0.4 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
   }
 }
 
-window.addEventListener("online",()=>{ if(!cloudReady) initCloud(); });
+
+async function bootstrapAuth(){
+  const cfg=window.REMS_FIREBASE_CONFIG;
+  if(!cfg){
+    setStatus("v0.4 · Firebase не налаштовано");
+    showLogin();
+    return;
+  }
+
+  try{
+    firebaseApp=initializeApp(cfg);
+    auth=getAuth(firebaseApp);
+    await setPersistence(auth,browserLocalPersistence);
+
+    onAuthStateChanged(auth,async user=>{
+      currentUser=user||null;
+
+      if(currentUser){
+        hideLogin();
+        ensureLogout();
+        setStatus("v0.4 · вхід ✓");
+        if(!cloudReady) await initCloud();
+      }else{
+        cloudReady=false;
+        setWriteUiReady(false);
+        clearLogout();
+        showLogin();
+        setStatus("v0.4 · потрібен вхід");
+      }
+    });
+  }catch(err){
+    console.error(err);
+    setStatus("v0.4 · помилка авторизації");
+    showLogin();
+  }
+}
+
+window.addEventListener("online",()=>{
+  if(currentUser && !cloudReady) initCloud();
+});
+
 setWriteUiReady(false);
-initCloud();
+bootstrapAuth();
