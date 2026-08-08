@@ -1,4 +1,19 @@
 
+(function injectProjectLogoStyles(){
+  if(document.getElementById("remsProjectLogoStyles")) return;
+  const st=document.createElement("style");
+  st.id="remsProjectLogoStyles";
+  st.textContent=`
+    .project-list-logo{width:54px;height:34px;object-fit:contain;border-radius:7px;background:#fff;flex:0 0 auto}
+    .project-card-logo{width:72px;height:42px;object-fit:contain;border-radius:8px;background:#fff;vertical-align:middle;margin-right:8px}
+    .project-hero-logo{width:100%;height:100%;object-fit:contain;border-radius:10px;background:#fff}
+    .project-pill-logo{width:22px;height:16px;object-fit:contain;border-radius:4px;background:#fff;vertical-align:middle}
+    .project-logo:has(.project-hero-logo){padding:5px;background:#fff;min-width:110px;width:110px;height:70px}
+  `;
+  document.head.appendChild(st);
+})();
+
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
@@ -28,12 +43,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.3.2 · немає з’єднання");
+    setStatus("v1.3.3 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.3.2 · збереження…");
+    setStatus("v1.3.3 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +56,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.3.2 · хмара ✓");
+    setStatus("v1.3.3 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.3.2 · помилка хмари");
+    setStatus("v1.3.3 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -56,6 +71,20 @@ const app=$("#app");
 const fmt=d=>new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit"});
 const fullfmt=d=>new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{day:"numeric",month:"long",year:"numeric"});
 const pBy=id=>db.projects.find(p=>p.id===id);
+
+const projectLogoFile=p=>{
+  const n=String(p?.name||"").toLowerCase();
+  if(n.includes("дитяче євробачення")) return "logos/junior-eurovision.png";
+  if(n.includes("голос країни")||n.includes("голос 14")) return "logos/holos-krainy.png";
+  if(n.includes("танцюють всі")) return "logos/tantsiuiut-vsi.png";
+  if(n.includes("фабрика зірок")) return "logos/fabryka-zirok.png";
+  return "";
+};
+const projectLogoHtml=(p,cls="project-logo-img")=>{
+  const src=projectLogoFile(p);
+  return src?`<img class="${cls}" src="${src}" alt="${esc(p.name)}">`:`<span>${p.emoji||"◆"}</span>`;
+};
+
 const sBy=id=>db.students.find(s=>s.id===id);
 const eventsFor=id=>db.events.filter(e=>e.projectId===id).sort((a,b)=>a.date.localeCompare(b.date));
 const assForStudent=id=>db.assignments.filter(a=>a.studentId===id);
@@ -92,7 +121,7 @@ function dashboard(){
   </div>
   <div class="grid two">
     <div class="card"><h2>Активні проєкти</h2><div class="project-list">${db.projects.map(p=>`
-      <div class="project-row"><div class="project-left"><span class="dot" style="background:${p.color}"></span><div><b>${p.emoji||"◆"} ${p.name}</b><div class="muted">${eventsFor(p.id).length} дат · ${projectStudents(p.id).length} студентів</div></div></div></div>`).join("")}</div></div>
+      <div class="project-row"><div class="project-left"><span class="dot" style="background:${p.color}"></span>${projectLogoHtml(p,"project-list-logo")}<div><b>${p.name}</b><div class="muted">${eventsFor(p.id).length} дат · ${projectStudents(p.id).length} студентів</div></div></div></div>`).join("")}</div></div>
     <div class="card"><h2>Найбільш зайняті</h2><div class="student-list">${[...db.students].sort((a,b)=>countDays(b.id)-countDays(a.id)).slice(0,8).map(s=>`
       <div class="student-row clickable-student" data-id="${s.id}" style="cursor:pointer"><div><b>${s.name}</b><div class="muted">${s.group}</div></div><strong>${countDays(s.id)} дн.</strong></div>`).join("")}</div></div>
   </div>`;
@@ -169,7 +198,7 @@ function openStudent(id){
               ${birthday?`<span>🎂 ${birthday}</span>`:""}
             </div>
             <div class="chips" style="margin-top:14px">
-              ${ps.map(p=>`<span class="project-pill" style="background:${p.color}">${p.emoji||"◆"} ${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
+              ${ps.map(p=>`<span class="project-pill" style="background:${p.color}">${projectLogoHtml(p,"project-pill-logo")} ${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
             </div>
           </div>
         </div>
@@ -296,7 +325,7 @@ function projects(){
     return `<div class="project-card" data-id="${p.id}" style="cursor:pointer">
       <div class="project-card-header">
         <div>
-          <h3><span class="dot" style="background:${p.color}"></span> ${p.emoji||"◆"} ${esc(p.name)}</h3>
+          <h3><span class="dot" style="background:${p.color}"></span> ${projectLogoHtml(p,"project-card-logo")} ${esc(p.name)}</h3>
           <div class="muted">${evs.length} дат · ${assigned.length} студентів</div>
         </div>
         <button class="ghost open-project" data-id="${p.id}">Відкрити</button>
@@ -321,7 +350,7 @@ function openProjectCard(id){
     <div class="project-hero" style="box-shadow:inset 6px 0 0 ${p.color}">
       <div class="project-hero-top">
         <div class="project-title-wrap">
-          <div class="project-logo">${p.emoji||"◆"}</div>
+          <div class="project-logo">${projectLogoHtml(p,"project-hero-logo")}</div>
           <div><h2>${esc(p.name)}</h2><div class="muted">${esc(p.description||"")}</div></div>
         </div>
         <div style="display:flex;gap:8px">
@@ -1187,7 +1216,8 @@ async function ensureVoice14(){
   if(!cloudDb || !cloudReady) return false;
 
   // If Voice 14 already exists, do not duplicate it.
-  let p=db.projects.find(x=>String(x.name||"").toLowerCase().includes("голос 14"));
+  let p=db.projects.find(x=>String(x.name||"").toLowerCase().includes("голос країни"))
+       || db.projects.find(x=>String(x.name||"").toLowerCase().includes("голос 14"));
   if(!p){
     p={id:"voice14",name:"ГОЛОС 14",color:"#6D28D9",emoji:"🎤",description:"Вибір наосліп · Бої · Нокаути · Фінал"};
     db.projects.push(p);
@@ -1323,14 +1353,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.2 · Firebase не налаштовано");
+    setStatus("v1.3.3 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.3.2 · завантаження хмари…");
+    setStatus("v1.3.3 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1352,7 +1382,18 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.3.2 · хмара ✓");
+    setStatus("v1.3.3 · хмара ✓");
+
+    // v1.3.3: repair/seed project calendars in the actual cloud document.
+    if(!localStorage.getItem("rems_voice14_seed_v2")){
+      const seededVoice=await ensureVoice14();
+      if(seededVoice) localStorage.setItem("rems_voice14_seed_v2","1");
+    }
+    if(!localStorage.getItem("rems_jesc_seed_v2")){
+      const seededJesc=await ensureJescDates();
+      if(seededJesc) localStorage.setItem("rems_jesc_seed_v2","1");
+    }
+
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -1372,19 +1413,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v1.3.2 · хмара ✓");
+      setStatus("v1.3.3 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.3.2 · хмара недоступна");
+      setStatus("v1.3.3 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.3.2 · хмара недоступна");
+    setStatus("v1.3.3 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1395,7 +1436,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.2 · Firebase не налаштовано");
+    setStatus("v1.3.3 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1411,19 +1452,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.3.2 · вхід ✓");
+        setStatus("v1.3.3 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.3.2 · потрібен вхід");
+        setStatus("v1.3.3 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.3.2 · помилка авторизації");
+    setStatus("v1.3.3 · помилка авторизації");
     showLogin();
   }
 }
