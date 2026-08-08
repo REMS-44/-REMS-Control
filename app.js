@@ -9,7 +9,7 @@ const OLDERKEY="rems-control-v01";
 const CLOUD_DOC="main";
 const clone=x=>JSON.parse(JSON.stringify(x));
 let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||localStorage.getItem(OLDERKEY)||"null")||clone(window.REMS_SEED);
-let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false;
+let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false, cloudWriting=false;
 let firebaseApp=null, auth=null, currentUser=null;
 const statusEl=()=>document.querySelector("#cloudStatus");
 const setStatus=(text)=>{ if(statusEl()) statusEl().textContent=text; };
@@ -28,22 +28,27 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v0.5 · немає з’єднання");
+    setStatus("v0.5.1 · немає з’єднання");
     return false;
   }
   try{
-    setStatus("v0.5 · збереження…");
+    cloudWriting=true;
+    setStatus("v0.5.1 · збереження…");
+    const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
-      {...clone(db),updatedAt:new Date().toISOString()},
+      payload,
       {merge:false}
     );
-    setStatus("v0.5 · хмара ✓");
+    cache();
+    setStatus("v0.5.1 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v0.5 · помилка хмари");
+    setStatus("v0.5.1 · помилка хмари");
     return false;
+  }finally{
+    setTimeout(()=>{ cloudWriting=false; },250);
   }
 };
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -196,20 +201,45 @@ function editStudent(id){
   $("#cancelStudentEdit").onclick=()=>openStudent(id);
   $("#studentEditForm").onsubmit=async e=>{
     e.preventDefault();
-    s.phone=$("#stPhone").value.trim();
-    s.email=$("#stEmail").value.trim();
-    s.instagram=$("#stInstagram").value.trim();
-    s.telegram=$("#stTelegram").value.trim();
-    s.photoUrl=$("#stPhoto").value.trim();
-    s.resumeUrl=$("#stResume").value.trim();
-    s.portfolioUrl=$("#stPortfolio").value.trim();
-    s.worksUrl=$("#stWorks").value.trim();
-    s.notes=$("#stNotes").value.trim();
+
+    const submit=e.submitter || $("#studentEditForm button[type='submit']");
+    if(submit){
+      submit.disabled=true;
+      submit.textContent="Збереження…";
+    }
+
+    const patch={
+      phone:$("#stPhone").value.trim(),
+      email:$("#stEmail").value.trim(),
+      instagram:$("#stInstagram").value.trim(),
+      telegram:$("#stTelegram").value.trim(),
+      photoUrl:$("#stPhoto").value.trim(),
+      resumeUrl:$("#stResume").value.trim(),
+      portfolioUrl:$("#stPortfolio").value.trim(),
+      worksUrl:$("#stWorks").value.trim(),
+      notes:$("#stNotes").value.trim()
+    };
+
+    db.students=db.students.map(student =>
+      student.id===id ? {...student,...patch} : student
+    );
+
     const ok=await save();
     if(!ok){
+      if(submit){
+        submit.disabled=false;
+        submit.textContent="Зберегти";
+      }
       alert("Не вдалося зберегти картку в хмару.");
       return;
     }
+
+    const updated=sBy(id);
+    if(!updated){
+      alert("Картку збережено, але не вдалося відкрити студента.");
+      return;
+    }
+
     openStudent(id);
   };
 }
@@ -411,14 +441,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.5 · Firebase не налаштовано");
+    setStatus("v0.5.1 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v0.5 · завантаження хмари…");
+    setStatus("v0.5.1 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -440,11 +470,12 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v0.5 · хмара ✓");
+    setStatus("v0.5.1 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
       if(!s.exists()) return;
+      if(cloudWriting) return;
       const remote=s.data();
       applyingRemote=true;
       db={
@@ -459,19 +490,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v0.5 · хмара ✓");
+      setStatus("v0.5.1 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v0.5 · хмара недоступна");
+      setStatus("v0.5.1 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v0.5 · хмара недоступна");
+    setStatus("v0.5.1 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -482,7 +513,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.5 · Firebase не налаштовано");
+    setStatus("v0.5.1 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -498,19 +529,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v0.5 · вхід ✓");
+        setStatus("v0.5.1 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v0.5 · потрібен вхід");
+        setStatus("v0.5.1 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v0.5 · помилка авторизації");
+    setStatus("v0.5.1 · помилка авторизації");
     showLogin();
   }
 }
