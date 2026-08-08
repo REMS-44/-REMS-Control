@@ -45,12 +45,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.3.8 · немає з’єднання");
+    setStatus("v1.4 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.3.8 · збереження…");
+    setStatus("v1.4 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -58,14 +58,14 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.3.8 · хмара ✓");
+    setStatus("v1.4 · хмара ✓");
     // Every derived screen must immediately reflect the edited cloud data.
     // This updates Dashboard / Projects / Calendar / Schedule behind any open dialog.
     refreshCurrentView();
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.3.8 · помилка хмари");
+    setStatus("v1.4 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -133,20 +133,101 @@ function refreshCurrentView(){
 function dashboard(){
   const assigned=new Set(db.assignments.map(a=>a.studentId)).size;
   const conflicts=countConflicts();
-  app.innerHTML=`${conflicts?`<div class="notice warn">⚠️ Знайдено конфліктів: <b>${conflicts}</b>. Відкрийте календар — вони підсвічені червоним.</div>`:`<div class="notice ok">✓ Конфліктів у поточних призначеннях не знайдено.</div>`}
-  <div class="grid kpis">
-    <div class="card kpi"><span>Студентів</span><strong>${db.students.length}</strong></div>
-    <div class="card kpi"><span>Проєктів</span><strong>${db.projects.length}</strong></div>
-    <div class="card kpi"><span>Задіяно студентів</span><strong>${assigned}</strong></div>
-    <div class="card kpi"><span>Подій у базі</span><strong>${db.events.length}</strong></div>
-  </div>
-  <div class="grid two">
-    <div class="card"><h2>Активні проєкти</h2><div class="project-list">${db.projects.map(p=>`
-      <div class="project-row"><div class="project-left"><span class="dot" style="background:${p.color}"></span>${projectLogoHtml(p,"project-list-logo")}<div><b>${p.name}</b><div class="muted">${eventsFor(p.id).length} дат · ${projectStudents(p.id).length} студентів</div></div></div></div>`).join("")}</div></div>
-    <div class="card"><h2>Найбільш зайняті</h2><div class="student-list">${[...db.students].sort((a,b)=>countDays(b.id)-countDays(a.id)).slice(0,8).map(s=>`
-      <div class="student-row clickable-student" data-id="${s.id}" style="cursor:pointer"><div><b>${s.name}</b><div class="muted">${s.group}</div></div><strong>${countDays(s.id)} дн.</strong></div>`).join("")}</div></div>
-  </div>`;
+
+  const todayDate=new Date();
+  todayDate.setHours(12,0,0,0);
+  const iso=d=>d.toISOString().slice(0,10);
+  const today=iso(todayDate);
+  const weekDates=Array.from({length:7},(_,i)=>{
+    const d=new Date(todayDate);
+    d.setDate(d.getDate()+i);
+    return iso(d);
+  });
+
+  const eventsOn=date=>db.events.filter(e=>e.date===date).map(e=>({
+    event:e,
+    project:pBy(e.projectId),
+    students:studentsForEvent(e)
+  })).filter(x=>x.project);
+
+  const todayEvents=eventsOn(today);
+  const todayBusyIds=new Set(todayEvents.flatMap(x=>x.students.map(s=>s.id)));
+  const todayFree=Math.max(0,db.students.length-todayBusyIds.size);
+
+  const ukFull=new Intl.DateTimeFormat("uk-UA",{weekday:"long",day:"numeric",month:"long"});
+  const ukShort=new Intl.DateTimeFormat("uk-UA",{weekday:"short"});
+
+  app.innerHTML=`
+    <div class="today-panel">
+      <div class="today-hero">
+        <div class="today-hero-top">
+          <div>
+            <h2>Сьогодні · ${ukFull.format(todayDate)}</h2>
+            <div class="muted">${todayEvents.length?`${todayEvents.length} подій`:"Подій немає"}</div>
+          </div>
+          <div class="today-stats">
+            <span class="today-stat">Зайнято: <b>${todayBusyIds.size}</b></span>
+            <span class="today-stat">Вільно: <b>${todayFree}</b></span>
+          </div>
+        </div>
+
+        <div class="today-events">
+          ${todayEvents.map(x=>`<div class="today-event">
+            <span class="dot" style="background:${x.project.color}"></span>
+            <div>
+              <b>${esc(x.project.name)}</b>
+              <small>${esc(x.event.type)} · ${x.students.length} студентів</small>
+            </div>
+            <span class="chip" style="background:${x.project.color}">${shortType(x.event.type)}</span>
+          </div>`).join("")||'<div class="muted" style="margin-top:8px">Сьогодні можна спокійно планувати інші справи — у базі подій немає.</div>'}
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-top:0">Найближчі 7 днів</h2>
+        <div class="week-strip">
+          ${weekDates.map(date=>{
+            const dt=new Date(date+"T12:00:00");
+            const evs=eventsOn(date);
+            const busyIds=new Set(evs.flatMap(x=>x.students.map(s=>s.id)));
+            const free=Math.max(0,db.students.length-busyIds.size);
+            return `<div class="week-day-card ${date===today?"today":""}" data-date="${date}">
+              <div class="week-day-head">
+                <div>
+                  <div class="week-day-name">${ukShort.format(dt)}</div>
+                  <div class="week-day-num">${dt.getDate()}</div>
+                </div>
+                <div class="week-day-count">${evs.length} подій</div>
+              </div>
+              <div class="week-event-list">
+                ${evs.slice(0,3).map(x=>`<div class="week-event-pill" style="background:${x.project.color}" title="${esc(x.project.name)} · ${esc(x.event.type)}">${esc(x.project.name)} · ${shortType(x.event.type)}</div>`).join("")}
+                ${evs.length>3?`<div class="week-day-count">+ ще ${evs.length-3}</div>`:""}
+              </div>
+              <div class="week-free">${free} вільних</div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>
+
+    ${conflicts?`<div class="notice warn">⚠️ Знайдено конфліктів: <b>${conflicts}</b>. Відкрийте календар — вони підсвічені червоним.</div>`:`<div class="notice ok">✓ Конфліктів у поточних призначеннях не знайдено.</div>`}
+
+    <div class="grid kpis">
+      <div class="card kpi"><span>Студентів</span><strong>${db.students.length}</strong></div>
+      <div class="card kpi"><span>Проєктів</span><strong>${db.projects.length}</strong></div>
+      <div class="card kpi"><span>Задіяно студентів</span><strong>${assigned}</strong></div>
+      <div class="card kpi"><span>Подій у базі</span><strong>${db.events.length}</strong></div>
+    </div>
+
+    <div class="grid two">
+      <div class="card"><h2>Активні проєкти</h2><div class="project-list">${db.projects.map(p=>`
+        <div class="project-row"><div class="project-left"><span class="dot" style="background:${p.color}"></span>${projectLogoHtml(p,"project-list-logo")}<div><b>${p.name}</b><div class="muted">${eventsFor(p.id).length} дат · ${projectStudents(p.id).length} студентів</div></div></div></div>`).join("")}</div></div>
+      <div class="card"><h2>Найбільш зайняті</h2><div class="student-list">${[...db.students].sort((a,b)=>countDays(b.id)-countDays(a.id)).slice(0,8).map(s=>`
+        <div class="student-row clickable-student" data-id="${s.id}" style="cursor:pointer"><div><b>${s.name}</b><div class="muted">${s.group}</div></div><strong>${countDays(s.id)} дн.</strong></div>`).join("")}</div></div>
+    </div>`;
+
   $$(".clickable-student").forEach(x=>x.onclick=()=>openStudent(+x.dataset.id));
+  $$(".week-day-card").forEach(x=>x.onclick=()=>showDay(x.dataset.date));
 }
 function students(){
   app.innerHTML=`<div class="toolbar"><input id="studentSearch" placeholder="Пошук студента..."><select id="studentProjectFilter"><option value="">Усі проєкти</option>${db.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join("")}</select></div><div class="students-grid" id="studentsGrid"></div>`;
@@ -1456,6 +1537,32 @@ function ensureAuthStyles(){
     .event-assignment-box b{display:block;margin-bottom:8px}
     .event-assignment-grid{display:flex;flex-wrap:wrap;gap:6px}
     .event-assignment-note{font-size:11px;color:#6b7280;margin-top:7px}
+
+    .today-panel{display:grid;gap:14px;margin-bottom:18px}
+    .today-hero{background:linear-gradient(135deg,#111827,#232936);color:#fff;border-radius:18px;padding:18px}
+    .today-hero-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+    .today-hero h2{margin:0;font-size:20px}
+    .today-hero .muted{color:#c7cbd3}
+    .today-stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .today-stat{background:#ffffff14;border:1px solid #ffffff1f;border-radius:999px;padding:6px 9px;font-size:11px}
+    .today-events{display:grid;gap:8px;margin-top:14px}
+    .today-event{display:grid;grid-template-columns:10px 1fr auto;gap:10px;align-items:center;background:#ffffff0d;border:1px solid #ffffff12;border-radius:12px;padding:10px}
+    .today-event .dot{width:10px;height:10px}
+    .today-event b{font-size:13px}
+    .today-event small{display:block;color:#c7cbd3;margin-top:2px}
+    .week-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+    .week-day-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:10px;min-height:130px;cursor:pointer}
+    .week-day-card:hover{box-shadow:0 8px 22px #11182710}
+    .week-day-card.today{box-shadow:inset 0 0 0 2px #111827}
+    .week-day-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+    .week-day-name{font-size:11px;color:#6b7280;text-transform:capitalize}
+    .week-day-num{font-size:18px;font-weight:800}
+    .week-day-count{font-size:10px;color:#6b7280}
+    .week-event-list{display:grid;gap:4px}
+    .week-event-pill{font-size:9px;color:#fff;border-radius:6px;padding:4px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .week-free{font-size:10px;color:#047857;margin-top:6px;font-weight:700}
+    @media(max-width:1000px){.week-strip{grid-template-columns:repeat(4,1fr)}}
+    @media(max-width:650px){.week-strip{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:520px){
       .profile-hero-title{display:block}
       .profile-photo{width:96px;height:120px;margin-bottom:12px}
@@ -1682,14 +1789,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.8 · Firebase не налаштовано");
+    setStatus("v1.4 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.3.8 · завантаження хмари…");
+    setStatus("v1.4 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1711,7 +1818,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.3.8 · хмара ✓");
+    setStatus("v1.4 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -1743,19 +1850,19 @@ async function initCloud(){
 
       currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
       refreshCurrentView();
-      setStatus("v1.3.8 · хмара ✓");
+      setStatus("v1.4 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.3.8 · хмара недоступна");
+      setStatus("v1.4 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.3.8 · хмара недоступна");
+    setStatus("v1.4 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1766,7 +1873,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.8 · Firebase не налаштовано");
+    setStatus("v1.4 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1782,19 +1889,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.3.8 · вхід ✓");
+        setStatus("v1.4 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.3.8 · потрібен вхід");
+        setStatus("v1.4 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.3.8 · помилка авторизації");
+    setStatus("v1.4 · помилка авторизації");
     showLogin();
   }
 }
