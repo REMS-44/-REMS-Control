@@ -28,12 +28,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.0 · немає з’єднання");
+    setStatus("v1.1.1 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.0 · збереження…");
+    setStatus("v1.1.1 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +41,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.0 · хмара ✓");
+    setStatus("v1.1.1 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.0 · помилка хмари");
+    setStatus("v1.1.1 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -641,19 +641,7 @@ function schedule(){
     </div>
     <div id="scheduleKpis" class="schedule-kpis"></div>
     <div id="scheduleRecommended"></div>
-    <div class="schedule-table-wrap">
-      <table class="schedule-table">
-        <thead><tr>
-          <th>Дата</th>
-          <th>День</th>
-          <th>Вільні</th>
-          <th>Зайняті</th>
-          <th>Оцінка</th>
-          <th>Що заважає</th>
-        </tr></thead>
-        <tbody id="scheduleRows"></tbody>
-      </table>
-    </div>`;
+    <div id="scheduleCalendar"></div>`;
 
   const render=()=>{
     const ranges={
@@ -664,72 +652,116 @@ function schedule(){
     const [start,end]=ranges[$("#schPeriod").value];
     const weekday=$("#schWeekday").value;
     const minFree=+$("#schMinFree").value;
-    const dates=datesBetween(start,end).filter(d=>{
-      const day=new Date(d+"T12:00:00").getDay();
-      if(day===0||day===6) return false;
-      return !weekday || String(day)===weekday;
-    });
 
-    const rows=dates.map(date=>{
+    const allDates=datesBetween(start,end);
+    const stats={};
+
+    allDates.forEach(date=>{
       const busyIds=new Set();
       const reasons={};
+
       db.events.filter(e=>e.date===date).forEach(e=>{
         const p=pBy(e.projectId);
         if(!p) return;
         const assigned=projectStudents(p.id);
         assigned.forEach(s=>busyIds.add(s.id));
-        if(assigned.length){
-          reasons[p.name]=(reasons[p.name]||0)+assigned.length;
-        }
+        if(assigned.length) reasons[p.name]=(reasons[p.name]||0)+assigned.length;
       });
 
       const busy=busyIds.size;
       const free=Math.max(0,db.students.length-busy);
-      let cls="score-best", label="ІДЕАЛЬНО";
-      if(busy>=10){cls="score-hard";label="СКЛАДНО";}
-      else if(busy>=5){cls="score-good";label="МОЖНА";}
-      const reasonText=Object.entries(reasons)
-        .sort((a,b)=>b[1]-a[1])
-        .map(([name,count])=>`${name} (${count})`)
-        .join(", ") || "—";
-      return {date,busy,free,cls,label,reasonText};
-    }).filter(r=>r.free>=minFree);
+      let cls="schedule-score-best",label="ІДЕАЛЬНО",dayClass="best";
+      if(busy>=10){cls="schedule-score-hard";label="СКЛАДНО";dayClass="hard";}
+      else if(busy>=5){cls="schedule-score-good";label="МОЖНА";dayClass="";}
 
-    const best=[...rows].sort((a,b)=>b.free-a.free||a.date.localeCompare(b.date)).slice(0,5);
-    const avgFree=rows.length ? Math.round(rows.reduce((s,r)=>s+r.free,0)/rows.length) : 0;
-    const perfect=rows.filter(r=>r.busy<=4).length;
-    const hard=rows.filter(r=>r.busy>=10).length;
+      stats[date]={busy,free,reasons,cls,label,dayClass};
+    });
+
+    const filtered=allDates.filter(date=>{
+      const day=new Date(date+"T12:00:00").getDay();
+      if(day===0||day===6) return false;
+      if(weekday && String(day)!==weekday) return false;
+      return stats[date].free>=minFree;
+    });
+
+    const avgFree=filtered.length ? Math.round(filtered.reduce((s,d)=>s+stats[d].free,0)/filtered.length) : 0;
+    const perfect=filtered.filter(d=>stats[d].busy<=4).length;
+    const hard=filtered.filter(d=>stats[d].busy>=10).length;
 
     $("#scheduleKpis").innerHTML=`
-      <div class="schedule-kpi"><span>Днів у вибірці</span><strong>${rows.length}</strong></div>
+      <div class="schedule-kpi"><span>Днів у вибірці</span><strong>${filtered.length}</strong></div>
       <div class="schedule-kpi"><span>Середньо вільних</span><strong>${avgFree}</strong></div>
       <div class="schedule-kpi"><span>Ідеальних днів</span><strong>${perfect}</strong></div>
       <div class="schedule-kpi"><span>Складних днів</span><strong>${hard}</strong></div>`;
 
+    const best=[...filtered].sort((a,b)=>stats[b].free-stats[a].free||a.localeCompare(b)).slice(0,5);
     $("#scheduleRecommended").innerHTML=best.length?`
       <div class="recommended-card">
         <h2>Найкращі дні для занять</h2>
         <div class="recommended-list">
-          ${best.map(r=>`<button class="recommended-item schedule-day" data-date="${r.date}">
-            <b>${fullfmt(r.date)}</b><br><span class="schedule-note">${r.free} вільних із ${db.students.length}</span>
-          </button>`).join("")}
+          ${best.map(d=>{
+            const wd=new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long"});
+            return `<button class="recommended-item schedule-open-day" data-date="${d}">
+              <b>${fullfmt(d)}</b><br>
+              <span class="schedule-note">${wd} · ${stats[d].free} вільних із ${db.students.length}</span>
+            </button>`;
+          }).join("")}
         </div>
       </div>`:"";
 
-    $("#scheduleRows").innerHTML=rows.map(r=>{
-      const dt=new Date(r.date+"T12:00:00");
-      const weekdayName=dt.toLocaleDateString("uk-UA",{weekday:"long"});
-      return `<tr class="schedule-day" data-date="${r.date}" style="cursor:pointer">
-        <td><b>${fmt(r.date)}</b></td>
-        <td><span class="weekday-pill">${weekdayName}</span></td>
-        <td><b>${r.free}</b> / ${db.students.length}</td>
-        <td class="busy-count">${r.busy}</td>
-        <td><span class="score ${r.cls}">${r.label}</span></td>
-        <td class="schedule-note">${esc(r.reasonText)}</td>
-      </tr>`;
-    }).join("")||'<tr><td colspan="6" class="empty">Немає дат за цими фільтрами.</td></tr>';
+    const monthGroups={};
+    allDates.forEach(d=>{
+      const key=d.slice(0,7);
+      (monthGroups[key] ||= []).push(d);
+    });
 
-    $$(".schedule-day").forEach(el=>el.onclick=()=>showDay(el.dataset.date));
+    const monthNames={
+      "2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
+      "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027"
+    };
+    const weekdays=["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
+
+    $("#scheduleCalendar").innerHTML=Object.entries(monthGroups).map(([month,dates])=>{
+      const first=new Date(dates[0]+"T12:00:00");
+      const jsDay=first.getDay();
+      const mondayIndex=(jsDay+6)%7;
+      const blanks=Array.from({length:mondayIndex},()=>`<div class="schedule-day empty"></div>`).join("");
+
+      const cells=dates.map(date=>{
+        const dt=new Date(date+"T12:00:00");
+        const day=dt.getDay();
+        const st=stats[date];
+        const hiddenByFilter=(weekday && String(day)!==weekday) || st.free<minFree;
+        const projectEntries=Object.entries(st.reasons).sort((a,b)=>b[1]-a[1]).slice(0,3);
+
+        return `<div class="schedule-day ${day===0||day===6?"weekend":""} ${st.dayClass}" data-date="${date}" style="${hiddenByFilter?"opacity:.28":""}">
+          <div class="schedule-day-number">${dt.getDate()}</div>
+          <span class="schedule-score-badge ${st.cls}">${st.label}</span>
+          <div class="schedule-day-meta">
+            <div class="schedule-day-free">${st.free} вільні</div>
+            <div class="schedule-day-busy">${st.busy} зайняті</div>
+          </div>
+          <div class="schedule-day-projects">
+            ${projectEntries.map(([name,count])=>{
+              const p=db.projects.find(x=>x.name===name);
+              return `<span class="schedule-mini-project" style="background:${p?.color||"#6b7280"}">${esc(name)} ${count}</span>`;
+            }).join("")}
+          </div>
+        </div>`;
+      }).join("");
+
+      return `<section class="schedule-month">
+        <div class="schedule-month-head"><h2>${monthNames[month]||month}</h2><span>Натисни на день, щоб побачити деталі</span></div>
+        <div class="schedule-cal">
+          ${weekdays.map(w=>`<div class="schedule-cal-head">${w}</div>`).join("")}
+          ${blanks}${cells}
+        </div>
+      </section>`;
+    }).join("");
+
+    $$(".schedule-day[data-date], .schedule-open-day").forEach(el=>el.onclick=()=>{
+      if(el.dataset.date) showDay(el.dataset.date);
+    });
   };
 
   $("#schPeriod").onchange=render;
@@ -962,6 +994,31 @@ function ensureAuthStyles(){
     .project-edit-form textarea{min-height:80px;resize:vertical}
     .project-edit-form .full{grid-column:1/-1}
     .project-danger{margin-top:18px;padding-top:14px;border-top:1px solid #fee2e2}
+
+    .schedule-month{margin-bottom:18px}
+    .schedule-month-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:8px}
+    .schedule-month-head h2{margin:0;font-size:18px}
+    .schedule-month-head span{font-size:11px;color:#6b7280}
+    .schedule-cal{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:1px;background:#e5e7eb;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden}
+    .schedule-cal-head{background:#171a20;color:#fff;padding:9px 8px;text-align:center;font-size:11px;font-weight:700}
+    .schedule-day{background:#fff;min-height:118px;padding:8px;cursor:pointer;position:relative}
+    .schedule-day:hover{background:#f9fafb}
+    .schedule-day.empty{background:#f5f6f8;cursor:default}
+    .schedule-day.weekend{background:#fafafa}
+    .schedule-day-number{font-weight:800;font-size:12px;margin-bottom:7px}
+    .schedule-day-meta{display:grid;gap:5px}
+    .schedule-day-free{font-size:11px;color:#047857;font-weight:700}
+    .schedule-day-busy{font-size:10px;color:#6b7280}
+    .schedule-day-projects{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+    .schedule-mini-project{font-size:9px;color:#fff;border-radius:999px;padding:3px 5px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .schedule-score-badge{position:absolute;top:7px;right:7px;font-size:9px;font-weight:800;border-radius:999px;padding:3px 6px}
+    .schedule-score-best{background:#dcfce7;color:#166534}
+    .schedule-score-good{background:#fef3c7;color:#92400e}
+    .schedule-score-hard{background:#fee2e2;color:#991b1b}
+    .schedule-day.best{box-shadow:inset 0 0 0 2px #86efac}
+    .schedule-day.hard{box-shadow:inset 0 0 0 2px #fecaca}
+    @media(max-width:1100px){.schedule-cal{grid-template-columns:repeat(7,minmax(105px,1fr))}}
+    @media(max-width:760px){.schedule-cal{grid-template-columns:repeat(7,minmax(88px,1fr))}.schedule-day{min-height:102px;padding:6px}.schedule-day-busy{display:none}}
     @media(max-width:520px){
       .profile-hero-title{display:block}
       .profile-photo{width:96px;height:120px;margin-bottom:12px}
@@ -1053,14 +1110,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.0 · Firebase не налаштовано");
+    setStatus("v1.1.1 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.0 · завантаження хмари…");
+    setStatus("v1.1.1 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1082,7 +1139,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.0 · хмара ✓");
+    setStatus("v1.1.1 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -1102,19 +1159,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v1.0 · хмара ✓");
+      setStatus("v1.1.1 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.0 · хмара недоступна");
+      setStatus("v1.1.1 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.0 · хмара недоступна");
+    setStatus("v1.1.1 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1125,7 +1182,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.0 · Firebase не налаштовано");
+    setStatus("v1.1.1 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1141,19 +1198,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.0 · вхід ✓");
+        setStatus("v1.1.1 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.0 · потрібен вхід");
+        setStatus("v1.1.1 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.0 · помилка авторизації");
+    setStatus("v1.1.1 · помилка авторизації");
     showLogin();
   }
 }
