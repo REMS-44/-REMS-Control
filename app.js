@@ -28,12 +28,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v0.6.1 · немає з’єднання");
+    setStatus("v0.7 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v0.6.1 · збереження…");
+    setStatus("v0.7 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +41,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v0.6.1 · хмара ✓");
+    setStatus("v0.7 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v0.6.1 · помилка хмари");
+    setStatus("v0.7 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -442,6 +442,31 @@ function ensureAuthStyles(){
       .timeline-row{grid-template-columns:1fr}
       .profile-stats{grid-template-columns:repeat(3,1fr)}
     }
+
+    .students-toolbar{display:grid;grid-template-columns:minmax(220px,1.3fr) repeat(3,minmax(150px,.7fr));gap:10px;margin-bottom:16px}
+    .students-toolbar input,.students-toolbar select{border:1px solid #e5e7eb;background:#fff;border-radius:11px;padding:11px 12px;width:100%}
+    .students-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .summary-pill{background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:7px 10px;font-size:12px;color:#4b5563}
+    .students-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    .student-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;cursor:pointer;transition:.16s transform,.16s box-shadow}
+    .student-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px #11182712}
+    .student-card-top{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center;padding:14px}
+    .student-avatar{width:72px;height:90px;border-radius:12px;background:#eef0f3;display:grid;place-items:center;overflow:hidden;color:#9ca3af;font-size:24px}
+    .student-avatar img{width:100%;height:100%;object-fit:cover}
+    .student-card h3{margin:0 0 4px;font-size:15px;line-height:1.2}
+    .student-card-meta{color:#6b7280;font-size:11px}
+    .student-card-stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #eef0f3}
+    .student-card-stat{padding:10px 8px;text-align:center}
+    .student-card-stat strong{display:block;font-size:16px}
+    .student-card-stat span{font-size:10px;color:#6b7280}
+    .student-card-projects{padding:0 14px 14px}
+    .student-card-projects .chips{margin-top:0}
+    .status-free{color:#047857}
+    .status-busy{color:#92400e}
+    .status-conflict{color:#b91c1c}
+    @media(max-width:1100px){.students-grid{grid-template-columns:repeat(3,1fr)}.students-toolbar{grid-template-columns:1fr 1fr}}
+    @media(max-width:760px){.students-grid{grid-template-columns:repeat(2,1fr)}.students-toolbar{grid-template-columns:1fr}}
+    @media(max-width:520px){.students-grid{grid-template-columns:1fr}}
     @media(max-width:520px){
       .profile-hero-title{display:block}
       .profile-photo{width:96px;height:120px;margin-bottom:12px}
@@ -533,14 +558,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.6.1 · Firebase не налаштовано");
+    setStatus("v0.7 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v0.6.1 · завантаження хмари…");
+    setStatus("v0.7 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -562,7 +587,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v0.6.1 · хмара ✓");
+    setStatus("v0.7 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -582,19 +607,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v0.6.1 · хмара ✓");
+      setStatus("v0.7 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v0.6.1 · хмара недоступна");
+      setStatus("v0.7 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v0.6.1 · хмара недоступна");
+    setStatus("v0.7 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -605,7 +630,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.6.1 · Firebase не налаштовано");
+    setStatus("v0.7 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -621,19 +646,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v0.6.1 · вхід ✓");
+        setStatus("v0.7 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v0.6.1 · потрібен вхід");
+        setStatus("v0.7 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v0.6.1 · помилка авторизації");
+    setStatus("v0.7 · помилка авторизації");
     showLogin();
   }
 }
