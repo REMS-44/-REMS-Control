@@ -28,12 +28,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.1.1 · немає з’єднання");
+    setStatus("v1.2 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.1.1 · збереження…");
+    setStatus("v1.2 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +41,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.1.1 · хмара ✓");
+    setStatus("v1.2 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.1.1 · помилка хмари");
+    setStatus("v1.2 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -510,7 +510,8 @@ function calendar(){
       <select id="calPeriod">
         <option value="autumn">Вересень–листопад</option>
         <option value="winter">Грудень–лютий</option>
-        <option value="all">Осінь + зима</option>
+        <option value="spring">Березень–травень</option>
+        <option value="year">Вересень–травень</option>
       </select>
       <select id="calProject"><option value="">Усі проєкти</option>${db.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
       <input id="calStudent" placeholder="Пошук студента...">
@@ -529,7 +530,7 @@ function calendar(){
 
   const render=()=>{
     const period=$("#calPeriod").value;
-    const ranges={autumn:["2026-09-01","2026-11-30"],winter:["2026-12-01","2027-02-28"],all:["2026-09-01","2027-02-28"]};
+    const ranges={autumn:["2026-09-01","2026-11-30"],winter:["2026-12-01","2027-02-28"],spring:["2027-03-01","2027-05-31"],year:["2026-09-01","2027-05-31"]};
     const [start,end]=ranges[period];
     const dates=datesBetween(start,end);
     const pf=$("#calProject").value;
@@ -570,7 +571,8 @@ function calendar(){
 
     const monthNames={
       "2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
-      "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027"
+      "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027",
+      "2027-03":"Березень 2027","2027-04":"Квітень 2027","2027-05":"Травень 2027"
     };
 
     $("#calendarMount").innerHTML=Object.entries(monthGroups).map(([month,monthDates])=>{
@@ -622,7 +624,8 @@ function schedule(){
       <select id="schPeriod">
         <option value="autumn">Вересень–листопад</option>
         <option value="winter">Грудень–лютий</option>
-        <option value="all">Осінь + зима</option>
+        <option value="spring">Березень–травень</option>
+        <option value="year">Вересень–травень</option>
       </select>
       <select id="schWeekday">
         <option value="">Усі дні тижня</option>
@@ -647,7 +650,8 @@ function schedule(){
     const ranges={
       autumn:["2026-09-01","2026-11-30"],
       winter:["2026-12-01","2027-02-28"],
-      all:["2026-09-01","2027-02-28"]
+      spring:["2027-03-01","2027-05-31"],
+      year:["2026-09-01","2027-05-31"]
     };
     const [start,end]=ranges[$("#schPeriod").value];
     const weekday=$("#schWeekday").value;
@@ -717,7 +721,8 @@ function schedule(){
 
     const monthNames={
       "2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
-      "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027"
+      "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027",
+      "2027-03":"Березень 2027","2027-04":"Квітень 2027","2027-05":"Травень 2027"
     };
     const weekdays=["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 
@@ -1110,14 +1115,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.1.1 · Firebase не налаштовано");
+    setStatus("v1.2 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.1.1 · завантаження хмари…");
+    setStatus("v1.2 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1139,7 +1144,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.1.1 · хмара ✓");
+    setStatus("v1.2 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -1159,19 +1164,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v1.1.1 · хмара ✓");
+      setStatus("v1.2 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.1.1 · хмара недоступна");
+      setStatus("v1.2 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.1.1 · хмара недоступна");
+    setStatus("v1.2 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1182,7 +1187,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.1.1 · Firebase не налаштовано");
+    setStatus("v1.2 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1198,19 +1203,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.1.1 · вхід ✓");
+        setStatus("v1.2 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.1.1 · потрібен вхід");
+        setStatus("v1.2 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.1.1 · помилка авторизації");
+    setStatus("v1.2 · помилка авторизації");
     showLogin();
   }
 }
