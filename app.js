@@ -28,12 +28,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v0.7 · немає з’єднання");
+    setStatus("v0.8 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v0.7 · збереження…");
+    setStatus("v0.8 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +41,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v0.7 · хмара ✓");
+    setStatus("v0.8 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v0.7 · помилка хмари");
+    setStatus("v0.8 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -312,24 +312,183 @@ function datesBetween(start,end){
   for(;d<=e;d.setDate(d.getDate()+1)) a.push(d.toISOString().slice(0,10));
   return a;
 }
+
+function ensureDayDialog(){
+  let d=document.querySelector("#dayDialog");
+  if(d) return d;
+  d=document.createElement("dialog");
+  d.id="dayDialog";
+  d.className="student-dialog";
+  d.innerHTML=`<div id="dayDialogBody"></div>`;
+  document.body.appendChild(d);
+  return d;
+}
+
+function shortType(type=""){
+  const t=String(type).toLowerCase();
+  if(t.includes("реп")) return "Реп";
+  if(t.includes("зйом")) return "Зйомка";
+  if(t.includes("каст")) return "Кастинг";
+  if(t.includes("прог")) return "Прогін";
+  if(t.includes("гала")) return "Гала";
+  if(t.includes("ефір")) return "Ефір";
+  return type;
+}
+
+function showDay(date){
+  const dialog=ensureDayDialog();
+  const assignedMap=eventAssignments();
+  const dayEvents=[];
+  db.events.filter(e=>e.date===date).forEach(e=>{
+    const p=pBy(e.projectId);
+    if(!p) return;
+    const students=projectStudents(p.id);
+    dayEvents.push({event:e,project:p,students});
+  });
+
+  const occupiedIds=new Set();
+  dayEvents.forEach(x=>x.students.forEach(s=>occupiedIds.add(s.id)));
+  const freeStudents=db.students.filter(s=>!occupiedIds.has(s.id));
+  const pretty=new Date(date+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+  $("#dayDialogBody",dialog);
+  dialog.querySelector("#dayDialogBody").innerHTML=`<div class="day-panel">
+    <div class="day-panel-head">
+      <div><h2>${pretty}</h2><div class="muted">${dayEvents.length} подій · ${occupiedIds.size} зайнятих студентів · ${freeStudents.length} вільних</div></div>
+      <button class="ghost" onclick="document.querySelector('#dayDialog').close()">Закрити</button>
+    </div>
+    <div class="day-event-list">
+      ${dayEvents.map(x=>`<div class="day-event-row">
+        <span class="dot" style="background:${x.project.color}"></span>
+        <div><b>${esc(x.project.name)}</b><div class="day-event-meta">${esc(x.event.type)} · ${x.students.length} студентів</div></div>
+        <span class="chip" style="background:${x.project.color}">${shortType(x.event.type)}</span>
+      </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
+    </div>
+    <div class="availability-card">
+      <b>Вільні студенти</b>
+      <div class="availability-list">
+        ${freeStudents.map(s=>`<button class="availability-chip day-student" data-id="${s.id}">${esc(s.name.split(" ")[0])}</button>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
+      </div>
+    </div>
+  </div>`;
+
+  dialog.querySelectorAll(".day-student").forEach(b=>b.onclick=()=>{
+    dialog.close();
+    openStudent(+b.dataset.id);
+  });
+  dialog.showModal();
+}
+
 function calendar(){
-  app.innerHTML=`<div class="toolbar"><select id="calPeriod"><option value="autumn">Вересень–листопад</option><option value="winter">Грудень–лютий</option><option value="all">Осінь + зима</option></select><select id="calProject"><option value="">Усі проєкти</option>${db.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join("")}</select><input id="calStudent" placeholder="Пошук студента..."><span class="spacer"></span><span class="muted">Червона рамка = накладка</span></div><div id="calendarMount"></div>`;
+  app.innerHTML=`
+    <div class="calendar-toolbar">
+      <select id="calPeriod">
+        <option value="autumn">Вересень–листопад</option>
+        <option value="winter">Грудень–лютий</option>
+        <option value="all">Осінь + зима</option>
+      </select>
+      <select id="calProject"><option value="">Усі проєкти</option>${db.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
+      <input id="calStudent" placeholder="Пошук студента...">
+      <select id="calType">
+        <option value="">Усі типи подій</option>
+        <option value="Репетиція">Репетиція</option>
+        <option value="Зйомка">Зйомка</option>
+        <option value="Кастинг">Кастинг</option>
+        <option value="Прогін">Прогін</option>
+        <option value="Гала">Гала-концерт</option>
+      </select>
+    </div>
+    <div class="calendar-legend">${db.projects.map(p=>`<span class="legend-item"><span class="dot" style="background:${p.color}"></span>${esc(p.name)}</span>`).join("")}</div>
+    <div id="calendarSummary" class="calendar-summary"></div>
+    <div id="calendarMount"></div>`;
+
   const render=()=>{
     const period=$("#calPeriod").value;
     const ranges={autumn:["2026-09-01","2026-11-30"],winter:["2026-12-01","2027-02-28"],all:["2026-09-01","2027-02-28"]};
-    const [start,end]=ranges[period], dates=datesBetween(start,end), pf=$("#calProject").value, q=$("#calStudent").value.toLowerCase();
-    const map=eventAssignments();
+    const [start,end]=ranges[period];
+    const dates=datesBetween(start,end);
+    const pf=$("#calProject").value;
+    const q=$("#calStudent").value.toLowerCase().trim();
+    const tf=$("#calType").value.toLowerCase();
+
     const students=db.students.filter(s=>s.name.toLowerCase().includes(q)&&(!pf||assForStudent(s.id).some(a=>a.projectId===pf)));
-    $("#calendarMount").innerHTML=`<div class="calendar-wrap"><table class="calendar"><thead><tr><th class="name">Студент</th>${dates.map(d=>`<th>${fmt(d)}</th>`).join("")}</tr></thead><tbody>
-    ${students.map(s=>`<tr><td class="name"><b>${s.name}</b><div class="muted">${s.group}</div></td>${dates.map(d=>{
-      const day=new Date(d+"T12:00:00").getDay(), arr=(map[`${s.id}|${d}`]||[]).filter(p=>!pf||p.id===pf);
-      const cls=(day===0||day===6?" weekend":"")+(arr.length>1?" conflict":"");
-      if(!arr.length)return `<td class="${cls}"></td>`;
-      return `<td class="${cls}" title="${arr.map(p=>p.name).join(" + ")}">${arr.map(p=>`<div class="busy" style="background:${p.color}">${p.name}</div>`).join("")}</td>`;
-    }).join("")}</tr>`).join("")}
-    </tbody></table></div>`;
+    const rawMap=eventAssignments();
+
+    const map={};
+    Object.entries(rawMap).forEach(([key,projects])=>{
+      const [sid,date]=key.split("|");
+      const filtered=projects.filter(p=>{
+        if(pf && p.id!==pf) return false;
+        if(tf){
+          const matches=eventsFor(p.id).some(e=>e.date===date && e.type.toLowerCase().includes(tf));
+          if(!matches) return false;
+        }
+        return true;
+      });
+      if(filtered.length) map[key]=filtered;
+    });
+
+    const busyCells=Object.keys(map).length;
+    const conflicts=Object.values(map).filter(arr=>arr.length>1).length;
+    const uniqueBusyStudents=new Set(Object.keys(map).map(k=>k.split("|")[0])).size;
+    $("#calendarSummary").innerHTML=`
+      <span class="summary-pill">Студентів у вибірці: <b>${students.length}</b></span>
+      <span class="summary-pill">Зайнятих студентів: <b>${uniqueBusyStudents}</b></span>
+      <span class="summary-pill">Заповнених клітинок: <b>${busyCells}</b></span>
+      <span class="summary-pill">Конфліктів: <b>${conflicts}</b></span>`;
+
+    const monthGroups={};
+    dates.forEach(d=>{
+      const key=d.slice(0,7);
+      (monthGroups[key] ||= []).push(d);
+    });
+
+    const monthNames={
+      "2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
+      "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027"
+    };
+
+    $("#calendarMount").innerHTML=Object.entries(monthGroups).map(([month,monthDates])=>{
+      const monthEventDates=new Set(db.events.filter(e=>e.date.startsWith(month)).map(e=>e.date)).size;
+      return `<section class="calendar-month">
+        <div class="calendar-month-title"><h2>${monthNames[month]||month}</h2><span>${monthEventDates} дат із подіями</span></div>
+        <div class="calendar-wrap"><table class="calendar"><thead><tr>
+          <th class="name">Студент</th>
+          ${monthDates.map(d=>{
+            const dt=new Date(d+"T12:00:00");
+            const dow=dt.toLocaleDateString("uk-UA",{weekday:"short"});
+            const day=dt.getDate();
+            const today=new Date().toISOString().slice(0,10)===d?" today-head":"";
+            return `<th class="${today}">${dow}<br>${day}</th>`;
+          }).join("")}
+        </tr></thead><tbody>
+        ${students.map(s=>`<tr><td class="name"><b>${esc(s.name)}</b><div class="muted">${esc(s.group||"")}</div></td>
+          ${monthDates.map(d=>{
+            const day=new Date(d+"T12:00:00").getDay();
+            const arr=map[`${s.id}|${d}`]||[];
+            const cls=(day===0||day===6?" weekend":"")+(arr.length>1?" conflict":"");
+            if(!arr.length) return `<td class="day-cell${cls}" data-date="${d}"></td>`;
+
+            return `<td class="day-cell${cls}" data-date="${d}" title="${arr.map(p=>p.name).join(" + ")}">
+              ${arr.map(p=>{
+                const ev=eventsFor(p.id).find(e=>e.date===d);
+                return `<div class="busy" style="background:${p.color}">${esc(p.name)}${ev?` · ${shortType(ev.type)}`:""}</div>`;
+              }).join("")}
+            </td>`;
+          }).join("")}
+        </tr>`).join("")}
+        </tbody></table></div>
+      </section>`;
+    }).join("");
+
+    $$(".day-cell").forEach(td=>td.onclick=()=>showDay(td.dataset.date));
   };
-  $("#calPeriod").onchange=render; $("#calProject").onchange=render; $("#calStudent").oninput=render; render();
+
+  $("#calPeriod").onchange=render;
+  $("#calProject").onchange=render;
+  $("#calStudent").oninput=render;
+  $("#calType").onchange=render;
+  render();
 }
 const views={dashboard,students,projects,calendar};
 $$(".nav").forEach(b=>b.onclick=()=>switchView(b.dataset.view,b.querySelector("span")?.textContent||b.textContent.trim()));
@@ -467,6 +626,42 @@ function ensureAuthStyles(){
     @media(max-width:1100px){.students-grid{grid-template-columns:repeat(3,1fr)}.students-toolbar{grid-template-columns:1fr 1fr}}
     @media(max-width:760px){.students-grid{grid-template-columns:repeat(2,1fr)}.students-toolbar{grid-template-columns:1fr}}
     @media(max-width:520px){.students-grid{grid-template-columns:1fr}}
+
+    .calendar-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+    .calendar-toolbar select,.calendar-toolbar input{border:1px solid #e5e7eb;background:#fff;border-radius:10px;padding:10px 11px}
+    .calendar-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .legend-item{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:6px 9px;font-size:11px}
+    .calendar-month{margin-bottom:18px}
+    .calendar-month-title{display:flex;justify-content:space-between;align-items:end;margin:0 0 8px}
+    .calendar-month-title h2{margin:0;font-size:18px}
+    .calendar-month-title span{font-size:11px;color:#6b7280}
+    .calendar-wrap{overflow:auto;background:#fff;border:1px solid #e5e7eb;border-radius:14px;max-height:72vh}
+    .calendar{border-collapse:separate;border-spacing:0;font-size:11px;min-width:max-content}
+    .calendar th,.calendar td{border-right:1px solid #eee;border-bottom:1px solid #eee;padding:5px;text-align:center;min-width:44px;height:36px}
+    .calendar th{position:sticky;top:0;background:#171a20;color:#fff;z-index:2}
+    .calendar th.name,.calendar td.name{position:sticky;left:0;min-width:230px;text-align:left;z-index:3}
+    .calendar td.name{background:#fff}
+    .calendar th.name{z-index:4}
+    .calendar .today-head{background:#374151}
+    .calendar td.day-cell{cursor:pointer;vertical-align:top}
+    .calendar td.day-cell:hover{background:#f8fafc}
+    .calendar .weekend{background:#fafafa}
+    .calendar .conflict{outline:3px solid #ef4444;outline-offset:-3px}
+    .busy{color:#fff;font-weight:700;border-radius:5px;padding:4px 5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:96px;margin:1px auto;font-size:10px}
+    .event-type-dot{font-size:9px;opacity:.9}
+    .calendar-summary{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+    .calendar-summary .summary-pill{background:#fff}
+    .day-panel{padding:20px}
+    .day-panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px}
+    .day-panel h2{margin:0}
+    .day-event-list{display:grid;gap:9px}
+    .day-event-row{display:grid;grid-template-columns:18px 1fr auto;gap:10px;align-items:center;border:1px solid #e5e7eb;border-radius:12px;padding:10px 11px}
+    .day-event-row .dot{width:10px;height:10px}
+    .day-event-meta{font-size:12px;color:#6b7280;margin-top:2px}
+    .availability-card{margin-top:14px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:12px}
+    .availability-card b{display:block;margin-bottom:6px}
+    .availability-list{display:flex;flex-wrap:wrap;gap:6px}
+    .availability-chip{font-size:11px;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:5px 8px}
     @media(max-width:520px){
       .profile-hero-title{display:block}
       .profile-photo{width:96px;height:120px;margin-bottom:12px}
@@ -558,14 +753,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.7 · Firebase не налаштовано");
+    setStatus("v0.8 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v0.7 · завантаження хмари…");
+    setStatus("v0.8 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -587,7 +782,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v0.7 · хмара ✓");
+    setStatus("v0.8 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -607,19 +802,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v0.7 · хмара ✓");
+      setStatus("v0.8 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v0.7 · хмара недоступна");
+      setStatus("v0.8 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v0.7 · хмара недоступна");
+    setStatus("v0.8 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -630,7 +825,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.7 · Firebase не налаштовано");
+    setStatus("v0.8 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -646,19 +841,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v0.7 · вхід ✓");
+        setStatus("v0.8 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v0.7 · потрібен вхід");
+        setStatus("v0.8 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v0.7 · помилка авторизації");
+    setStatus("v0.8 · помилка авторизації");
     showLogin();
   }
 }
