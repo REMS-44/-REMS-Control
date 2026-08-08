@@ -1,25 +1,47 @@
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
-const KEY="rems-control-v03-cache";
+const KEY="rems-control-v031-cache";
 const OLDKEY="rems-control-v02";
 const OLDERKEY="rems-control-v01";
 const CLOUD_DOC="main";
 const clone=x=>JSON.parse(JSON.stringify(x));
 let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||localStorage.getItem(OLDERKEY)||"null")||clone(window.REMS_SEED);
-let cloudDb=null, cloudReady=false, applyingRemote=false;
+let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false;
 const statusEl=()=>document.querySelector("#cloudStatus");
 const setStatus=(text)=>{ if(statusEl()) statusEl().textContent=text; };
 const cache=()=>localStorage.setItem(KEY,JSON.stringify(db));
+
+const setWriteUiReady=(ready)=>{
+  const btn=document.querySelector("#quickAdd");
+  if(btn){
+    btn.disabled=!ready;
+    btn.title=ready ? "" : "Зачекайте, поки завантажиться хмарна база";
+    btn.style.opacity=ready ? "1" : ".55";
+  }
+};
+
 const save=async()=>{
   cache();
-  if(!cloudReady||!cloudDb||applyingRemote) return;
+  if(applyingRemote) return true;
+  if(!cloudReady||!cloudDb){
+    setStatus("v0.3.1 · немає з’єднання");
+    return false;
+  }
   try{
-    setStatus("v0.3 · збереження…");
-    await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{...clone(db),updatedAt:new Date().toISOString()});
-    setStatus("v0.3 · хмара ✓");
-  }catch(err){ console.error(err); setStatus("v0.3 · помилка хмари"); }
+    setStatus("v0.3.1 · збереження…");
+    await setDoc(
+      doc(cloudDb,"rems_control",CLOUD_DOC),
+      {...clone(db),updatedAt:new Date().toISOString()},
+      {merge:false}
+    );
+    setStatus("v0.3.1 · хмара ✓");
+    return true;
+  }catch(err){
+    console.error(err);
+    setStatus("v0.3.1 · помилка хмари");
+    return false;
+  }
 };
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const app=$("#app");
@@ -106,11 +128,11 @@ function projects(){
       <div class="assign"><b>Призначити студентів</b><div class="muted">Натискання одразу додає або знімає студента з усього проєкту.</div><div class="assign-grid">${db.students.map(s=>`<button class="person-toggle ${assigned.includes(s.id)?"on":""}" data-project="${p.id}" data-student="${s.id}" title="${s.name}">${s.name.split(" ")[0]}</button>`).join("")}</div></div>
     </div>`;
   }).join("")||'<div class="empty">Проєктів ще немає.</div>';
-  $$(".person-toggle").forEach(b=>b.onclick=()=>{
+  $$(".person-toggle").forEach(b=>b.onclick=async()=>{
     const pid=b.dataset.project, sid=+b.dataset.student;
     const i=db.assignments.findIndex(a=>a.projectId===pid&&a.studentId===sid);
     if(i>=0) db.assignments.splice(i,1); else db.assignments.push({projectId:pid,studentId:sid});
-    save(); projects();
+    await save(); projects();
   });
   $$(".add-event").forEach(b=>b.onclick=()=>{ $("#eventProjectId").value=b.dataset.id; $("#eventDialog").showModal(); });
 }
@@ -140,18 +162,29 @@ function calendar(){
 }
 const views={dashboard,students,projects,calendar};
 $$(".nav").forEach(b=>b.onclick=()=>switchView(b.dataset.view,b.querySelector("span")?.textContent||b.textContent.trim()));
-$("#quickAdd").onclick=()=>$("#projectDialog").showModal();
-$("#saveProject").onclick=e=>{
+$("#quickAdd").onclick=()=>{
+  if(!cloudReady){
+    alert("Зачекайте кілька секунд: REMS Control ще завантажує хмарну базу.");
+    return;
+  }
+  $("#projectDialog").showModal();
+};
+$("#saveProject").onclick=async e=>{
   e.preventDefault();
   const name=$("#projectName").value.trim(); if(!name)return;
   db.projects.push({id:"p_"+Date.now(),name,color:$("#projectColor").value,emoji:$("#projectEmoji").value||"◆"});
-  save(); $("#projectDialog").close(); $("#projectForm").reset(); switchView("projects","Проєкти");
+  const ok=await save();
+  $("#projectDialog").close(); $("#projectForm").reset(); switchView("projects","Проєкти");
+  if(!ok) alert("Проєкт залишився тільки на цьому пристрої. Перевірте з’єднання з Firebase.");
 };
-$("#saveEvent").onclick=e=>{
+$("#saveEvent").onclick=async e=>{
   e.preventDefault();
   const projectId=$("#eventProjectId").value,date=$("#eventDate").value,type=$("#eventType").value.trim();
   if(!date||!type)return;
-  db.events.push({projectId,date,type}); save(); $("#eventDialog").close(); $("#eventForm").reset(); projects();
+  db.events.push({projectId,date,type});
+  const ok=await save();
+  $("#eventDialog").close(); $("#eventForm").reset(); projects();
+  if(!ok) alert("Дата залишилась тільки на цьому пристрої. Перевірте з’єднання з Firebase.");
 };
 $("#backupBtn").onclick=()=>{
   const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
@@ -164,33 +197,79 @@ $("#restoreInput").onchange=async e=>{
   e.target.value="";
 };
 async function initCloud(){
+  if(cloudInitializing) return;
+  cloudInitializing=true;
+  setWriteUiReady(false);
+
   const cfg=window.REMS_FIREBASE_CONFIG;
-  if(!cfg){ setStatus("v0.3 · локально"); dashboard(); return; }
+  if(!cfg){
+    setStatus("v0.3.1 · Firebase не налаштовано");
+    dashboard();
+    cloudInitializing=false;
+    return;
+  }
+
   try{
+    setStatus("v0.3.1 · завантаження хмари…");
     const firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
     const snap=await getDoc(ref);
+
     if(snap.exists()){
       const remote=snap.data();
-      db={students:remote.students||[],projects:remote.projects||[],events:remote.events||[],assignments:remote.assignments||[],settings:remote.settings||{}};
+      db={
+        students:remote.students||[],
+        projects:remote.projects||[],
+        events:remote.events||[],
+        assignments:remote.assignments||[],
+        settings:remote.settings||{}
+      };
       cache();
     }else{
-      await setDoc(ref,{...clone(db),updatedAt:new Date().toISOString()});
+      await setDoc(ref,{...clone(db),updatedAt:new Date().toISOString()},{merge:false});
     }
-    cloudReady=true; setStatus("v0.3 · хмара ✓"); dashboard();
+
+    cloudReady=true;
+    setWriteUiReady(true);
+    setStatus("v0.3.1 · хмара ✓");
+    dashboard();
+
     onSnapshot(ref,s=>{
       if(!s.exists()) return;
       const remote=s.data();
       applyingRemote=true;
-      db={students:remote.students||[],projects:remote.projects||[],events:remote.events||[],assignments:remote.assignments||[],settings:remote.settings||{}};
-      cache(); applyingRemote=false;
+      db={
+        students:remote.students||[],
+        projects:remote.projects||[],
+        events:remote.events||[],
+        assignments:remote.assignments||[],
+        settings:remote.settings||{}
+      };
+      cache();
+      applyingRemote=false;
+
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-    },err=>{ console.error(err); setStatus("v0.3 · офлайн-кеш"); });
+      setStatus("v0.3.1 · хмара ✓");
+    },err=>{
+      console.error(err);
+      cloudReady=false;
+      setWriteUiReady(false);
+      setStatus("v0.3.1 · хмара недоступна");
+    });
+
   }catch(err){
-    console.error(err); setStatus("v0.3 · офлайн-кеш"); dashboard();
+    console.error(err);
+    cloudReady=false;
+    setWriteUiReady(false);
+    setStatus("v0.3.1 · хмара недоступна");
+    dashboard();
+  }finally{
+    cloudInitializing=false;
   }
 }
 
+window.addEventListener("online",()=>{ if(!cloudReady) initCloud(); });
+setWriteUiReady(false);
 initCloud();
