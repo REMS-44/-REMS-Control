@@ -43,12 +43,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.3.5 · немає з’єднання");
+    setStatus("v1.3.6 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.3.5 · збереження…");
+    setStatus("v1.3.6 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -56,11 +56,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.3.5 · хмара ✓");
+    setStatus("v1.3.6 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.3.5 · помилка хмари");
+    setStatus("v1.3.6 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -553,6 +553,11 @@ function openProjectCard(id){
     $("#eventDialog").showModal();
   };
 
+  dialog.querySelectorAll(".edit-event-btn").forEach(b=>b.onclick=()=>{
+    const ev=eventsFor(id)[+b.dataset.index];
+    editProjectEvent(id,ev);
+  });
+
   dialog.querySelectorAll(".event-people-btn").forEach(b=>b.onclick=()=>{
     const ev=eventsFor(id)[+b.dataset.index];
     editEventPeople(id,ev);
@@ -696,6 +701,79 @@ function eventKey(e){
 function studentsForEvent(e){
   if(Array.isArray(e.studentIds)) return db.students.filter(s=>e.studentIds.includes(s.id));
   return projectStudents(e.projectId);
+}
+
+
+function ensureEventEditDialog(){
+  let d=document.querySelector("#eventEditDialog");
+  if(d) return d;
+  d=document.createElement("dialog");
+  d.id="eventEditDialog";
+  d.className="student-dialog";
+  d.innerHTML=`<div id="eventEditBody"></div>`;
+  document.body.appendChild(d);
+  return d;
+}
+
+function editProjectEvent(projectId,ev){
+  const p=pBy(projectId); if(!p) return;
+  const dialog=ensureEventEditDialog();
+  const original={date:ev.date,type:ev.type};
+
+  dialog.querySelector("#eventEditBody").innerHTML=`<div class="project-body">
+    <div class="project-section-head">
+      <div>
+        <h2 style="margin:0">Редагувати подію</h2>
+        <div class="muted">${esc(p.name)}</div>
+      </div>
+      <button class="ghost" onclick="document.querySelector('#eventEditDialog').close()">Закрити</button>
+    </div>
+
+    <form id="eventEditForm" class="project-edit-form">
+      <label>Дата
+        <input id="editEventDate" type="date" value="${esc(ev.date||"")}" required>
+      </label>
+      <label>Що відбувається
+        <input id="editEventType" value="${esc(ev.type||"")}" placeholder="Репетиція / Зйомка / Фінал..." required>
+      </label>
+      <div class="full profile-actions">
+        <button type="button" class="ghost" onclick="document.querySelector('#eventEditDialog').close()">Скасувати</button>
+        <button type="submit" class="primary">Зберегти</button>
+      </div>
+    </form>
+  </div>`;
+
+  dialog.querySelector("#eventEditForm").onsubmit=async e=>{
+    e.preventDefault();
+    const newDate=dialog.querySelector("#editEventDate").value;
+    const newType=dialog.querySelector("#editEventType").value.trim();
+    if(!newDate||!newType) return;
+
+    const target=db.events.find(x=>
+      x.projectId===projectId &&
+      x.date===original.date &&
+      x.type===original.type
+    );
+    if(!target){
+      alert("Не вдалося знайти цю подію в базі.");
+      return;
+    }
+
+    target.date=newDate;
+    target.type=newType;
+    db.events.sort((a,b)=>a.date.localeCompare(b.date));
+
+    const ok=await save();
+    if(!ok){
+      alert("Не вдалося зберегти зміни в хмарі.");
+      return;
+    }
+
+    dialog.close();
+    openProjectCard(projectId);
+  };
+
+  dialog.showModal();
 }
 
 function ensureProjectCardDialog(){
@@ -1559,14 +1637,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.5 · Firebase не налаштовано");
+    setStatus("v1.3.6 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.3.5 · завантаження хмари…");
+    setStatus("v1.3.6 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1588,7 +1666,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.3.5 · хмара ✓");
+    setStatus("v1.3.6 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -1619,19 +1697,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v1.3.5 · хмара ✓");
+      setStatus("v1.3.6 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.3.5 · хмара недоступна");
+      setStatus("v1.3.6 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.3.5 · хмара недоступна");
+    setStatus("v1.3.6 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1642,7 +1720,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.5 · Firebase не налаштовано");
+    setStatus("v1.3.6 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1658,19 +1736,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.3.5 · вхід ✓");
+        setStatus("v1.3.6 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.3.5 · потрібен вхід");
+        setStatus("v1.3.6 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.3.5 · помилка авторизації");
+    setStatus("v1.3.6 · помилка авторизації");
     showLogin();
   }
 }
