@@ -1,9 +1,26 @@
 
-const KEY="rems-control-v02";
-const OLDKEY="rems-control-v01";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+const KEY="rems-control-v03-cache";
+const OLDKEY="rems-control-v02";
+const OLDERKEY="rems-control-v01";
+const CLOUD_DOC="main";
 const clone=x=>JSON.parse(JSON.stringify(x));
-let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||"null")||clone(window.REMS_SEED);
-const save=()=>localStorage.setItem(KEY,JSON.stringify(db));
+let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||localStorage.getItem(OLDERKEY)||"null")||clone(window.REMS_SEED);
+let cloudDb=null, cloudReady=false, applyingRemote=false;
+const statusEl=()=>document.querySelector("#cloudStatus");
+const setStatus=(text)=>{ if(statusEl()) statusEl().textContent=text; };
+const cache=()=>localStorage.setItem(KEY,JSON.stringify(db));
+const save=async()=>{
+  cache();
+  if(!cloudReady||!cloudDb||applyingRemote) return;
+  try{
+    setStatus("v0.3 · збереження…");
+    await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{...clone(db),updatedAt:new Date().toISOString()});
+    setStatus("v0.3 · хмара ✓");
+  }catch(err){ console.error(err); setStatus("v0.3 · помилка хмари"); }
+};
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const app=$("#app");
 const fmt=d=>new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit"});
@@ -146,4 +163,34 @@ $("#restoreInput").onchange=async e=>{
   catch{alert("Не вдалося прочитати файл резервної копії.");}
   e.target.value="";
 };
-dashboard();
+async function initCloud(){
+  const cfg=window.REMS_FIREBASE_CONFIG;
+  if(!cfg){ setStatus("v0.3 · локально"); dashboard(); return; }
+  try{
+    const firebaseApp=initializeApp(cfg);
+    cloudDb=getFirestore(firebaseApp);
+    const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
+    const snap=await getDoc(ref);
+    if(snap.exists()){
+      const remote=snap.data();
+      db={students:remote.students||[],projects:remote.projects||[],events:remote.events||[],assignments:remote.assignments||[],settings:remote.settings||{}};
+      cache();
+    }else{
+      await setDoc(ref,{...clone(db),updatedAt:new Date().toISOString()});
+    }
+    cloudReady=true; setStatus("v0.3 · хмара ✓"); dashboard();
+    onSnapshot(ref,s=>{
+      if(!s.exists()) return;
+      const remote=s.data();
+      applyingRemote=true;
+      db={students:remote.students||[],projects:remote.projects||[],events:remote.events||[],assignments:remote.assignments||[],settings:remote.settings||{}};
+      cache(); applyingRemote=false;
+      const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
+      views[active]();
+    },err=>{ console.error(err); setStatus("v0.3 · офлайн-кеш"); });
+  }catch(err){
+    console.error(err); setStatus("v0.3 · офлайн-кеш"); dashboard();
+  }
+}
+
+initCloud();
