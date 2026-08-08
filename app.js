@@ -27,6 +27,7 @@ let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||local
 let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false, cloudWriting=false;
 let firebaseApp=null, auth=null, currentUser=null;
 const projectUiState={};
+let currentView="dashboard";
 const statusEl=()=>document.querySelector("#cloudStatus");
 const setStatus=(text)=>{ if(statusEl()) statusEl().textContent=text; };
 const cache=()=>localStorage.setItem(KEY,JSON.stringify(db));
@@ -44,12 +45,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.3.7 · немає з’єднання");
+    setStatus("v1.3.8 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.3.7 · збереження…");
+    setStatus("v1.3.8 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -57,11 +58,14 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.3.7 · хмара ✓");
+    setStatus("v1.3.8 · хмара ✓");
+    // Every derived screen must immediately reflect the edited cloud data.
+    // This updates Dashboard / Projects / Calendar / Schedule behind any open dialog.
+    refreshCurrentView();
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.3.7 · помилка хмари");
+    setStatus("v1.3.8 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -89,15 +93,25 @@ const projectLogoHtml=(p,cls="project-logo-img")=>{
 const sBy=id=>db.students.find(s=>s.id===id);
 const eventsFor=id=>db.events.filter(e=>e.projectId===id).sort((a,b)=>a.date.localeCompare(b.date));
 const assForStudent=id=>db.assignments.filter(a=>a.studentId===id);
-const studentProjects=id=>assForStudent(id).map(a=>pBy(a.projectId)).filter(Boolean);
+const studentProjects=id=>{
+  const ids=new Set(assForStudent(id).map(a=>a.projectId));
+  db.events.forEach(e=>{
+    if(studentsForEvent(e).some(s=>s.id===id)) ids.add(e.projectId);
+  });
+  return [...ids].map(pBy).filter(Boolean);
+};
 const projectStudents=id=>db.assignments.filter(a=>a.projectId===id).map(a=>sBy(a.studentId)).filter(Boolean);
-const countDays=id=>new Set(studentProjects(id).flatMap(p=>eventsFor(p.id).map(e=>e.date))).size;
+const countDays=id=>new Set(
+  db.events.filter(e=>studentsForEvent(e).some(s=>s.id===id)).map(e=>e.date)
+).size;
 const eventAssignments=()=>{
   const map={};
-  db.assignments.forEach(a=>{
-    eventsFor(a.projectId).forEach(e=>{
-      const k=`${a.studentId}|${e.date}`;
-      (map[k] ||= []).push(pBy(a.projectId));
+  db.events.forEach(e=>{
+    const p=pBy(e.projectId);
+    if(!p) return;
+    studentsForEvent(e).forEach(s=>{
+      const k=`${s.id}|${e.date}`;
+      (map[k] ||= []).push(p);
     });
   });
   return map;
@@ -106,8 +120,14 @@ const countConflicts=()=>{
   const map=eventAssignments(); return Object.values(map).filter(v=>v.length>1).length;
 }
 function switchView(v,label){
+  currentView=v;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
   $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад"}[v]);
+  views[v]();
+}
+function refreshCurrentView(){
+  const v=currentView && views[currentView] ? currentView : (document.querySelector(".nav.active")?.dataset.view||"dashboard");
+  currentView=v;
   views[v]();
 }
 function dashboard(){
@@ -888,7 +908,11 @@ function calendar(){
     const q=$("#calStudent").value.toLowerCase().trim();
     const tf=$("#calType").value.toLowerCase();
 
-    const students=db.students.filter(s=>s.name.toLowerCase().includes(q)&&(!pf||assForStudent(s.id).some(a=>a.projectId===pf)));
+    const students=db.students.filter(s=>{
+      if(!s.name.toLowerCase().includes(q)) return false;
+      if(!pf) return true;
+      return db.events.some(e=>e.projectId===pf && studentsForEvent(e).some(x=>x.id===s.id));
+    });
     const rawMap=eventAssignments();
 
     const map={};
@@ -897,7 +921,12 @@ function calendar(){
       const filtered=projects.filter(p=>{
         if(pf && p.id!==pf) return false;
         if(tf){
-          const matches=eventsFor(p.id).some(e=>e.date===date && e.type.toLowerCase().includes(tf));
+          const sidNum=Number(sid);
+          const matches=eventsFor(p.id).some(e=>
+            e.date===date &&
+            e.type.toLowerCase().includes(tf) &&
+            studentsForEvent(e).some(s=>s.id===sidNum)
+          );
           if(!matches) return false;
         }
         return true;
@@ -949,8 +978,10 @@ function calendar(){
 
             return `<td class="day-cell${cls}" data-date="${d}" title="${arr.map(p=>p.name).join(" + ")}">
               ${arr.map(p=>{
-                const ev=eventsFor(p.id).find(e=>e.date===d);
-                return `<div class="busy" style="background:${p.color}">${esc(p.name)}${ev?` · ${shortType(ev.type)}`:""}</div>`;
+                const types=[...new Set(eventsFor(p.id)
+                  .filter(e=>e.date===d && studentsForEvent(e).some(x=>x.id===s.id))
+                  .map(e=>shortType(e.type)))];
+                return `<div class="busy" style="background:${p.color}">${esc(p.name)}${types.length?` · ${types.map(esc).join(" / ")}`:""}</div>`;
               }).join("")}
             </td>`;
           }).join("")}
@@ -1651,14 +1682,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.7 · Firebase не налаштовано");
+    setStatus("v1.3.8 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.3.7 · завантаження хмари…");
+    setStatus("v1.3.8 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1680,7 +1711,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.3.7 · хмара ✓");
+    setStatus("v1.3.8 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -1692,6 +1723,7 @@ async function initCloud(){
       if(seededJesc) localStorage.setItem("rems_jesc_seed_v2","1");
     }
 
+    currentView="dashboard";
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -1709,21 +1741,21 @@ async function initCloud(){
       cache();
       applyingRemote=false;
 
-      const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
-      views[active]();
-      setStatus("v1.3.7 · хмара ✓");
+      currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
+      refreshCurrentView();
+      setStatus("v1.3.8 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.3.7 · хмара недоступна");
+      setStatus("v1.3.8 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.3.7 · хмара недоступна");
+    setStatus("v1.3.8 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1734,7 +1766,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.7 · Firebase не налаштовано");
+    setStatus("v1.3.8 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1750,19 +1782,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.3.7 · вхід ✓");
+        setStatus("v1.3.8 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.3.7 · потрібен вхід");
+        setStatus("v1.3.8 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.3.7 · помилка авторизації");
+    setStatus("v1.3.8 · помилка авторизації");
     showLogin();
   }
 }
