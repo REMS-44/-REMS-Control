@@ -43,12 +43,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.3.3 · немає з’єднання");
+    setStatus("v1.3.4 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.3.3 · збереження…");
+    setStatus("v1.3.4 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -56,11 +56,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.3.3 · хмара ✓");
+    setStatus("v1.3.4 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.3.3 · помилка хмари");
+    setStatus("v1.3.4 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -341,6 +341,61 @@ function projects(){
   $$(".open-project").forEach(b=>b.onclick=()=>openProjectCard(b.dataset.id));
 }
 
+function projectMonthLabel(month){
+  const [y,m]=month.split("-").map(Number);
+  return new Date(y,m-1,1,12).toLocaleDateString("uk-UA",{month:"long",year:"numeric"});
+}
+
+function projectCalendarMonthHtml(projectId,month){
+  const p=pBy(projectId); if(!p) return "";
+  const [year,mon]=month.split("-").map(Number);
+  const daysInMonth=new Date(year,mon,0).getDate();
+  const firstDay=(new Date(year,mon-1,1,12).getDay()+6)%7;
+  const evs=eventsFor(projectId).filter(e=>e.date.startsWith(month));
+  const byDate={};
+  evs.forEach(e=>(byDate[e.date] ||= []).push(e));
+  const blanks=Array.from({length:firstDay},()=>'<div class="project-cal-day empty"></div>').join("");
+  const cells=Array.from({length:daysInMonth},(_,i)=>{
+    const day=i+1;
+    const date=`${year}-${String(mon).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    const items=byDate[date]||[];
+    const dow=new Date(date+"T12:00:00").getDay();
+    return `<button class="project-cal-day ${dow===0||dow===6?"weekend":""} ${items.length?"has-event":""}" data-project-day="${date}" type="button">
+      <span class="project-cal-number">${day}</span>
+      <span class="project-cal-events">${items.map(e=>`<span class="project-cal-event" style="border-left-color:${p.color}">${esc(shortType(e.type))}</span>`).join("")}</span>
+    </button>`;
+  }).join("");
+  return `<div class="project-cal-panel" data-project-month="${month}">
+    <div class="project-cal-grid">
+      ${["ПН","ВТ","СР","ЧТ","ПТ","СБ","НД"].map(x=>`<div class="project-cal-weekday">${x}</div>`).join("")}
+      ${blanks}${cells}
+    </div>
+  </div>`;
+}
+
+function showProjectDay(projectId,date){
+  const p=pBy(projectId); if(!p) return;
+  const dialog=ensureProjectCardDialog();
+  const evs=eventsFor(projectId).filter(e=>e.date===date);
+  const pretty=new Date(date+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const peopleIds=new Set(evs.flatMap(e=>studentsForEvent(e).map(s=>s.id)));
+  const people=db.students.filter(s=>peopleIds.has(s.id));
+  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
+    <div class="project-section-head">
+      <div><h2 style="margin:0">${pretty}</h2><div class="muted">${esc(p.name)} · ${evs.length} подій · ${people.length} учасників</div></div>
+      <button class="ghost" id="backToProjectCalendar">Назад</button>
+    </div>
+    <div class="day-event-list">
+      ${evs.map(e=>`<div class="day-event-row"><span class="dot" style="background:${p.color}"></span><div><b>${esc(e.type)}</b><div class="day-event-meta">${studentsForEvent(e).length} учасників</div></div><span class="chip" style="background:${p.color}">${esc(shortType(e.type))}</span></div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
+    </div>
+    <div class="availability-card"><b>Студенти цього дня</b><div class="availability-list">
+      ${people.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Учасників не призначено.</span>'}
+    </div></div>
+  </div>`;
+  dialog.querySelector("#backToProjectCalendar").onclick=()=>openProjectCard(projectId);
+  dialog.querySelectorAll(".project-day-student").forEach(b=>b.onclick=()=>openStudent(+b.dataset.id));
+}
+
 function openProjectCard(id){
   const p=pBy(id); if(!p) return;
   const dialog=ensureProjectCardDialog();
@@ -374,17 +429,30 @@ function openProjectCard(id){
       </div>
 
       <div class="project-section">
-        <div class="project-section-head"><b>Календар проєкту</b><button class="ghost" id="addProjectEventBtn">+ Дата</button></div>
-        <div class="project-event-list">
-          ${evs.map((e,i)=>{
-            const people=studentsForEvent(e);
-            return `<div class="project-event-row" style="grid-template-columns:90px 1fr auto auto">
-              <b>${fmt(e.date)}</b>
-              <span>${esc(e.type)}<div class="muted">${people.length} учасників</div></span>
-              <button class="ghost event-people-btn" data-index="${i}">Учасники</button>
-              <button class="ghost delete-event" data-index="${i}">Видалити</button>
-            </div>`;
-          }).join("")||'<div class="empty">Дат ще немає.</div>'}
+        <div class="project-section-head">
+          <b>Календар проєкту</b>
+          <div class="project-calendar-actions"><div class="project-view-switch"><button class="active" id="projectCalendarMode" type="button">Календар</button><button id="projectListMode" type="button">Список</button></div><button class="ghost" id="addProjectEventBtn">+ Дата</button></div>
+        </div>
+        ${(()=>{
+          const months=[...new Set(evs.map(e=>e.date.slice(0,7)))];
+          if(!months.length) return '<div class="empty">Дат ще немає.</div>';
+          return `<div id="projectCalendarView">
+            <div class="project-month-tabs">${months.map((m,i)=>`<button type="button" class="project-month-tab ${i===0?"active":""}" data-month="${m}">${projectMonthLabel(m)}</button>`).join("")}</div>
+            <div class="project-calendar-panels">${months.map((m,i)=>`<div style="${i===0?"":"display:none"}" data-month-panel="${m}">${projectCalendarMonthHtml(id,m)}</div>`).join("")}</div>
+          </div>`;
+        })()}
+        <div id="projectListView" style="display:none">
+          <div class="project-event-list">
+            ${evs.map((e,i)=>{
+              const people=studentsForEvent(e);
+              return `<div class="project-event-row" style="grid-template-columns:90px 1fr auto auto">
+                <b>${fmt(e.date)}</b>
+                <span>${esc(e.type)}<div class="muted">${people.length} учасників</div></span>
+                <button class="ghost event-people-btn" data-index="${i}">Учасники</button>
+                <button class="ghost delete-event" data-index="${i}">Видалити</button>
+              </div>`;
+            }).join("")||'<div class="empty">Дат ще немає.</div>'}
+          </div>
         </div>
       </div>
     </div>
@@ -413,6 +481,20 @@ function openProjectCard(id){
     if(i>=0) db.events.splice(i,1);
     await save(); openProjectCard(id);
   });
+
+  const calMode=dialog.querySelector("#projectCalendarMode");
+  const listMode=dialog.querySelector("#projectListMode");
+  const calView=dialog.querySelector("#projectCalendarView");
+  const listView=dialog.querySelector("#projectListView");
+  if(calMode&&listMode){
+    calMode.onclick=()=>{calMode.classList.add("active");listMode.classList.remove("active");if(calView)calView.style.display="";if(listView)listView.style.display="none";};
+    listMode.onclick=()=>{listMode.classList.add("active");calMode.classList.remove("active");if(calView)calView.style.display="none";if(listView)listView.style.display="";};
+  }
+  dialog.querySelectorAll(".project-month-tab").forEach(tab=>tab.onclick=()=>{
+    dialog.querySelectorAll(".project-month-tab").forEach(x=>x.classList.toggle("active",x===tab));
+    dialog.querySelectorAll("[data-month-panel]").forEach(panel=>panel.style.display=panel.dataset.monthPanel===tab.dataset.month?"":"none");
+  });
+  dialog.querySelectorAll(".project-cal-day.has-event").forEach(day=>day.onclick=()=>showProjectDay(id,day.dataset.projectDay));
 
   dialog.querySelector("#editProjectBtn").onclick=()=>editProjectCard(id);
   dialog.showModal();
@@ -1094,6 +1176,24 @@ function ensureAuthStyles(){
     .project-edit-form textarea{min-height:80px;resize:vertical}
     .project-edit-form .full{grid-column:1/-1}
     .project-danger{margin-top:18px;padding-top:14px;border-top:1px solid #fee2e2}
+    .project-calendar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .project-view-switch{display:inline-flex;background:#f3f4f6;border-radius:10px;padding:3px}
+    .project-view-switch button{border:0;background:transparent;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#6b7280}
+    .project-view-switch button.active{background:#111827;color:#fff;box-shadow:0 1px 3px #0002}
+    .project-month-tabs{display:flex;gap:6px;overflow:auto;padding:2px 0 10px;scrollbar-width:thin}
+    .project-month-tab{white-space:nowrap;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:7px 10px;font-size:11px;cursor:pointer;text-transform:capitalize}
+    .project-month-tab.active{background:#111827;color:#fff;border-color:#111827}
+    .project-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:#e5e7eb;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden}
+    .project-cal-weekday{background:#171a20;color:#fff;text-align:center;padding:8px 4px;font-size:10px;font-weight:800}
+    .project-cal-day{border:0;background:#fff;min-height:88px;padding:7px;text-align:left;display:flex;flex-direction:column;gap:5px;cursor:default;font:inherit}
+    .project-cal-day.weekend{background:#fafafa}
+    .project-cal-day.empty{background:#f5f6f8}
+    .project-cal-day.has-event{cursor:pointer}
+    .project-cal-day.has-event:hover{background:#f8fafc;box-shadow:inset 0 0 0 2px #d1d5db}
+    .project-cal-number{font-size:11px;font-weight:800}
+    .project-cal-events{display:grid;gap:3px;min-width:0}
+    .project-cal-event{display:block;background:#f3f4f6;border-left:3px solid #6b7280;border-radius:5px;padding:4px 5px;font-size:9px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    @media(max-width:700px){.project-cal-day{min-height:68px;padding:5px}.project-cal-event{font-size:8px;padding:3px}.project-section-head{align-items:flex-start}.project-calendar-actions{justify-content:flex-end}}
 
     .schedule-month{margin-bottom:18px}
     .schedule-month-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:8px}
@@ -1353,14 +1453,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.3 · Firebase не налаштовано");
+    setStatus("v1.3.4 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.3.3 · завантаження хмари…");
+    setStatus("v1.3.4 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1382,9 +1482,9 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.3.3 · хмара ✓");
+    setStatus("v1.3.4 · хмара ✓");
 
-    // v1.3.3: repair/seed project calendars in the actual cloud document.
+    // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
       const seededVoice=await ensureVoice14();
       if(seededVoice) localStorage.setItem("rems_voice14_seed_v2","1");
@@ -1413,19 +1513,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v1.3.3 · хмара ✓");
+      setStatus("v1.3.4 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.3.3 · хмара недоступна");
+      setStatus("v1.3.4 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.3.3 · хмара недоступна");
+    setStatus("v1.3.4 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1436,7 +1536,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.3 · Firebase не налаштовано");
+    setStatus("v1.3.4 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1452,19 +1552,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.3.3 · вхід ✓");
+        setStatus("v1.3.4 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.3.3 · потрібен вхід");
+        setStatus("v1.3.4 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.3.3 · помилка авторизації");
+    setStatus("v1.3.4 · помилка авторизації");
     showLogin();
   }
 }
