@@ -1,4 +1,170 @@
 
+(function injectStudentCardV31Styles(){
+  if(document.getElementById("remsStudentCardV31Styles")) return;
+  const st=document.createElement("style");
+  st.id="remsStudentCardV31Styles";
+  st.textContent=`
+    .student-dialog{
+      width:min(980px,96vw)!important;
+      max-height:92vh!important;
+    }
+
+    .profile-hero{
+      padding:22px 24px 26px!important;
+      background:
+        radial-gradient(circle at 82% 0%,rgba(92,70,255,.18),transparent 35%),
+        linear-gradient(135deg,#10131b,#1d2230)!important;
+    }
+
+    .profile-hero-actions-row{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:18px;
+      margin-bottom:22px;
+      padding-bottom:16px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+    }
+
+    .profile-hero-context{
+      color:#98a2b3;
+      font-size:10px;
+      line-height:1.2;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      font-weight:800;
+      padding-top:9px;
+      white-space:nowrap;
+    }
+
+    .profile-hero .hero-actions{
+      display:flex!important;
+      flex-wrap:wrap!important;
+      justify-content:flex-end!important;
+      gap:8px!important;
+      min-width:0!important;
+      flex:1 1 auto!important;
+    }
+
+    .profile-hero .hero-actions .ghost,
+    .profile-hero .hero-actions a.ghost{
+      min-height:38px;
+      padding:9px 12px!important;
+      border-radius:10px!important;
+      white-space:nowrap;
+      font-size:11px!important;
+      line-height:1.1;
+      text-decoration:none;
+    }
+
+    .profile-identity{
+      display:grid;
+      grid-template-columns:124px minmax(0,1fr);
+      gap:22px;
+      align-items:center;
+      min-width:0;
+    }
+
+    .profile-identity .profile-photo{
+      width:124px!important;
+      height:150px!important;
+      border-radius:16px!important;
+      box-shadow:0 14px 36px rgba(0,0,0,.26)!important;
+    }
+
+    .profile-head-copy{
+      min-width:0!important;
+      padding:0!important;
+    }
+
+    .profile-hero h2{
+      max-width:none!important;
+      margin:0!important;
+      font-size:clamp(28px,4vw,42px)!important;
+      line-height:1.02!important;
+      letter-spacing:-.035em;
+      overflow-wrap:anywhere;
+    }
+
+    .profile-meta{
+      margin-top:10px!important;
+      font-size:12px!important;
+    }
+
+    .profile-project-pills{
+      display:flex;
+      flex-wrap:wrap;
+      gap:7px;
+      margin-top:16px;
+    }
+
+    .profile-project-pill{
+      display:inline-flex;
+      align-items:center;
+      max-width:100%;
+      padding:7px 10px;
+      border-radius:999px;
+      background:color-mix(in srgb,var(--pill-color) 84%,#111 16%);
+      color:#fff;
+      font-size:11px;
+      line-height:1;
+      font-weight:700;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+    }
+
+    .profile-no-projects{
+      color:#aab2c0;
+      font-size:11px;
+    }
+
+    @media(max-width:720px){
+      .profile-hero-actions-row{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+      .profile-hero-context{display:none}
+      .profile-hero .hero-actions{
+        justify-content:flex-start!important;
+      }
+      .profile-identity{
+        grid-template-columns:92px minmax(0,1fr);
+        gap:15px;
+      }
+      .profile-identity .profile-photo{
+        width:92px!important;
+        height:116px!important;
+      }
+      .profile-hero h2{
+        font-size:clamp(25px,7vw,34px)!important;
+      }
+    }
+
+    @media(max-width:480px){
+      .student-dialog{width:98vw!important}
+      .profile-hero{padding:16px!important}
+      .profile-hero .hero-actions .ghost,
+      .profile-hero .hero-actions a.ghost{
+        flex:1 1 auto;
+        text-align:center;
+      }
+      .profile-identity{
+        grid-template-columns:1fr;
+        align-items:start;
+      }
+      .profile-identity .profile-photo{
+        width:88px!important;
+        height:108px!important;
+      }
+    }
+  `;
+  document.head.appendChild(st);
+})();
+
+
 (function injectPublicIntegrationStyles(){
   if(document.getElementById("remsPublicIntegrationStyles")) return;
   const st=document.createElement("style");
@@ -225,12 +391,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v3.0 · немає з’єднання");
+    setStatus("v3.1 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v3.0 · збереження…");
+    setStatus("v3.1 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -238,7 +404,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v3.0 · хмара ✓");
+    setStatus("v3.1 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -249,7 +415,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v3.0 · помилка хмари");
+    setStatus("v3.1 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -652,24 +818,26 @@ function openStudent(id){
 
     body.innerHTML=`<div class="student-profile">
       <div class="profile-hero">
-        <div class="profile-hero-top">
-          <div class="profile-hero-title">
-            ${photoBlock}
-            <div class="profile-head-copy">
-              <h2>${esc(s.name)}</h2>
-              <div class="profile-meta">
-                <span>${esc(s.group||"")}</span>
-                ${birthday?`<span>🎂 ${birthday}</span>`:""}
-              </div>
-              <div class="chips" style="margin-top:14px">
-                ${ps.map(p=>`<span class="project-pill project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,esc(p.name||"Проєкт"))}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
-              </div>
-            </div>
-          </div>
+        <div class="profile-hero-actions-row">
+          <div class="profile-hero-context">Картка студента</div>
           <div class="hero-actions">
-            ${publicProfileUrlFor(s)?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічний профіль ↗</a><button class="ghost" id="editPublicProfileBtn">Редагувати публічний профіль</button>`:""}
+            ${publicProfileUrlFor(s)?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічна сторінка ↗</a><button class="ghost" id="editPublicProfileBtn">Публічний профіль</button>`:""}
             <button class="ghost" id="editStudentBtn">Редагувати</button>
             <button class="ghost" id="closeStudentBtn">Закрити</button>
+          </div>
+        </div>
+
+        <div class="profile-identity">
+          ${photoBlock}
+          <div class="profile-head-copy">
+            <h2>${esc(s.name)}</h2>
+            <div class="profile-meta">
+              <span>${esc(s.group||"")}</span>
+              ${birthday?`<span>🎂 ${birthday}</span>`:""}
+            </div>
+            <div class="profile-project-pills">
+              ${ps.map(p=>`<span class="profile-project-pill" style="--pill-color:${p.color||"#4f46e5"}">${esc(p.name||"Проєкт")}</span>`).join("")||'<span class="profile-no-projects">Проєктів поки немає</span>'}
+            </div>
           </div>
         </div>
       </div>
@@ -2414,14 +2582,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.0 · Firebase не налаштовано");
+    setStatus("v3.1 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v3.0 · завантаження хмари…");
+    setStatus("v3.1 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2443,7 +2611,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v3.0 · хмара ✓");
+    setStatus("v3.1 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2484,19 +2652,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v3.0 · хмара ✓");
+      setStatus("v3.1 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v3.0 · хмара недоступна");
+      setStatus("v3.1 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v3.0 · хмара недоступна");
+    setStatus("v3.1 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2507,7 +2675,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.0 · Firebase не налаштовано");
+    setStatus("v3.1 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2523,19 +2691,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v3.0 · вхід ✓");
+        setStatus("v3.1 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v3.0 · потрібен вхід");
+        setStatus("v3.1 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v3.0 · помилка авторизації");
+    setStatus("v3.1 · помилка авторизації");
     showLogin();
   }
 }
