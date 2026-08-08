@@ -37,6 +37,75 @@
       z-index:1;
     }
 
+    /* v2.8: календарна подія = кольорова плашка + ОКРЕМИЙ реальний логотип */
+    .calendar-project-card{
+      display:flex;
+      flex-direction:column;
+      gap:3px;
+      width:100%;
+      min-width:0;
+    }
+    .calendar-event-label{
+      display:block;
+      width:100%;
+      box-sizing:border-box;
+      padding:4px 5px;
+      border-radius:5px;
+      background:var(--project-color,#4b5563);
+      color:#fff;
+      font-size:9px;
+      line-height:1.15;
+      font-weight:700;
+      text-align:center;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .calendar-project-logo{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      height:42px;
+      box-sizing:border-box;
+      border-radius:6px;
+      overflow:hidden;
+      background:#111;
+    }
+    .calendar-project-logo img{
+      display:block;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      object-position:center;
+    }
+    .calendar-project-logo.no-logo{
+      background:var(--project-color,#4b5563);
+      color:#fff;
+      font-size:9px;
+      font-weight:700;
+      padding:4px;
+      text-align:center;
+    }
+    .student-day-event.calendar-project-event{
+      display:block;
+      padding:0!important;
+      border:0;
+      background:transparent!important;
+      color:inherit!important;
+      text-shadow:none!important;
+      overflow:visible!important;
+      min-height:0;
+    }
+    .project-cal-event.calendar-project-event{
+      display:block;
+      padding:0!important;
+      border:0!important;
+      background:transparent!important;
+      overflow:visible!important;
+      white-space:normal!important;
+    }
+
     /* У календарях робимо плашки трохи вищими, щоб реальний логотип читався */
     .student-day-event.project-watermark{
       min-height:25px;
@@ -141,12 +210,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v2.7 · немає з’єднання");
+    setStatus("v2.8 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v2.7 · збереження…");
+    setStatus("v2.8 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -154,7 +223,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v2.7 · хмара ✓");
+    setStatus("v2.8 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -165,7 +234,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v2.7 · помилка хмари");
+    setStatus("v2.8 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -208,6 +277,15 @@ const projectWatermarkStyle=p=>`--project-color:${p?.color||"#4b5563"};`;
 const projectWatermarkInner=(p,text)=>{
   const src=projectLogoFile(p);
   return `${src?`<img class="project-watermark-logo" src="${esc(src)}" alt="">`:""}<span class="project-watermark-shade"></span><span class="project-watermark-text">${text}</span>`;
+};
+const calendarProjectCard=(p,label)=>{
+  const src=projectLogoFile(p);
+  return `<span class="calendar-project-card" style="--project-color:${p?.color||"#4b5563"}">
+    <span class="calendar-event-label">${label}</span>
+    ${src
+      ? `<span class="calendar-project-logo"><img src="${esc(src)}" alt="${esc(p?.name||"Проєкт")}"></span>`
+      : `<span class="calendar-project-logo no-logo">${esc(p?.name||"Проєкт")}</span>`}
+  </span>`;
 };
 
 
@@ -588,7 +666,7 @@ function openStudent(id){
         return `<div class="student-month-day ${dow===0||dow===6?"weekend":""}">
           <div class="student-month-number">${day}</div>
           <div class="student-day-events">
-            ${dayItems.map((x,idx)=>`<button type="button" class="student-day-event project-watermark" data-date="${date}" data-index="${idx}" style="${projectWatermarkStyle(x.p)}" title="${esc(x.p.name)} · ${esc(x.type)}">${projectWatermarkInner(x.p,`${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${esc(shortType(x.type))}`)}</button>`).join("")}
+            ${dayItems.map((x,idx)=>`<button type="button" class="student-day-event calendar-project-event" data-date="${date}" data-index="${idx}" title="${esc(x.p.name)} · ${esc(x.type)}">${calendarProjectCard(x.p,`${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${esc(shortType(x.type))}`)}</button>`).join("")}
           </div>
         </div>`;
       }).join("");
@@ -756,7 +834,7 @@ function projectCalendarMonthHtml(projectId,month){
     const dow=new Date(date+"T12:00:00").getDay();
     return `<button class="project-cal-day ${dow===0||dow===6?"weekend":""} ${items.length?"has-event":""}" data-project-day="${date}" type="button">
       <span class="project-cal-number">${day}</span>
-      <span class="project-cal-events">${items.map(e=>`<span class="project-cal-event project-watermark" style="${projectWatermarkStyle(p)};border-left-color:${p.color}">${projectWatermarkInner(p,esc(shortType(e.type)))}</span>`).join("")}</span>
+      <span class="project-cal-events">${items.map(e=>`<span class="project-cal-event calendar-project-event">${calendarProjectCard(p,esc(shortType(e.type)))}</span>`).join("")}</span>
     </button>`;
   }).join("");
   return `<div class="project-cal-panel" data-project-month="${month}">
@@ -1425,7 +1503,7 @@ function calendar(){
                 const types=[...new Set(eventsFor(p.id)
                   .filter(e=>e.date===d && studentsForEvent(e).some(x=>x.id===s.id))
                   .map(e=>shortType(e.type)))];
-                return `<div class="busy project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,`${esc(p.name)}${types.length?` · ${types.map(esc).join(" / ")}`:""}`)}</div>`;
+                return `<div class="busy calendar-project-event" style="background:transparent">${calendarProjectCard(p,`${types.length?types.map(esc).join(" / "):esc(p.name)}`)}</div>`;
               }).join("")}
             </td>`;
           }).join("")}
@@ -2199,14 +2277,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.7 · Firebase не налаштовано");
+    setStatus("v2.8 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v2.7 · завантаження хмари…");
+    setStatus("v2.8 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2228,7 +2306,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v2.7 · хмара ✓");
+    setStatus("v2.8 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2269,19 +2347,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v2.7 · хмара ✓");
+      setStatus("v2.8 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v2.7 · хмара недоступна");
+      setStatus("v2.8 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v2.7 · хмара недоступна");
+    setStatus("v2.8 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2292,7 +2370,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.7 · Firebase не налаштовано");
+    setStatus("v2.8 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2308,19 +2386,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v2.7 · вхід ✓");
+        setStatus("v2.8 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v2.7 · потрібен вхід");
+        setStatus("v2.8 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v2.7 · помилка авторизації");
+    setStatus("v2.8 · помилка авторизації");
     showLogin();
   }
 }
