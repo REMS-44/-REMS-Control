@@ -28,12 +28,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v0.8 · немає з’єднання");
+    setStatus("v0.9 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v0.8 · збереження…");
+    setStatus("v0.9 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +41,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v0.8 · хмара ✓");
+    setStatus("v0.9 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v0.8 · помилка хмари");
+    setStatus("v0.9 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -77,7 +77,7 @@ const countConflicts=()=>{
 }
 function switchView(v,label){
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
-  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар"}[v]);
+  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад"}[v]);
   views[v]();
 }
 function dashboard(){
@@ -490,7 +490,130 @@ function calendar(){
   $("#calType").onchange=render;
   render();
 }
-const views={dashboard,students,projects,calendar};
+
+function schedule(){
+  app.innerHTML=`
+    <div class="schedule-controls">
+      <select id="schPeriod">
+        <option value="autumn">Вересень–листопад</option>
+        <option value="winter">Грудень–лютий</option>
+        <option value="all">Осінь + зима</option>
+      </select>
+      <select id="schWeekday">
+        <option value="">Усі дні тижня</option>
+        <option value="1">Понеділок</option>
+        <option value="2">Вівторок</option>
+        <option value="3">Середа</option>
+        <option value="4">Четвер</option>
+        <option value="5">П’ятниця</option>
+      </select>
+      <select id="schMinFree">
+        <option value="0">Будь-яка кількість вільних</option>
+        <option value="30">30+ вільних</option>
+        <option value="25">25+ вільних</option>
+        <option value="20">20+ вільних</option>
+      </select>
+    </div>
+    <div id="scheduleKpis" class="schedule-kpis"></div>
+    <div id="scheduleRecommended"></div>
+    <div class="schedule-table-wrap">
+      <table class="schedule-table">
+        <thead><tr>
+          <th>Дата</th>
+          <th>День</th>
+          <th>Вільні</th>
+          <th>Зайняті</th>
+          <th>Оцінка</th>
+          <th>Що заважає</th>
+        </tr></thead>
+        <tbody id="scheduleRows"></tbody>
+      </table>
+    </div>`;
+
+  const render=()=>{
+    const ranges={
+      autumn:["2026-09-01","2026-11-30"],
+      winter:["2026-12-01","2027-02-28"],
+      all:["2026-09-01","2027-02-28"]
+    };
+    const [start,end]=ranges[$("#schPeriod").value];
+    const weekday=$("#schWeekday").value;
+    const minFree=+$("#schMinFree").value;
+    const dates=datesBetween(start,end).filter(d=>{
+      const day=new Date(d+"T12:00:00").getDay();
+      if(day===0||day===6) return false;
+      return !weekday || String(day)===weekday;
+    });
+
+    const rows=dates.map(date=>{
+      const busyIds=new Set();
+      const reasons={};
+      db.events.filter(e=>e.date===date).forEach(e=>{
+        const p=pBy(e.projectId);
+        if(!p) return;
+        const assigned=projectStudents(p.id);
+        assigned.forEach(s=>busyIds.add(s.id));
+        if(assigned.length){
+          reasons[p.name]=(reasons[p.name]||0)+assigned.length;
+        }
+      });
+
+      const busy=busyIds.size;
+      const free=Math.max(0,db.students.length-busy);
+      let cls="score-best", label="ІДЕАЛЬНО";
+      if(busy>=10){cls="score-hard";label="СКЛАДНО";}
+      else if(busy>=5){cls="score-good";label="МОЖНА";}
+      const reasonText=Object.entries(reasons)
+        .sort((a,b)=>b[1]-a[1])
+        .map(([name,count])=>`${name} (${count})`)
+        .join(", ") || "—";
+      return {date,busy,free,cls,label,reasonText};
+    }).filter(r=>r.free>=minFree);
+
+    const best=[...rows].sort((a,b)=>b.free-a.free||a.date.localeCompare(b.date)).slice(0,5);
+    const avgFree=rows.length ? Math.round(rows.reduce((s,r)=>s+r.free,0)/rows.length) : 0;
+    const perfect=rows.filter(r=>r.busy<=4).length;
+    const hard=rows.filter(r=>r.busy>=10).length;
+
+    $("#scheduleKpis").innerHTML=`
+      <div class="schedule-kpi"><span>Днів у вибірці</span><strong>${rows.length}</strong></div>
+      <div class="schedule-kpi"><span>Середньо вільних</span><strong>${avgFree}</strong></div>
+      <div class="schedule-kpi"><span>Ідеальних днів</span><strong>${perfect}</strong></div>
+      <div class="schedule-kpi"><span>Складних днів</span><strong>${hard}</strong></div>`;
+
+    $("#scheduleRecommended").innerHTML=best.length?`
+      <div class="recommended-card">
+        <h2>Найкращі дні для занять</h2>
+        <div class="recommended-list">
+          ${best.map(r=>`<button class="recommended-item schedule-day" data-date="${r.date}">
+            <b>${fullfmt(r.date)}</b><br><span class="schedule-note">${r.free} вільних із ${db.students.length}</span>
+          </button>`).join("")}
+        </div>
+      </div>`:"";
+
+    $("#scheduleRows").innerHTML=rows.map(r=>{
+      const dt=new Date(r.date+"T12:00:00");
+      const weekdayName=dt.toLocaleDateString("uk-UA",{weekday:"long"});
+      return `<tr class="schedule-day" data-date="${r.date}" style="cursor:pointer">
+        <td><b>${fmt(r.date)}</b></td>
+        <td><span class="weekday-pill">${weekdayName}</span></td>
+        <td><b>${r.free}</b> / ${db.students.length}</td>
+        <td class="busy-count">${r.busy}</td>
+        <td><span class="score ${r.cls}">${r.label}</span></td>
+        <td class="schedule-note">${esc(r.reasonText)}</td>
+      </tr>`;
+    }).join("")||'<tr><td colspan="6" class="empty">Немає дат за цими фільтрами.</td></tr>';
+
+    $$(".schedule-day").forEach(el=>el.onclick=()=>showDay(el.dataset.date));
+  };
+
+  $("#schPeriod").onchange=render;
+  $("#schWeekday").onchange=render;
+  $("#schMinFree").onchange=render;
+  render();
+}
+
+const views={dashboard,students,projects,calendar,schedule};
 $$(".nav").forEach(b=>b.onclick=()=>switchView(b.dataset.view,b.querySelector("span")?.textContent||b.textContent.trim()));
 $("#quickAdd").onclick=()=>{
   if(!cloudReady){
@@ -662,6 +785,30 @@ function ensureAuthStyles(){
     .availability-card b{display:block;margin-bottom:6px}
     .availability-list{display:flex;flex-wrap:wrap;gap:6px}
     .availability-chip{font-size:11px;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:5px 8px}
+
+    .schedule-controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .schedule-controls select,.schedule-controls input{border:1px solid #e5e7eb;background:#fff;border-radius:10px;padding:10px 11px}
+    .schedule-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+    .schedule-kpi{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px}
+    .schedule-kpi span{display:block;color:#6b7280;font-size:11px}
+    .schedule-kpi strong{display:block;font-size:24px;margin-top:5px}
+    .schedule-table-wrap{overflow:auto;background:#fff;border:1px solid #e5e7eb;border-radius:14px}
+    .schedule-table{width:100%;border-collapse:collapse;min-width:720px}
+    .schedule-table th,.schedule-table td{padding:11px 12px;border-bottom:1px solid #eef0f3;text-align:left;font-size:12px}
+    .schedule-table th{background:#171a20;color:#fff;position:sticky;top:0}
+    .schedule-table tr:hover td{background:#fafafa}
+    .score{display:inline-flex;align-items:center;justify-content:center;min-width:88px;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:700}
+    .score-best{background:#dcfce7;color:#166534}
+    .score-good{background:#fef3c7;color:#92400e}
+    .score-hard{background:#fee2e2;color:#991b1b}
+    .busy-count{font-weight:700}
+    .schedule-note{font-size:11px;color:#6b7280}
+    .weekday-pill{display:inline-block;background:#f3f4f6;border-radius:999px;padding:4px 7px;font-size:10px}
+    .recommended-card{background:linear-gradient(135deg,#ecfdf5,#f0fdf4);border:1px solid #bbf7d0;border-radius:16px;padding:16px;margin-bottom:16px}
+    .recommended-card h2{margin:0 0 10px;font-size:16px}
+    .recommended-list{display:flex;gap:8px;flex-wrap:wrap}
+    .recommended-item{background:#fff;border:1px solid #d1fae5;border-radius:12px;padding:10px 12px;font-size:12px}
+    @media(max-width:760px){.schedule-kpis{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:520px){
       .profile-hero-title{display:block}
       .profile-photo{width:96px;height:120px;margin-bottom:12px}
@@ -753,14 +900,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.8 · Firebase не налаштовано");
+    setStatus("v0.9 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v0.8 · завантаження хмари…");
+    setStatus("v0.9 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -782,7 +929,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v0.8 · хмара ✓");
+    setStatus("v0.9 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -802,19 +949,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v0.8 · хмара ✓");
+      setStatus("v0.9 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v0.8 · хмара недоступна");
+      setStatus("v0.9 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v0.8 · хмара недоступна");
+    setStatus("v0.9 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -825,7 +972,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.8 · Firebase не налаштовано");
+    setStatus("v0.9 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -841,19 +988,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v0.8 · вхід ✓");
+        setStatus("v0.9 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v0.8 · потрібен вхід");
+        setStatus("v0.9 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v0.8 · помилка авторизації");
+    setStatus("v0.9 · помилка авторизації");
     showLogin();
   }
 }
