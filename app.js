@@ -1,4 +1,47 @@
 
+(function injectProjectWatermarkStyles(){
+  if(document.getElementById("remsProjectWatermarkStyles")) return;
+  const st=document.createElement("style");
+  st.id="remsProjectWatermarkStyles";
+  st.textContent=`
+    .project-watermark{
+      position:relative;
+      isolation:isolate;
+      overflow:hidden;
+      background:var(--project-color,#4b5563)!important;
+      color:#fff!important;
+    }
+    .project-watermark::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:-1;
+      background-image:var(--project-logo);
+      background-repeat:no-repeat;
+      background-position:center;
+      background-size:78% auto;
+      opacity:.16;
+      filter:grayscale(1) brightness(2.25) contrast(.9);
+      pointer-events:none;
+    }
+    .project-watermark::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:-2;
+      background:linear-gradient(135deg,rgba(0,0,0,.04),rgba(0,0,0,.18));
+      pointer-events:none;
+    }
+    .student-day-event.project-watermark::before{background-size:90% auto;opacity:.18}
+    .project-cal-event.project-watermark::before{background-size:92% auto;opacity:.14}
+    .busy.project-watermark::before{background-size:72% auto;opacity:.14}
+    .week-event-pill.project-watermark::before{background-size:76% auto;opacity:.17}
+    .chip.project-watermark::before,.project-pill.project-watermark::before{background-size:72% auto;opacity:.13}
+  `;
+  document.head.appendChild(st);
+})();
+
+
 (function injectV21Styles(){
   if(document.getElementById("remsV21Styles")) return;
   const st=document.createElement("style");
@@ -75,12 +118,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v2.4 · немає з’єднання");
+    setStatus("v2.5 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v2.4 · збереження…");
+    setStatus("v2.5 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -88,7 +131,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v2.4 · хмара ✓");
+    setStatus("v2.5 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -99,7 +142,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v2.4 · помилка хмари");
+    setStatus("v2.5 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -138,6 +181,12 @@ const projectLogoHtml=(p,cls="project-logo-img")=>{
   const src=projectLogoFile(p);
   return src?`<img class="${cls}" src="${src}" alt="${esc(p.name)}">`:`<span>${p.emoji||"◆"}</span>`;
 };
+const projectWatermarkStyle=p=>{
+  const src=projectLogoFile(p);
+  const safeSrc=String(src||"").replace(/["\\]/g,"\\$&");
+  return `${p?.color?`--project-color:${p.color};`:""}${src?`--project-logo:url("${safeSrc}");`:""}`;
+};
+
 
 async function compressProjectLogo(file){
   if(!file) return "";
@@ -259,7 +308,7 @@ function dashboard(){
           </div>
         </div>
         <div class="today-events">
-          ${todayEvents.map(x=>`<div class="today-event"><span class="dot" style="background:${x.project.color}"></span><div><b>${esc(x.project.name)}</b><small>${esc(x.event.type)}${eventMetaText(x.event)?` · ${esc(eventMetaText(x.event))}`:""} · ${x.students.length} студентів</small></div><span class="chip" style="background:${x.project.color}">${esc(shortType(x.event.type))}</span></div>`).join("")||'<div class="muted" style="margin-top:8px">Сьогодні у базі немає подій.</div>'}
+          ${todayEvents.map(x=>`<div class="today-event"><span class="dot" style="background:${x.project.color}"></span><div><b>${esc(x.project.name)}</b><small>${esc(x.event.type)}${eventMetaText(x.event)?` · ${esc(eventMetaText(x.event))}`:""} · ${x.students.length} студентів</small></div><span class="chip project-watermark" style="${projectWatermarkStyle(x.project)}">${esc(shortType(x.event.type))}</span></div>`).join("")||'<div class="muted" style="margin-top:8px">Сьогодні у базі немає подій.</div>'}
         </div>
       </div>
 
@@ -271,7 +320,7 @@ function dashboard(){
             const busyIds=new Set(evs.flatMap(x=>x.students.map(s=>String(s.id))));
             return `<button type="button" class="week-day-card ${date===today?"today":""}" data-date="${date}">
               <div class="week-day-head"><div><div class="week-day-name">${ukShort.format(dt)}</div><div class="week-day-num">${dt.getDate()}</div></div><div class="week-day-count">${evs.length} подій</div></div>
-              <div class="week-event-list">${evs.slice(0,3).map(x=>`<div class="week-event-pill" style="background:${x.project.color}">${eventTimeText(x.event)?`${esc(eventTimeText(x.event))} · `:""}${esc(x.project.name)} · ${esc(shortType(x.event.type))}</div>`).join("")}${evs.length>3?`<div class="week-day-count">+ ще ${evs.length-3}</div>`:""}</div>
+              <div class="week-event-list">${evs.slice(0,3).map(x=>`<div class="week-event-pill project-watermark" style="${projectWatermarkStyle(x.project)}">${eventTimeText(x.event)?`${esc(eventTimeText(x.event))} · `:""}${esc(x.project.name)} · ${esc(shortType(x.event.type))}</div>`).join("")}${evs.length>3?`<div class="week-day-count">+ ще ${evs.length-3}</div>`:""}</div>
               <div class="week-free">${Math.max(0,db.students.length-busyIds.size)} вільних</div>
             </button>`;
           }).join("")}
@@ -342,7 +391,7 @@ function students(){
           <h3>${esc(s.name)}</h3>
           <div class="muted">${esc(s.group||"")} · ${countDays(s.id)} зайнятих днів</div>
           <div class="chips">
-            ${ps.map(p=>`<span class="chip" style="background:${p.color}">${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}
+            ${ps.map(p=>`<span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}
           </div>
         </div>
       </button>`;
@@ -444,7 +493,7 @@ function openStudent(id){
                 ${birthday?`<span>🎂 ${birthday}</span>`:""}
               </div>
               <div class="chips" style="margin-top:14px">
-                ${ps.map(p=>`<span class="project-pill" style="background:${p.color||"#4f46e5"}">${esc(p.name||"Проєкт")}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
+                ${ps.map(p=>`<span class="project-pill project-watermark" style="${projectWatermarkStyle(p)}">${esc(p.name||"Проєкт")}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
               </div>
             </div>
           </div>
@@ -486,7 +535,7 @@ function openStudent(id){
               ${items.map(x=>`<div class="timeline-row">
                 <div class="timeline-date">${fullfmt(x.date)}</div>
                 <div class="timeline-type">${esc(x.type)}${eventMetaText(x)?`<div class="muted">${esc(eventMetaText(x))}</div>`:""}</div>
-                <span class="chip" style="background:${x.p.color}">${esc(x.p.name)}</span>
+                <span class="chip project-watermark" style="${projectWatermarkStyle(x.p)}">${esc(x.p.name)}</span>
               </div>`).join("")||'<div class="profile-empty">Подій немає</div>'}
             </div></div>
           </div>
@@ -516,7 +565,7 @@ function openStudent(id){
         return `<div class="student-month-day ${dow===0||dow===6?"weekend":""}">
           <div class="student-month-number">${day}</div>
           <div class="student-day-events">
-            ${dayItems.map((x,idx)=>`<button type="button" class="student-day-event" data-date="${date}" data-index="${idx}" style="background:${x.p.color}" title="${esc(x.p.name)} · ${esc(x.type)}">${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${esc(shortType(x.type))}</button>`).join("")}
+            ${dayItems.map((x,idx)=>`<button type="button" class="student-day-event project-watermark" data-date="${date}" data-index="${idx}" style="${projectWatermarkStyle(x.p)}" title="${esc(x.p.name)} · ${esc(x.type)}">${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${esc(shortType(x.type))}</button>`).join("")}
           </div>
         </div>`;
       }).join("");
@@ -684,7 +733,7 @@ function projectCalendarMonthHtml(projectId,month){
     const dow=new Date(date+"T12:00:00").getDay();
     return `<button class="project-cal-day ${dow===0||dow===6?"weekend":""} ${items.length?"has-event":""}" data-project-day="${date}" type="button">
       <span class="project-cal-number">${day}</span>
-      <span class="project-cal-events">${items.map(e=>`<span class="project-cal-event" style="border-left-color:${p.color}">${esc(shortType(e.type))}</span>`).join("")}</span>
+      <span class="project-cal-events">${items.map(e=>`<span class="project-cal-event project-watermark" style="${projectWatermarkStyle(p)};border-left-color:${p.color}">${esc(shortType(e.type))}</span>`).join("")}</span>
     </button>`;
   }).join("");
   return `<div class="project-cal-panel" data-project-month="${month}">
@@ -716,7 +765,7 @@ function showProjectDay(projectId,date){
           <button class="ghost project-day-edit-event" data-index="${i}">Редагувати</button>
           <button class="ghost project-day-people-event" data-index="${i}">Учасники</button>
           <button class="ghost danger-inline project-day-delete-event" data-index="${i}">Видалити</button>
-          <span class="chip" style="background:${p.color}">${esc(shortType(e.type))}</span>
+          <span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${esc(shortType(e.type))}</span>
         </div>
       </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
     </div>
@@ -1228,7 +1277,7 @@ function showDay(date){
       ${dayEvents.map(x=>`<div class="day-event-row">
         <span class="dot" style="background:${x.project.color}"></span>
         <div><b>${esc(x.project.name)}</b><div class="day-event-meta">${esc(x.event.type)} · ${x.students.length} студентів</div></div>
-        <span class="chip" style="background:${x.project.color}">${shortType(x.event.type)}</span>
+        <span class="chip project-watermark" style="${projectWatermarkStyle(x.project)}">${shortType(x.event.type)}</span>
       </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
     </div>
     <div class="availability-card">
@@ -1503,7 +1552,7 @@ function schedule(){
           <div class="schedule-day-projects">
             ${projectEntries.map(([name,count])=>{
               const p=db.projects.find(x=>x.name===name);
-              return `<span class="schedule-mini-project" style="background:${p?.color||"#6b7280"}">${esc(name)} ${count}</span>`;
+              return `<span class="schedule-mini-project project-watermark" style="${p?projectWatermarkStyle(p):"--project-color:#6b7280;"}">${esc(name)} ${count}</span>`;
             }).join("")}
           </div>
         </div>`;
@@ -2127,14 +2176,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.4 · Firebase не налаштовано");
+    setStatus("v2.5 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v2.4 · завантаження хмари…");
+    setStatus("v2.5 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2156,7 +2205,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v2.4 · хмара ✓");
+    setStatus("v2.5 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2197,19 +2246,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v2.4 · хмара ✓");
+      setStatus("v2.5 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v2.4 · хмара недоступна");
+      setStatus("v2.5 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v2.4 · хмара недоступна");
+    setStatus("v2.5 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2220,7 +2269,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.4 · Firebase не налаштовано");
+    setStatus("v2.5 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2236,19 +2285,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v2.4 · вхід ✓");
+        setStatus("v2.5 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v2.4 · потрібен вхід");
+        setStatus("v2.5 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v2.4 · помилка авторизації");
+    setStatus("v2.5 · помилка авторизації");
     showLogin();
   }
 }
