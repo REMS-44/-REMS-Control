@@ -28,12 +28,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.2 · немає з’єднання");
+    setStatus("v1.3 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.2 · збереження…");
+    setStatus("v1.3 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +41,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.2 · хмара ✓");
+    setStatus("v1.3 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.2 · помилка хмари");
+    setStatus("v1.3 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -347,11 +347,15 @@ function openProjectCard(id){
       <div class="project-section">
         <div class="project-section-head"><b>Календар проєкту</b><button class="ghost" id="addProjectEventBtn">+ Дата</button></div>
         <div class="project-event-list">
-          ${evs.map((e,i)=>`<div class="project-event-row">
-            <b>${fmt(e.date)}</b>
-            <span>${esc(e.type)}</span>
-            <button class="ghost delete-event" data-index="${i}">Видалити</button>
-          </div>`).join("")||'<div class="empty">Дат ще немає.</div>'}
+          ${evs.map((e,i)=>{
+            const people=studentsForEvent(e);
+            return `<div class="project-event-row" style="grid-template-columns:90px 1fr auto auto">
+              <b>${fmt(e.date)}</b>
+              <span>${esc(e.type)}<div class="muted">${people.length} учасників</div></span>
+              <button class="ghost event-people-btn" data-index="${i}">Учасники</button>
+              <button class="ghost delete-event" data-index="${i}">Видалити</button>
+            </div>`;
+          }).join("")||'<div class="empty">Дат ще немає.</div>'}
         </div>
       </div>
     </div>
@@ -369,6 +373,11 @@ function openProjectCard(id){
     $("#eventDialog").showModal();
   };
 
+  dialog.querySelectorAll(".event-people-btn").forEach(b=>b.onclick=()=>{
+    const ev=eventsFor(id)[+b.dataset.index];
+    editEventPeople(id,ev);
+  });
+
   dialog.querySelectorAll(".delete-event").forEach(b=>b.onclick=async()=>{
     const ev=eventsFor(id)[+b.dataset.index];
     const i=db.events.findIndex(x=>x.projectId===id&&x.date===ev.date&&x.type===ev.type);
@@ -378,6 +387,54 @@ function openProjectCard(id){
 
   dialog.querySelector("#editProjectBtn").onclick=()=>editProjectCard(id);
   dialog.showModal();
+}
+
+
+function editEventPeople(projectId,ev){
+  const p=pBy(projectId); if(!p) return;
+  const dialog=ensureProjectCardDialog();
+  const projectPeople=projectStudents(projectId);
+  const current=studentsForEvent(ev).map(s=>s.id);
+  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
+    <div class="project-section-head">
+      <div><h2 style="margin:0">Учасники події</h2><div class="muted">${esc(p.name)} · ${fmt(ev.date)} · ${esc(ev.type)}</div></div>
+      <button class="ghost" id="backToProject">Назад</button>
+    </div>
+    <div class="event-assignment-box">
+      <b>Хто працює саме цього дня</b>
+      <div class="event-assignment-grid">
+        ${projectPeople.map(s=>`<button class="event-person ${current.includes(s.id)?"active":""}" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Спочатку додайте студентів до проєкту.</span>'}
+      </div>
+      <div class="event-assignment-note">Темна кнопка = студент призначений на цю конкретну подію.</div>
+    </div>
+    <div class="profile-actions">
+      <button class="ghost" id="allEventPeople">Всі</button>
+      <button class="ghost" id="clearEventPeople">Ніхто</button>
+      <button class="primary" id="saveEventPeople">Зберегти</button>
+    </div>
+  </div>`;
+
+  let selected=new Set(current);
+  dialog.querySelectorAll(".event-person").forEach(btn=>btn.onclick=()=>{
+    const sid=+btn.dataset.id;
+    if(selected.has(sid)) selected.delete(sid); else selected.add(sid);
+    btn.classList.toggle("active",selected.has(sid));
+  });
+  dialog.querySelector("#allEventPeople").onclick=()=>{
+    selected=new Set(projectPeople.map(s=>s.id));
+    dialog.querySelectorAll(".event-person").forEach(x=>x.classList.add("active"));
+  };
+  dialog.querySelector("#clearEventPeople").onclick=()=>{
+    selected.clear();
+    dialog.querySelectorAll(".event-person").forEach(x=>x.classList.remove("active"));
+  };
+  dialog.querySelector("#backToProject").onclick=()=>openProjectCard(projectId);
+  dialog.querySelector("#saveEventPeople").onclick=async()=>{
+    const target=db.events.find(x=>x.projectId===ev.projectId&&x.date===ev.date&&x.type===ev.type);
+    if(target) target.studentIds=[...selected];
+    await save();
+    openProjectCard(projectId);
+  };
 }
 
 function editProjectCard(id){
@@ -438,6 +495,15 @@ function ensureDayDialog(){
 }
 
 
+
+function eventKey(e){
+  return `${e.projectId}|${e.date}|${e.type}`;
+}
+function studentsForEvent(e){
+  if(Array.isArray(e.studentIds)) return db.students.filter(s=>e.studentIds.includes(s.id));
+  return projectStudents(e.projectId);
+}
+
 function ensureProjectCardDialog(){
   let d=document.querySelector("#projectCardDialog");
   if(d) return d;
@@ -467,7 +533,7 @@ function showDay(date){
   db.events.filter(e=>e.date===date).forEach(e=>{
     const p=pBy(e.projectId);
     if(!p) return;
-    const students=projectStudents(p.id);
+    const students=studentsForEvent(e);
     dayEvents.push({event:e,project:p,students});
   });
 
@@ -667,7 +733,7 @@ function schedule(){
       db.events.filter(e=>e.date===date).forEach(e=>{
         const p=pBy(e.projectId);
         if(!p) return;
-        const assigned=projectStudents(p.id);
+        const assigned=studentsForEvent(e);
         assigned.forEach(s=>busyIds.add(s.id));
         if(assigned.length) reasons[p.name]=(reasons[p.name]||0)+assigned.length;
       });
@@ -1024,6 +1090,14 @@ function ensureAuthStyles(){
     .schedule-day.hard{box-shadow:inset 0 0 0 2px #fecaca}
     @media(max-width:1100px){.schedule-cal{grid-template-columns:repeat(7,minmax(105px,1fr))}}
     @media(max-width:760px){.schedule-cal{grid-template-columns:repeat(7,minmax(88px,1fr))}.schedule-day{min-height:102px;padding:6px}.schedule-day-busy{display:none}}
+
+    .event-people{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .event-person{font-size:10px;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:4px 7px}
+    .event-person.active{background:#111827;color:#fff;border-color:#111827}
+    .event-assignment-box{margin-top:12px;padding:12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px}
+    .event-assignment-box b{display:block;margin-bottom:8px}
+    .event-assignment-grid{display:flex;flex-wrap:wrap;gap:6px}
+    .event-assignment-note{font-size:11px;color:#6b7280;margin-top:7px}
     @media(max-width:520px){
       .profile-hero-title{display:block}
       .profile-photo{width:96px;height:120px;margin-bottom:12px}
@@ -1115,14 +1189,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.2 · Firebase не налаштовано");
+    setStatus("v1.3 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.2 · завантаження хмари…");
+    setStatus("v1.3 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1144,7 +1218,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.2 · хмара ✓");
+    setStatus("v1.3 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -1164,19 +1238,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v1.2 · хмара ✓");
+      setStatus("v1.3 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.2 · хмара недоступна");
+      setStatus("v1.3 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.2 · хмара недоступна");
+    setStatus("v1.3 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1187,7 +1261,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.2 · Firebase не налаштовано");
+    setStatus("v1.3 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1203,19 +1277,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.2 · вхід ✓");
+        setStatus("v1.3 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.2 · потрібен вхід");
+        setStatus("v1.3 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.2 · помилка авторизації");
+    setStatus("v1.3 · помилка авторизації");
     showLogin();
   }
 }
