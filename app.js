@@ -75,12 +75,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v2.1 · немає з’єднання");
+    setStatus("v2.2 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v2.1 · збереження…");
+    setStatus("v2.2 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -88,14 +88,14 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v2.1 · хмара ✓");
+    setStatus("v2.2 · хмара ✓");
     // Every derived screen must immediately reflect the edited cloud data.
     // This updates Dashboard / Projects / Calendar / Schedule behind any open dialog.
     refreshCurrentView();
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v2.1 · помилка хмари");
+    setStatus("v2.2 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -426,7 +426,7 @@ function openStudent(id){
                 ${birthday?`<span>🎂 ${birthday}</span>`:""}
               </div>
               <div class="chips" style="margin-top:14px">
-                ${ps.map(p=>`<span class="project-pill" style="background:${p.color}">${projectLogoHtml(p,"project-pill-logo")} ${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
+                ${ps.map(p=>`<span class="project-pill" style="background:${p.color||"#4f46e5"}">${esc(p.name||"Проєкт")}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
               </div>
             </div>
           </div>
@@ -541,9 +541,14 @@ function openStudent(id){
     body.innerHTML=`<div class="student-profile"><div class="profile-body">
       <h2>${esc(s.name)}</h2>
       <div class="muted">${esc(s.group||"")}</div>
-      <div class="notice warn" style="margin-top:16px">Картка відкрилася, але частину даних не вдалося показати. Помилка записана в консолі.</div>
-      <button class="ghost" style="margin-top:12px" onclick="document.querySelector('#studentDialog').close()">Закрити</button>
+      <div class="notice warn" style="margin-top:16px">Не вдалося завантажити календар. Основна картка студента доступна.</div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="ghost" id="fallbackEditStudent">Редагувати</button>
+        <button class="ghost" id="fallbackCloseStudent">Закрити</button>
+      </div>
     </div></div>`;
+    body.querySelector("#fallbackEditStudent").onclick=()=>editStudent(id);
+    body.querySelector("#fallbackCloseStudent").onclick=()=>dialog.close();
   }
 }
 
@@ -739,6 +744,10 @@ function showProjectDay(projectId,date){
 function openProjectCard(id){
   const p=pBy(id); if(!p) return;
   const dialog=ensureProjectCardDialog();
+  const holder=dialog.querySelector("#projectCardBody");
+  holder.innerHTML=`<div class="project-detail"><div class="project-body"><h2>${esc(p.name||"Проєкт")}</h2><div class="profile-empty">Завантаження проєкту…</div></div></div>`;
+  if(!dialog.open) dialog.showModal();
+  try{
   const evs=eventsFor(id);
   const assigned=projectStudents(id);
   const ui=projectUiState[id]||{mode:"calendar",month:""};
@@ -804,8 +813,6 @@ function openProjectCard(id){
     </div>
   </div>`;
 
-  if(!dialog.open) dialog.showModal();
-
   dialog.querySelectorAll(".project-student-chip").forEach(b=>b.onclick=async()=>{
     const sid=resolveStudentId(b.dataset.student);
     if(sid===undefined) return;
@@ -852,6 +859,19 @@ function openProjectCard(id){
   dialog.querySelectorAll(".project-cal-day.has-event").forEach(day=>day.onclick=()=>showProjectDay(id,day.dataset.projectDay));
 
   dialog.querySelector("#editProjectBtn").onclick=()=>editProjectCard(id);
+  }catch(err){
+    console.error("Project card error:",err);
+    holder.innerHTML=`<div class="project-detail"><div class="project-body">
+      <h2>${esc(p.name||"Проєкт")}</h2>
+      <div class="notice warn">Проєкт відкрився, але частина додаткових даних не завантажилась.</div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="ghost" id="fallbackEditProject">Редагувати</button>
+        <button class="ghost" id="fallbackCloseProject">Закрити</button>
+      </div>
+    </div></div>`;
+    holder.querySelector("#fallbackEditProject").onclick=()=>editProjectCard(id);
+    holder.querySelector("#fallbackCloseProject").onclick=()=>dialog.close();
+  }
 }
 
 
@@ -2092,14 +2112,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.1 · Firebase не налаштовано");
+    setStatus("v2.2 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v2.1 · завантаження хмари…");
+    setStatus("v2.2 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2121,7 +2141,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v2.1 · хмара ✓");
+    setStatus("v2.2 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2153,19 +2173,19 @@ async function initCloud(){
 
       currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
       refreshCurrentView();
-      setStatus("v2.1 · хмара ✓");
+      setStatus("v2.2 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v2.1 · хмара недоступна");
+      setStatus("v2.2 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v2.1 · хмара недоступна");
+    setStatus("v2.2 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -2176,7 +2196,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.1 · Firebase не налаштовано");
+    setStatus("v2.2 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2192,19 +2212,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v2.1 · вхід ✓");
+        setStatus("v2.2 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v2.1 · потрібен вхід");
+        setStatus("v2.2 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v2.1 · помилка авторизації");
+    setStatus("v2.2 · помилка авторизації");
     showLogin();
   }
 }
