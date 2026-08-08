@@ -75,12 +75,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v2.3 · немає з’єднання");
+    setStatus("v2.4 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v2.3 · збереження…");
+    setStatus("v2.4 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -88,7 +88,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v2.3 · хмара ✓");
+    setStatus("v2.4 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -99,7 +99,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v2.3 · помилка хмари");
+    setStatus("v2.4 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -498,7 +498,7 @@ function openStudent(id){
     $("#editStudentBtn").onclick=()=>editStudent(id);
 
     const monthNames={"01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень","07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"};
-    const months=[...new Set(items.map(x=>x.date.slice(0,7)))].sort();
+    const months=["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"];
 
     const renderMonth=month=>{
       $$(".student-month-tab").forEach(b=>b.classList.toggle("active",b.dataset.month===month));
@@ -520,7 +520,8 @@ function openStudent(id){
           </div>
         </div>`;
       }).join("");
-      $("#studentCalendarView").innerHTML=`<div class="student-month-grid">${heads}${blanks}${cells}</div>`;
+      const monthHasEvents=items.some(x=>x.date.startsWith(month));
+      $("#studentCalendarView").innerHTML=`<div class="student-month-grid">${heads}${blanks}${cells}</div>${monthHasEvents?"":'<div class="profile-empty" style="margin-top:8px">У цьому місяці подій немає.</div>'}`;
 
       $("#studentCalendarView").querySelectorAll(".student-day-event").forEach(el=>el.onclick=()=>{
         const dayItems=items.filter(x=>x.date===el.dataset.date);
@@ -529,16 +530,12 @@ function openStudent(id){
       });
     };
 
-    if(months.length){
-      $("#studentMonthTabs").innerHTML=months.map(m=>{
-        const [y,mo]=m.split("-");
-        return `<button type="button" class="student-month-tab" data-month="${m}">${monthNames[mo]} ${y}</button>`;
-      }).join("");
-      $("#studentMonthTabs").querySelectorAll(".student-month-tab").forEach(b=>b.onclick=()=>renderMonth(b.dataset.month));
-      renderMonth(months[0]);
-    }else{
-      $("#studentCalendarView").innerHTML='<div class="profile-empty">Подій немає</div>';
-    }
+    $("#studentMonthTabs").innerHTML=months.map(m=>{
+      const [y,mo]=m.split("-");
+      return `<button type="button" class="student-month-tab" data-month="${m}">${monthNames[mo]} ${y}</button>`;
+    }).join("");
+    $("#studentMonthTabs").querySelectorAll(".student-month-tab").forEach(b=>b.onclick=()=>renderMonth(b.dataset.month));
+    renderMonth(months[0]);
 
     $("#studentCalendarMode").onclick=()=>{
       $("#studentCalendarMode").classList.add("active");
@@ -2130,14 +2127,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.3 · Firebase не налаштовано");
+    setStatus("v2.4 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v2.3 · завантаження хмари…");
+    setStatus("v2.4 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2159,7 +2156,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v2.3 · хмара ✓");
+    setStatus("v2.4 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2200,19 +2197,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v2.3 · хмара ✓");
+      setStatus("v2.4 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v2.3 · хмара недоступна");
+      setStatus("v2.4 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v2.3 · хмара недоступна");
+    setStatus("v2.4 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2223,7 +2220,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.3 · Firebase не налаштовано");
+    setStatus("v2.4 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2239,19 +2236,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v2.3 · вхід ✓");
+        setStatus("v2.4 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v2.3 · потрібен вхід");
+        setStatus("v2.4 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v2.3 · помилка авторизації");
+    setStatus("v2.4 · помилка авторизації");
     showLogin();
   }
 }
