@@ -45,12 +45,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.5 · немає з’єднання");
+    setStatus("v1.6 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.5 · збереження…");
+    setStatus("v1.6 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -58,14 +58,14 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.5 · хмара ✓");
+    setStatus("v1.6 · хмара ✓");
     // Every derived screen must immediately reflect the edited cloud data.
     // This updates Dashboard / Projects / Calendar / Schedule behind any open dialog.
     refreshCurrentView();
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.5 · помилка хмари");
+    setStatus("v1.6 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -115,6 +115,20 @@ async function compressProjectLogo(file){
   }
   if(data.length>150000) throw new Error("Не вдалося достатньо стиснути логотип. Спробуйте менше зображення.");
   return data;
+}
+
+function ensureEventTimeLocationFields(){
+  const form=document.querySelector("#eventForm");
+  if(!form || form.querySelector("#eventStartTime")) return;
+  const save=document.querySelector("#saveEvent");
+  const host=save?.parentElement||form;
+  const wrap=document.createElement("div");
+  wrap.className="full";
+  wrap.style.cssText="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px";
+  wrap.innerHTML=`<label>Початок<input id="eventStartTime" type="time"></label>
+    <label>Завершення<input id="eventEndTime" type="time"></label>
+    <label style="grid-column:1/-1">Локація<input id="eventLocation" placeholder="Напр. ВДНГ · павільйон 3 / ауд. 230 / студія"></label>`;
+  if(save?.parentElement) save.parentElement.before(wrap); else form.appendChild(wrap);
 }
 
 function ensureNewProjectLogoField(){
@@ -218,7 +232,7 @@ function dashboard(){
             <span class="dot" style="background:${x.project.color}"></span>
             <div>
               <b>${esc(x.project.name)}</b>
-              <small>${esc(x.event.type)} · ${x.students.length} студентів</small>
+              <small>${esc(x.event.type)}${eventMetaText(x.event)?` · ${esc(eventMetaText(x.event))}`:""} · ${x.students.length} студентів</small>
             </div>
             <span class="chip" style="background:${x.project.color}">${shortType(x.event.type)}</span>
           </div>`).join("")||'<div class="muted" style="margin-top:8px">Сьогодні можна спокійно планувати інші справи — у базі подій немає.</div>'}
@@ -392,7 +406,7 @@ function openStudent(id){
             <div class="timeline">
               ${items.map(x=>`<div class="timeline-row">
                 <div class="timeline-date">${fullfmt(x.date)}</div>
-                <div class="timeline-type">${esc(x.type)}</div>
+                <div class="timeline-type">${esc(x.type)}${eventMetaText(x)?`<div class="muted">${esc(eventMetaText(x))}</div>`:""}</div>
                 <span class="chip" style="background:${x.p.color}">${esc(x.p.name)}</span>
               </div>`).join("")||'<div class="profile-empty">Подій немає</div>'}
             </div>
@@ -430,7 +444,7 @@ function openStudent(id){
         <div class="student-month-number">${day}</div>
         ${dayItems.length>1?`<span class="student-day-count">${dayItems.length}</span>`:""}
         <div class="student-day-events">
-          ${dayItems.map((x,idx)=>`<div class="student-day-event" data-date="${date}" data-index="${idx}" style="background:${x.p.color}" title="${esc(x.p.name)} · ${esc(x.type)}">${shortType(x.type)}</div>`).join("")}
+          ${dayItems.map((x,idx)=>`<div class="student-day-event" data-date="${date}" data-index="${idx}" style="background:${x.p.color}" title="${esc(x.p.name)} · ${esc(x.type)}">${eventTimeText(x)?`${esc(eventTimeText(x))} · `:""}${shortType(x.type)}</div>`).join("")}
         </div>
       </div>`;
     }).join("");
@@ -616,7 +630,7 @@ function showProjectDay(projectId,date){
     <div class="day-event-list">
       ${evs.map((e,i)=>`<div class="day-event-row">
         <span class="dot" style="background:${p.color}"></span>
-        <div><b>${esc(e.type)}</b><div class="day-event-meta">${studentsForEvent(e).length} учасників</div></div>
+        <div><b>${esc(e.type)}</b>${eventMetaText(e)?`<div class="day-event-meta">${esc(eventMetaText(e))}</div>`:""}<div class="day-event-meta">${studentsForEvent(e).length} учасників</div></div>
         <div style="display:flex;gap:6px;align-items:center">
           <button class="ghost project-day-edit-event" data-index="${i}">Редагувати</button>
           <button class="ghost project-day-people-event" data-index="${i}">Учасники</button>
@@ -690,7 +704,7 @@ function openProjectCard(id){
               const people=studentsForEvent(e);
               return `<div class="project-event-row" style="grid-template-columns:90px 1fr auto auto auto">
                 <b>${fmt(e.date)}</b>
-                <span>${esc(e.type)}<div class="muted">${people.length} учасників</div></span>
+                <span>${esc(e.type)}${eventMetaText(e)?`<div class="muted">${esc(eventMetaText(e))}</div>`:""}<div class="muted">${people.length} учасників</div></span>
                 <button class="ghost edit-event-btn" data-index="${i}">Редагувати</button>
                 <button class="ghost event-people-btn" data-index="${i}">Учасники</button>
                 <button class="ghost delete-event" data-index="${i}">Видалити</button>
@@ -773,6 +787,9 @@ function editProjectEvent(projectId,ev){
       <label class="full">Що відбувається
         <input id="editEventType" value="${esc(ev.type||"")}" placeholder="Наприклад: Репетиція, Зйомка, Генеральний прогін">
       </label>
+      <label>Початок<input id="editEventStartTime" type="time" value="${esc(ev.startTime||"")}"></label>
+      <label>Завершення<input id="editEventEndTime" type="time" value="${esc(ev.endTime||"")}"></label>
+      <label class="full">Локація<input id="editEventLocation" value="${esc(ev.location||"")}" placeholder="Напр. ВДНГ · павільйон 3 / ауд. 230 / студія"></label>
       <div class="full profile-actions">
         <button type="button" class="ghost" id="cancelProjectEventEditBottom">Скасувати</button>
         <button type="submit" class="primary">Зберегти</button>
@@ -806,7 +823,10 @@ function editProjectEvent(projectId,ev){
 
     target.date=newDate;
     target.type=newType;
-    db.events.sort((a,b)=>a.date.localeCompare(b.date));
+    target.startTime=dialog.querySelector("#editEventStartTime").value||"";
+    target.endTime=dialog.querySelector("#editEventEndTime").value||"";
+    target.location=dialog.querySelector("#editEventLocation").value.trim();
+    db.events.sort((a,b)=>a.date.localeCompare(b.date)||(a.startTime||"").localeCompare(b.startTime||""));
 
     const ok=await save();
     if(!ok){
@@ -1362,7 +1382,8 @@ $("#saveEvent").onclick=async e=>{
   e.preventDefault();
   const projectId=$("#eventProjectId").value,date=$("#eventDate").value,type=$("#eventType").value.trim();
   if(!date||!type)return;
-  db.events.push({projectId,date,type});
+  const startTime=$("#eventStartTime")?.value||"",endTime=$("#eventEndTime")?.value||"",location=$("#eventLocation")?.value.trim()||"";
+  db.events.push({projectId,date,type,startTime,endTime,location});
   const ok=await save();
   $("#eventDialog").close(); $("#eventForm").reset();
   const openProjectId=projectId;
@@ -1898,14 +1919,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.5 · Firebase не налаштовано");
+    setStatus("v1.6 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.5 · завантаження хмари…");
+    setStatus("v1.6 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1927,7 +1948,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.5 · хмара ✓");
+    setStatus("v1.6 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -1959,19 +1980,19 @@ async function initCloud(){
 
       currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
       refreshCurrentView();
-      setStatus("v1.5 · хмара ✓");
+      setStatus("v1.6 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.5 · хмара недоступна");
+      setStatus("v1.6 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.5 · хмара недоступна");
+    setStatus("v1.6 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1982,7 +2003,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.5 · Firebase не налаштовано");
+    setStatus("v1.6 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1998,19 +2019,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.5 · вхід ✓");
+        setStatus("v1.6 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.5 · потрібен вхід");
+        setStatus("v1.6 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.5 · помилка авторизації");
+    setStatus("v1.6 · помилка авторизації");
     showLogin();
   }
 }
@@ -2021,4 +2042,5 @@ window.addEventListener("online",()=>{
 
 setWriteUiReady(false);
 ensureNewProjectLogoField();
+ensureEventTimeLocationFields();
 bootstrapAuth();
