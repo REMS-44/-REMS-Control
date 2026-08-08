@@ -45,12 +45,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.4 · немає з’єднання");
+    setStatus("v1.5 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.4 · збереження…");
+    setStatus("v1.5 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -58,14 +58,14 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.4 · хмара ✓");
+    setStatus("v1.5 · хмара ✓");
     // Every derived screen must immediately reflect the edited cloud data.
     // This updates Dashboard / Projects / Calendar / Schedule behind any open dialog.
     refreshCurrentView();
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.4 · помилка хмари");
+    setStatus("v1.5 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -78,6 +78,7 @@ const fullfmt=d=>new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{day:"numeri
 const pBy=id=>db.projects.find(p=>p.id===id);
 
 const projectLogoFile=p=>{
+  if(p?.logoData) return p.logoData;
   const n=String(p?.name||"").toLowerCase();
   if(n.includes("дитяче євробачення")) return "logos/junior-eurovision.png";
   if(n.includes("голос країни")||n.includes("голос 14")) return "logos/holos-krainy.png";
@@ -89,6 +90,47 @@ const projectLogoHtml=(p,cls="project-logo-img")=>{
   const src=projectLogoFile(p);
   return src?`<img class="${cls}" src="${src}" alt="${esc(p.name)}">`:`<span>${p.emoji||"◆"}</span>`;
 };
+
+async function compressProjectLogo(file){
+  if(!file) return "";
+  if(!file.type.startsWith("image/")) throw new Error("Оберіть файл зображення.");
+  if(file.size>8*1024*1024) throw new Error("Файл завеликий. Максимум 8 МБ.");
+
+  const bitmap=await createImageBitmap(file);
+  const maxW=520,maxH=300;
+  const scale=Math.min(1,maxW/bitmap.width,maxH/bitmap.height);
+  const w=Math.max(1,Math.round(bitmap.width*scale));
+  const h=Math.max(1,Math.round(bitmap.height*scale));
+  const canvas=document.createElement("canvas");
+  canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext("2d");
+  ctx.clearRect(0,0,w,h);
+  ctx.drawImage(bitmap,0,0,w,h);
+
+  let quality=.82;
+  let data=canvas.toDataURL("image/webp",quality);
+  while(data.length>120000 && quality>.42){
+    quality-=.10;
+    data=canvas.toDataURL("image/webp",quality);
+  }
+  if(data.length>150000) throw new Error("Не вдалося достатньо стиснути логотип. Спробуйте менше зображення.");
+  return data;
+}
+
+function ensureNewProjectLogoField(){
+  const form=document.querySelector("#projectForm");
+  if(!form || form.querySelector("#projectLogoFile")) return;
+  const saveBtn=form.querySelector("#saveProject");
+  const wrap=document.createElement("label");
+  wrap.className="full";
+  wrap.style.display="grid";
+  wrap.style.gap="6px";
+  wrap.innerHTML=`<span>Логотип проєкту</span>
+    <input id="projectLogoFile" type="file" accept="image/*">
+    <small class="muted">PNG, JPG або WEBP. Зображення автоматично стискається.</small>`;
+  if(saveBtn?.parentElement) saveBtn.parentElement.before(wrap);
+  else form.appendChild(wrap);
+}
 
 const sBy=id=>db.students.find(s=>s.id===id);
 const eventsFor=id=>db.events.filter(e=>e.projectId===id).sort((a,b)=>a.date.localeCompare(b.date));
@@ -833,6 +875,15 @@ function editProjectCard(id){
       <label>Позначка<input id="prEmoji" value="${esc(p.emoji||"◆")}"></label>
       <label>Колір<input id="prColor" type="color" value="${esc(p.color||"#2563EB")}"></label>
       <label class="full">Опис<textarea id="prDescription">${esc(p.description||"")}</textarea></label>
+      <div class="full project-logo-editor">
+        <div class="project-logo-preview" id="prLogoPreview">${projectLogoHtml(p,"project-hero-logo")}</div>
+        <div class="project-logo-controls">
+          <b>Логотип проєкту</b>
+          <input id="prLogoFile" type="file" accept="image/*">
+          <button type="button" class="ghost" id="removeProjectLogo">Прибрати власне лого</button>
+          <span class="muted">Можна вибрати PNG, JPG або WEBP прямо з комп’ютера.</span>
+        </div>
+      </div>
       <div class="full profile-actions">
         <button type="button" class="ghost" onclick="openProjectCard('${id}')">Скасувати</button>
         <button type="submit" class="primary">Зберегти</button>
@@ -843,13 +894,46 @@ function editProjectCard(id){
     </div>
   </div>`;
 
+  let removeLogoRequested=false;
+  dialog.querySelector("#removeProjectLogo").onclick=()=>{
+    removeLogoRequested=true;
+    dialog.querySelector("#prLogoFile").value="";
+    dialog.querySelector("#prLogoPreview").innerHTML=`<span>${p.emoji||"◆"}</span>`;
+  };
+  dialog.querySelector("#prLogoFile").onchange=async e=>{
+    const f=e.target.files?.[0];
+    if(!f) return;
+    try{
+      const data=await compressProjectLogo(f);
+      removeLogoRequested=false;
+      dialog.querySelector("#prLogoPreview").innerHTML=`<img src="${data}" alt="Попередній перегляд">`;
+    }catch(err){
+      alert(err.message||"Не вдалося прочитати логотип.");
+      e.target.value="";
+    }
+  };
+
   dialog.querySelector("#projectEditForm").onsubmit=async e=>{
     e.preventDefault();
-    p.name=$("#prName").value.trim()||p.name;
-    p.emoji=$("#prEmoji").value.trim()||"◆";
-    p.color=$("#prColor").value;
-    p.description=$("#prDescription").value.trim();
-    await save(); openProjectCard(id);
+    const submit=e.submitter;
+    if(submit){submit.disabled=true;submit.textContent="Збереження…";}
+    try{
+      p.name=$("#prName").value.trim()||p.name;
+      p.emoji=$("#prEmoji").value.trim()||"◆";
+      p.color=$("#prColor").value;
+      p.description=$("#prDescription").value.trim();
+
+      const logoFile=dialog.querySelector("#prLogoFile").files?.[0];
+      if(logoFile) p.logoData=await compressProjectLogo(logoFile);
+      else if(removeLogoRequested) delete p.logoData;
+
+      const ok=await save();
+      if(!ok) throw new Error("Не вдалося зберегти зміни в хмарі.");
+      openProjectCard(id);
+    }catch(err){
+      alert(err.message||"Не вдалося зберегти проєкт.");
+      if(submit){submit.disabled=false;submit.textContent="Зберегти";}
+    }
   };
 
   dialog.querySelector("#deleteProjectBtn").onclick=async()=>{
@@ -1247,13 +1331,32 @@ $("#quickAdd").onclick=()=>{
   }
   $("#projectDialog").showModal();
 };
+ensureNewProjectLogoField();
+
 $("#saveProject").onclick=async e=>{
   e.preventDefault();
   const name=$("#projectName").value.trim(); if(!name)return;
-  db.projects.push({id:"p_"+Date.now(),name,color:$("#projectColor").value,emoji:$("#projectEmoji").value||"◆"});
-  const ok=await save();
-  $("#projectDialog").close(); $("#projectForm").reset(); switchView("projects","Проєкти");
-  if(!ok) alert("Проєкт залишився тільки на цьому пристрої. Перевірте з’єднання з Firebase.");
+  const btn=e.currentTarget;
+  btn.disabled=true; btn.textContent="Збереження…";
+  try{
+    const project={id:"p_"+Date.now(),name,color:$("#projectColor").value,emoji:$("#projectEmoji").value||"◆"};
+    const logoFile=$("#projectLogoFile")?.files?.[0];
+    if(logoFile) project.logoData=await compressProjectLogo(logoFile);
+    db.projects.push(project);
+
+    const ok=await save();
+    if(!ok){
+      db.projects=db.projects.filter(x=>x.id!==project.id);
+      throw new Error("Не вдалося зберегти проєкт у хмарі.");
+    }
+    $("#projectDialog").close();
+    $("#projectForm").reset();
+    switchView("projects","Проєкти");
+  }catch(err){
+    alert(err.message||"Не вдалося створити проєкт.");
+  }finally{
+    btn.disabled=false; btn.textContent="Зберегти";
+  }
 };
 $("#saveEvent").onclick=async e=>{
   e.preventDefault();
@@ -1485,6 +1588,12 @@ function ensureAuthStyles(){
     .project-edit-form input,.project-edit-form textarea{border:1px solid #e5e7eb;border-radius:10px;padding:9px 10px;font:inherit;width:100%}
     .project-edit-form textarea{min-height:80px;resize:vertical}
     .project-edit-form .full{grid-column:1/-1}
+    .project-logo-editor{display:flex;gap:14px;align-items:center;padding:12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px}
+    .project-logo-preview{width:150px;height:90px;display:grid;place-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
+    .project-logo-preview img{width:100%;height:100%;object-fit:contain}
+    .project-logo-controls{display:grid;gap:7px;flex:1}
+    .project-logo-controls input[type=file]{font-size:12px}
+
     .project-danger{margin-top:18px;padding-top:14px;border-top:1px solid #fee2e2}
     .project-calendar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .project-view-switch{display:inline-flex;background:#f3f4f6;border-radius:10px;padding:3px}
@@ -1789,14 +1898,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.4 · Firebase не налаштовано");
+    setStatus("v1.5 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.4 · завантаження хмари…");
+    setStatus("v1.5 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1818,7 +1927,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.4 · хмара ✓");
+    setStatus("v1.5 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -1850,19 +1959,19 @@ async function initCloud(){
 
       currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
       refreshCurrentView();
-      setStatus("v1.4 · хмара ✓");
+      setStatus("v1.5 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.4 · хмара недоступна");
+      setStatus("v1.5 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.4 · хмара недоступна");
+    setStatus("v1.5 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1873,7 +1982,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.4 · Firebase не налаштовано");
+    setStatus("v1.5 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1889,19 +1998,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.4 · вхід ✓");
+        setStatus("v1.5 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.4 · потрібен вхід");
+        setStatus("v1.5 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.4 · помилка авторизації");
+    setStatus("v1.5 · помилка авторизації");
     showLogin();
   }
 }
@@ -1911,4 +2020,5 @@ window.addEventListener("online",()=>{
 });
 
 setWriteUiReady(false);
+ensureNewProjectLogoField();
 bootstrapAuth();
