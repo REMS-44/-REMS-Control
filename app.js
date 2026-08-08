@@ -43,12 +43,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.3.6 · немає з’єднання");
+    setStatus("v1.3.7 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.3.6 · збереження…");
+    setStatus("v1.3.7 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -56,11 +56,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.3.6 · хмара ✓");
+    setStatus("v1.3.7 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.3.6 · помилка хмари");
+    setStatus("v1.3.7 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -264,7 +264,10 @@ function openStudent(id){
     "01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень",
     "07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"
   };
-  const months=[...new Set(items.map(x=>x.date.slice(0,7)))].sort();
+  const months=[
+    "2026-09","2026-10","2026-11","2026-12",
+    "2027-01","2027-02","2027-03","2027-04","2027-05"
+  ];
 
   const renderStudentMonth=(month)=>{
     $("#studentMonthTabs").querySelectorAll(".student-month-tab").forEach(b=>b.classList.toggle("active",b.dataset.month===month));
@@ -1637,14 +1640,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.6 · Firebase не налаштовано");
+    setStatus("v1.3.7 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.3.6 · завантаження хмари…");
+    setStatus("v1.3.7 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1666,7 +1669,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.3.6 · хмара ✓");
+    setStatus("v1.3.7 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -1697,19 +1700,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v1.3.6 · хмара ✓");
+      setStatus("v1.3.7 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.3.6 · хмара недоступна");
+      setStatus("v1.3.7 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.3.6 · хмара недоступна");
+    setStatus("v1.3.7 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1720,7 +1723,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.6 · Firebase не налаштовано");
+    setStatus("v1.3.7 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1736,19 +1739,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.3.6 · вхід ✓");
+        setStatus("v1.3.7 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.3.6 · потрібен вхід");
+        setStatus("v1.3.7 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.3.6 · помилка авторизації");
+    setStatus("v1.3.7 · помилка авторизації");
     showLogin();
   }
 }
