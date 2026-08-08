@@ -6,41 +6,39 @@
   st.textContent=`
     .project-watermark{
       position:relative;
-      isolation:isolate;
       overflow:hidden;
-      background:var(--project-color,#4b5563)!important;
       color:#fff!important;
+      background-color:var(--project-color,#4b5563)!important;
+      background-image:
+        linear-gradient(rgba(0,0,0,.36),rgba(0,0,0,.36)),
+        var(--project-logo)!important;
+      background-repeat:no-repeat,no-repeat!important;
+      background-position:center,center!important;
+      background-size:cover,82% auto!important;
+      text-shadow:0 1px 2px rgba(0,0,0,.55);
     }
-    .project-watermark::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      z-index:-1;
-      background-image:var(--project-logo);
-      background-repeat:no-repeat;
-      background-position:center;
-      background-size:78% auto;
-      opacity:.16;
-      filter:grayscale(1) brightness(2.25) contrast(.9);
-      pointer-events:none;
+
+    .student-day-event.project-watermark,
+    .project-cal-event.project-watermark,
+    .busy.project-watermark,
+    .week-event-pill.project-watermark,
+    .schedule-mini-project.project-watermark{
+      background-image:
+        linear-gradient(rgba(0,0,0,.26),rgba(0,0,0,.26)),
+        var(--project-logo)!important;
+      background-size:cover,92% auto!important;
     }
-    .project-watermark::after{
-      content:"";
-      position:absolute;
-      inset:0;
-      z-index:-2;
-      background:linear-gradient(135deg,rgba(0,0,0,.04),rgba(0,0,0,.18));
-      pointer-events:none;
+
+    .chip.project-watermark,
+    .project-pill.project-watermark{
+      background-image:
+        linear-gradient(rgba(0,0,0,.30),rgba(0,0,0,.30)),
+        var(--project-logo)!important;
+      background-size:cover,86% auto!important;
     }
-    .student-day-event.project-watermark::before{background-size:90% auto;opacity:.18}
-    .project-cal-event.project-watermark::before{background-size:92% auto;opacity:.14}
-    .busy.project-watermark::before{background-size:72% auto;opacity:.14}
-    .week-event-pill.project-watermark::before{background-size:76% auto;opacity:.17}
-    .chip.project-watermark::before,.project-pill.project-watermark::before{background-size:72% auto;opacity:.13}
   `;
   document.head.appendChild(st);
 })();
-
 
 (function injectV21Styles(){
   if(document.getElementById("remsV21Styles")) return;
@@ -118,12 +116,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v2.5 · немає з’єднання");
+    setStatus("v2.6 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v2.5 · збереження…");
+    setStatus("v2.6 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -131,7 +129,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v2.5 · хмара ✓");
+    setStatus("v2.6 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -142,7 +140,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v2.5 · помилка хмари");
+    setStatus("v2.6 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -2176,14 +2174,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.5 · Firebase не налаштовано");
+    setStatus("v2.6 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v2.5 · завантаження хмари…");
+    setStatus("v2.6 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2205,7 +2203,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v2.5 · хмара ✓");
+    setStatus("v2.6 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2246,19 +2244,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v2.5 · хмара ✓");
+      setStatus("v2.6 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v2.5 · хмара недоступна");
+      setStatus("v2.6 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v2.5 · хмара недоступна");
+    setStatus("v2.6 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2269,7 +2267,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v2.5 · Firebase не налаштовано");
+    setStatus("v2.6 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2285,19 +2283,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v2.5 · вхід ✓");
+        setStatus("v2.6 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v2.5 · потрібен вхід");
+        setStatus("v2.6 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v2.5 · помилка авторизації");
+    setStatus("v2.6 · помилка авторизації");
     showLogin();
   }
 }
