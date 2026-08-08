@@ -43,12 +43,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v1.3.7 · немає з’єднання");
+    setStatus("v1.3.6 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v1.3.7 · збереження…");
+    setStatus("v1.3.6 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -56,11 +56,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v1.3.7 · хмара ✓");
+    setStatus("v1.3.6 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v1.3.7 · помилка хмари");
+    setStatus("v1.3.6 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -264,10 +264,7 @@ function openStudent(id){
     "01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень",
     "07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"
   };
-  const months=[
-    "2026-09","2026-10","2026-11","2026-12",
-    "2027-01","2027-02","2027-03","2027-04","2027-05"
-  ];
+  const months=[...new Set(items.map(x=>x.date.slice(0,7)))].sort();
 
   const renderStudentMonth=(month)=>{
     $("#studentMonthTabs").querySelectorAll(".student-month-tab").forEach(b=>b.classList.toggle("active",b.dataset.month===month));
@@ -472,13 +469,23 @@ function showProjectDay(projectId,date){
       <button class="ghost" id="backToProjectCalendar">Назад</button>
     </div>
     <div class="day-event-list">
-      ${evs.map(e=>`<div class="day-event-row"><span class="dot" style="background:${p.color}"></span><div><b>${esc(e.type)}</b><div class="day-event-meta">${studentsForEvent(e).length} учасників</div></div><span class="chip" style="background:${p.color}">${esc(shortType(e.type))}</span></div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
+      ${evs.map((e,i)=>`<div class="day-event-row">
+        <span class="dot" style="background:${p.color}"></span>
+        <div><b>${esc(e.type)}</b><div class="day-event-meta">${studentsForEvent(e).length} учасників</div></div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="ghost project-day-edit-event" data-index="${i}">Редагувати</button>
+          <button class="ghost project-day-people-event" data-index="${i}">Учасники</button>
+          <span class="chip" style="background:${p.color}">${esc(shortType(e.type))}</span>
+        </div>
+      </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
     </div>
     <div class="availability-card"><b>Студенти цього дня</b><div class="availability-list">
       ${people.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Учасників не призначено.</span>'}
     </div></div>
   </div>`;
   dialog.querySelector("#backToProjectCalendar").onclick=()=>openProjectCard(projectId);
+  dialog.querySelectorAll(".project-day-edit-event").forEach(b=>b.onclick=()=>editProjectEvent(projectId,evs[+b.dataset.index]));
+  dialog.querySelectorAll(".project-day-people-event").forEach(b=>b.onclick=()=>editEventPeople(projectId,evs[+b.dataset.index]));
   dialog.querySelectorAll(".project-day-student").forEach(b=>b.onclick=()=>openStudent(+b.dataset.id));
 }
 
@@ -531,9 +538,10 @@ function openProjectCard(id){
           <div class="project-event-list">
             ${evs.map((e,i)=>{
               const people=studentsForEvent(e);
-              return `<div class="project-event-row" style="grid-template-columns:90px 1fr auto auto">
+              return `<div class="project-event-row" style="grid-template-columns:90px 1fr auto auto auto">
                 <b>${fmt(e.date)}</b>
                 <span>${esc(e.type)}<div class="muted">${people.length} учасників</div></span>
+                <button class="ghost edit-event-btn" data-index="${i}">Редагувати</button>
                 <button class="ghost event-people-btn" data-index="${i}">Учасники</button>
                 <button class="ghost delete-event" data-index="${i}">Видалити</button>
               </div>`;
@@ -591,6 +599,71 @@ function openProjectCard(id){
   dialog.showModal();
 }
 
+
+
+function editProjectEvent(projectId,ev){
+  const p=pBy(projectId); if(!p||!ev) return;
+  const dialog=ensureProjectCardDialog();
+
+  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
+    <div class="project-section-head">
+      <div>
+        <h2 style="margin:0">Редагувати подію</h2>
+        <div class="muted">${esc(p.name)}</div>
+      </div>
+      <button class="ghost" id="cancelProjectEventEdit">Назад</button>
+    </div>
+
+    <form id="projectEventEditForm" class="project-edit-form" style="margin-top:16px">
+      <label>Дата
+        <input id="editEventDate" type="date" value="${esc(ev.date||"")}">
+      </label>
+      <label class="full">Що відбувається
+        <input id="editEventType" value="${esc(ev.type||"")}" placeholder="Наприклад: Репетиція, Зйомка, Генеральний прогін">
+      </label>
+      <div class="full profile-actions">
+        <button type="button" class="ghost" id="cancelProjectEventEditBottom">Скасувати</button>
+        <button type="submit" class="primary">Зберегти</button>
+      </div>
+    </form>
+  </div>`;
+
+  const back=()=>openProjectCard(projectId);
+  dialog.querySelector("#cancelProjectEventEdit").onclick=back;
+  dialog.querySelector("#cancelProjectEventEditBottom").onclick=back;
+
+  dialog.querySelector("#projectEventEditForm").onsubmit=async e=>{
+    e.preventDefault();
+    const newDate=dialog.querySelector("#editEventDate").value;
+    const newType=dialog.querySelector("#editEventType").value.trim();
+
+    if(!newDate||!newType){
+      alert("Вкажіть дату і назву події.");
+      return;
+    }
+
+    // Find the exact original event object in the database and update only date/type.
+    // Existing event-specific student assignments are preserved.
+    const target=db.events.find(x=>x===ev)
+      || db.events.find(x=>x.projectId===projectId&&x.date===ev.date&&x.type===ev.type);
+
+    if(!target){
+      alert("Не вдалося знайти подію в базі.");
+      return;
+    }
+
+    target.date=newDate;
+    target.type=newType;
+    db.events.sort((a,b)=>a.date.localeCompare(b.date));
+
+    const ok=await save();
+    if(!ok){
+      alert("Не вдалося зберегти зміну в хмарі.");
+      return;
+    }
+    openProjectCard(projectId);
+  };
+}
 
 function editEventPeople(projectId,ev){
   const p=pBy(projectId); if(!p) return;
@@ -704,79 +777,6 @@ function eventKey(e){
 function studentsForEvent(e){
   if(Array.isArray(e.studentIds)) return db.students.filter(s=>e.studentIds.includes(s.id));
   return projectStudents(e.projectId);
-}
-
-
-function ensureEventEditDialog(){
-  let d=document.querySelector("#eventEditDialog");
-  if(d) return d;
-  d=document.createElement("dialog");
-  d.id="eventEditDialog";
-  d.className="student-dialog";
-  d.innerHTML=`<div id="eventEditBody"></div>`;
-  document.body.appendChild(d);
-  return d;
-}
-
-function editProjectEvent(projectId,ev){
-  const p=pBy(projectId); if(!p) return;
-  const dialog=ensureEventEditDialog();
-  const original={date:ev.date,type:ev.type};
-
-  dialog.querySelector("#eventEditBody").innerHTML=`<div class="project-body">
-    <div class="project-section-head">
-      <div>
-        <h2 style="margin:0">Редагувати подію</h2>
-        <div class="muted">${esc(p.name)}</div>
-      </div>
-      <button class="ghost" onclick="document.querySelector('#eventEditDialog').close()">Закрити</button>
-    </div>
-
-    <form id="eventEditForm" class="project-edit-form">
-      <label>Дата
-        <input id="editEventDate" type="date" value="${esc(ev.date||"")}" required>
-      </label>
-      <label>Що відбувається
-        <input id="editEventType" value="${esc(ev.type||"")}" placeholder="Репетиція / Зйомка / Фінал..." required>
-      </label>
-      <div class="full profile-actions">
-        <button type="button" class="ghost" onclick="document.querySelector('#eventEditDialog').close()">Скасувати</button>
-        <button type="submit" class="primary">Зберегти</button>
-      </div>
-    </form>
-  </div>`;
-
-  dialog.querySelector("#eventEditForm").onsubmit=async e=>{
-    e.preventDefault();
-    const newDate=dialog.querySelector("#editEventDate").value;
-    const newType=dialog.querySelector("#editEventType").value.trim();
-    if(!newDate||!newType) return;
-
-    const target=db.events.find(x=>
-      x.projectId===projectId &&
-      x.date===original.date &&
-      x.type===original.type
-    );
-    if(!target){
-      alert("Не вдалося знайти цю подію в базі.");
-      return;
-    }
-
-    target.date=newDate;
-    target.type=newType;
-    db.events.sort((a,b)=>a.date.localeCompare(b.date));
-
-    const ok=await save();
-    if(!ok){
-      alert("Не вдалося зберегти зміни в хмарі.");
-      return;
-    }
-
-    dialog.close();
-    openProjectCard(projectId);
-  };
-
-  dialog.showModal();
 }
 
 function ensureProjectCardDialog(){
@@ -1354,6 +1354,7 @@ function ensureAuthStyles(){
     .project-section-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
     .project-event-list{display:grid;gap:8px}
     .project-event-row{display:grid;grid-template-columns:90px 1fr auto;gap:10px;align-items:center;background:#f7f7f8;border-radius:11px;padding:10px 11px}
+    @media(max-width:760px){.project-event-row{grid-template-columns:72px 1fr!important}.project-event-row>button{font-size:10px;padding:6px 7px}}
     .project-students{display:flex;flex-wrap:wrap;gap:7px}
     .project-student-chip{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:6px 9px;font-size:12px;cursor:pointer}
     .project-student-chip.active{background:#111827;color:#fff;border-color:#111827}
@@ -1640,14 +1641,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.7 · Firebase не налаштовано");
+    setStatus("v1.3.6 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v1.3.7 · завантаження хмари…");
+    setStatus("v1.3.6 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -1669,7 +1670,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v1.3.7 · хмара ✓");
+    setStatus("v1.3.6 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -1700,19 +1701,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v1.3.7 · хмара ✓");
+      setStatus("v1.3.6 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v1.3.7 · хмара недоступна");
+      setStatus("v1.3.6 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v1.3.7 · хмара недоступна");
+    setStatus("v1.3.6 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -1723,7 +1724,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v1.3.7 · Firebase не налаштовано");
+    setStatus("v1.3.6 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -1739,19 +1740,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v1.3.7 · вхід ✓");
+        setStatus("v1.3.6 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v1.3.7 · потрібен вхід");
+        setStatus("v1.3.6 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v1.3.7 · помилка авторизації");
+    setStatus("v1.3.6 · помилка авторизації");
     showLogin();
   }
 }
