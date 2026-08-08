@@ -28,12 +28,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v0.5.1 · немає з’єднання");
+    setStatus("v0.6 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v0.5.1 · збереження…");
+    setStatus("v0.6 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -41,11 +41,11 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v0.5.1 · хмара ✓");
+    setStatus("v0.6 · хмара ✓");
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v0.5.1 · помилка хмари");
+    setStatus("v0.6 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -138,39 +138,71 @@ function openStudent(id){
     : `<div class="profile-photo">👤</div>`;
 
   const contacts=[
-    s.phone ? `<div><b>Телефон:</b> ${esc(s.phone)}</div>` : "",
-    s.email ? `<div><b>Email:</b> ${esc(s.email)}</div>` : "",
-    s.instagram ? `<div><b>Instagram:</b> ${esc(s.instagram)}</div>` : "",
-    s.telegram ? `<div><b>Telegram:</b> ${esc(s.telegram)}</div>` : ""
-  ].filter(Boolean).join("") || `<div class="muted">Контакти ще не додані</div>`;
+    s.phone ? `<div class="contact-item"><b>Телефон</b><a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></div>` : "",
+    s.email ? `<div class="contact-item"><b>Email</b><a href="mailto:${esc(s.email)}">${esc(s.email)}</a></div>` : "",
+    s.instagram ? `<div class="contact-item"><b>Instagram</b><span>${esc(s.instagram)}</span></div>` : "",
+    s.telegram ? `<div class="contact-item"><b>Telegram</b><span>${esc(s.telegram)}</span></div>` : ""
+  ].filter(Boolean).join("");
 
-  const links=[
-    profileLink("Резюме",s.resumeUrl),
-    profileLink("Портфоліо",s.portfolioUrl),
-    profileLink("Відео / роботи",s.worksUrl)
-  ].filter(Boolean).join("") || `<div class="muted">Посилань ще немає</div>`;
+  const portfolioItems=[
+    ["Резюме",s.resumeUrl,"📄"],
+    ["Портфоліо",s.portfolioUrl,"🗂️"],
+    ["Відео / роботи",s.worksUrl,"🎬"]
+  ].map(([label,url,icon])=>{
+    const safe=safeUrl(url);
+    return safe ? `<a class="portfolio-card" href="${safe}" target="_blank" rel="noopener"><b>${icon} ${label}</b><span>Відкрити</span></a>` : "";
+  }).filter(Boolean).join("");
 
   $("#studentDialogBody").innerHTML=`<div class="student-profile">
-    <div class="profile-head">
-      <div><h2>${esc(s.name)}</h2><div class="muted">${esc(s.group||"")}</div></div>
-      <div style="display:flex;gap:8px">
-        <button class="ghost" id="editStudentBtn">Редагувати</button>
-        <button class="ghost" onclick="document.querySelector('#studentDialog').close()">Закрити</button>
+    <div class="profile-hero">
+      <div class="profile-hero-top">
+        <div class="profile-hero-title">
+          ${photoBlock}
+          <div>
+            <h2>${esc(s.name)}</h2>
+            <div class="muted">${esc(s.group||"")}</div>
+            <div class="chips" style="margin-top:12px">
+              ${ps.map(p=>`<span class="project-pill" style="background:${p.color}">${p.emoji||"◆"} ${esc(p.name)}</span>`).join("")||'<span class="muted">Проєктів поки немає</span>'}
+            </div>
+          </div>
+        </div>
+        <div class="hero-actions">
+          <button class="ghost" id="editStudentBtn">Редагувати</button>
+          <button class="ghost" onclick="document.querySelector('#studentDialog').close()">Закрити</button>
+        </div>
       </div>
     </div>
-    <div class="profile-main">
-      ${photoBlock}
-      <div class="profile-contact">${contacts}</div>
+
+    <div class="profile-body">
+      <div class="contact-grid">${contacts||'<div class="profile-empty">Контакти ще не додані</div>'}</div>
+
+      <div class="profile-stats">
+        <div class="profile-stat"><span class="muted">Проєктів</span><strong>${ps.length}</strong></div>
+        <div class="profile-stat"><span class="muted">Зайнятих днів</span><strong>${countDays(id)}</strong></div>
+        <div class="profile-stat"><span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong></div>
+      </div>
+
+      <div class="profile-section">
+        <div class="profile-section-title"><b>Резюме та портфоліо</b></div>
+        <div class="portfolio-grid">${portfolioItems||'<div class="profile-empty">Посилань ще немає</div>'}</div>
+      </div>
+
+      ${s.notes?`<div class="profile-section">
+        <div class="profile-section-title"><b>Нотатки</b></div>
+        <div class="notes-card">${esc(s.notes)}</div>
+      </div>`:""}
+
+      <div class="profile-section">
+        <div class="profile-section-title"><b>Календар зайнятості</b><span class="muted">${items.length} подій</span></div>
+        <div class="timeline">
+          ${items.map(x=>`<div class="timeline-row">
+            <div class="timeline-date">${fullfmt(x.date)}</div>
+            <div class="timeline-type">${esc(x.type)}</div>
+            <span class="chip" style="background:${x.p.color}">${esc(x.p.name)}</span>
+          </div>`).join("")||'<div class="profile-empty">Подій немає</div>'}
+        </div>
+      </div>
     </div>
-    <div class="profile-stats">
-      <div class="profile-stat"><span class="muted">Проєктів</span><strong>${ps.length}</strong></div>
-      <div class="profile-stat"><span class="muted">Зайнятих днів</span><strong>${countDays(id)}</strong></div>
-      <div class="profile-stat"><span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong></div>
-    </div>
-    <div class="profile-section"><b>Проєкти</b><div class="chips">${ps.map(p=>`<span class="chip" style="background:${p.color}">${esc(p.name)}</span>`).join("")||'<span class="muted">Немає</span>'}</div></div>
-    <div class="profile-section"><b>Резюме та портфоліо</b><div class="link-list">${links}</div></div>
-    ${s.notes?`<div class="profile-section"><b>Нотатки</b><div style="margin-top:8px;white-space:pre-wrap">${esc(s.notes)}</div></div>`:""}
-    <div class="profile-section"><b>Календар зайнятості</b><div class="timeline">${items.map(x=>`<div class="timeline-row"><span>${fullfmt(x.date)} · ${esc(x.type)}</span><span class="chip" style="background:${x.p.color}">${esc(x.p.name)}</span></div>`).join("")||'<div class="muted">Подій немає</div>'}</div></div>
   </div>`;
 
   $("#editStudentBtn").onclick=()=>editStudent(id);
@@ -356,7 +388,53 @@ function ensureAuthStyles(){
     .profile-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
     .link-list{display:grid;gap:7px;margin-top:8px}
     .link-list a{display:inline-block;color:#111827;text-decoration:underline;text-underline-offset:2px}
-    @media(max-width:640px){.profile-main{grid-template-columns:1fr}.profile-photo{width:96px;height:120px}.profile-edit-form{grid-template-columns:1fr}.profile-edit-form .full{grid-column:auto}}
+    .student-dialog{width:min(760px,96vw)!important}
+    .student-profile{padding:0!important}
+    .profile-hero{padding:24px;background:linear-gradient(135deg,#111827,#232936);color:#fff;border-radius:16px 16px 0 0}
+    .profile-hero-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+    .profile-hero-title{display:flex;gap:16px;align-items:center}
+    .profile-photo{width:112px;height:140px;border-radius:16px;background:#2f3542;object-fit:cover;display:grid;place-items:center;color:#cbd5e1;font-size:30px;overflow:hidden;box-shadow:0 10px 25px #0003}
+    .profile-photo img{width:100%;height:100%;object-fit:cover}
+    .profile-hero h2{margin:0;font-size:26px;color:#fff}
+    .profile-hero .muted{color:#b9c0cc}
+    .profile-hero .hero-actions{display:flex;gap:8px}
+    .profile-hero .hero-actions .ghost{background:#ffffff14;color:#fff;border:1px solid #ffffff26}
+    .profile-body{padding:22px}
+    .contact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .contact-item{background:#f6f7f9;border-radius:12px;padding:11px 12px;font-size:13px}
+    .contact-item b{display:block;font-size:11px;color:#6b7280;margin-bottom:3px}
+    .contact-item a{color:#111827;text-decoration:none}
+    .profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+    .profile-stat{background:#f6f7f9;border-radius:14px;padding:14px}
+    .profile-stat strong{font-size:24px}
+    .profile-section{border-top:1px solid #e5e7eb;padding-top:16px;margin-top:16px}
+    .profile-section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .profile-section-title b{font-size:14px}
+    .project-pill{display:inline-flex;align-items:center;gap:6px;color:#fff;padding:6px 9px;border-radius:999px;font-size:12px}
+    .portfolio-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .portfolio-card{border:1px solid #e5e7eb;border-radius:12px;padding:11px 12px;background:#fff;text-decoration:none;color:#111827;font-size:12px}
+    .portfolio-card b{display:block;margin-bottom:3px}
+    .timeline{display:grid;gap:8px}
+    .timeline-row{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;background:#f7f7f8;border-radius:11px;padding:10px 11px;font-size:12px}
+    .timeline-date{font-weight:700}
+    .timeline-type{color:#4b5563}
+    .notes-card{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px;white-space:pre-wrap}
+    .profile-empty{color:#9ca3af;font-size:12px}
+    @media(max-width:700px){
+      .profile-hero-top{display:block}
+      .profile-hero-title{align-items:flex-start}
+      .profile-hero .hero-actions{margin-top:14px}
+      .contact-grid,.portfolio-grid{grid-template-columns:1fr}
+      .timeline-row{grid-template-columns:1fr}
+      .profile-stats{grid-template-columns:repeat(3,1fr)}
+    }
+    @media(max-width:520px){
+      .profile-hero-title{display:block}
+      .profile-photo{width:96px;height:120px;margin-bottom:12px}
+      .profile-stats{grid-template-columns:1fr}
+      .profile-edit-form{grid-template-columns:1fr}
+      .profile-edit-form .full{grid-column:auto}
+    }
   `;
   document.head.appendChild(style);
 }
@@ -441,14 +519,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.5.1 · Firebase не налаштовано");
+    setStatus("v0.6 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v0.5.1 · завантаження хмари…");
+    setStatus("v0.6 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -470,7 +548,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v0.5.1 · хмара ✓");
+    setStatus("v0.6 · хмара ✓");
     dashboard();
 
     onSnapshot(ref,s=>{
@@ -490,19 +568,19 @@ async function initCloud(){
 
       const active=document.querySelector(".nav.active")?.dataset.view||"dashboard";
       views[active]();
-      setStatus("v0.5.1 · хмара ✓");
+      setStatus("v0.6 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v0.5.1 · хмара недоступна");
+      setStatus("v0.6 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v0.5.1 · хмара недоступна");
+    setStatus("v0.6 · хмара недоступна");
     dashboard();
   }finally{
     cloudInitializing=false;
@@ -513,7 +591,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v0.5.1 · Firebase не налаштовано");
+    setStatus("v0.6 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -529,19 +607,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v0.5.1 · вхід ✓");
+        setStatus("v0.6 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v0.5.1 · потрібен вхід");
+        setStatus("v0.6 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v0.5.1 · помилка авторизації");
+    setStatus("v0.6 · помилка авторизації");
     showLogin();
   }
 }
