@@ -1,4 +1,65 @@
 
+(function injectStudentListAvatarV36(){
+  if(document.getElementById("remsStudentListAvatarV36")) return;
+  const st=document.createElement("style");
+  st.id="remsStudentListAvatarV36";
+  st.textContent=`
+    .student-card-main{
+      display:grid;
+      grid-template-columns:56px minmax(0,1fr);
+      gap:12px;
+      align-items:center;
+      width:100%;
+      min-width:0;
+    }
+    .student-list-avatar{
+      width:56px;
+      height:56px;
+      border-radius:12px;
+      overflow:hidden;
+      display:grid;
+      place-items:center;
+      background:#111827;
+      color:#fff;
+      font-weight:800;
+      font-size:18px;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    .student-list-avatar img{
+      width:100%;
+      height:100%;
+      display:block;
+      object-fit:cover;
+      object-position:center 20%;
+    }
+    .student-card-copy{
+      min-width:0;
+      text-align:left;
+    }
+    .student-card-copy h3{
+      margin:0 0 3px;
+      line-height:1.15;
+    }
+    .student-card-copy .chips{
+      margin-top:8px;
+    }
+    @media(max-width:620px){
+      .student-card-main{
+        grid-template-columns:48px minmax(0,1fr);
+        gap:10px;
+      }
+      .student-list-avatar{
+        width:48px;
+        height:48px;
+        border-radius:10px;
+        font-size:16px;
+      }
+    }
+  `;
+  document.head.appendChild(st);
+})();
+
+
 (function injectScheduleMonthTabsV34(){
   if(document.getElementById("remsScheduleMonthTabsV34")) return;
   const st=document.createElement("style");
@@ -479,12 +540,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v3.5 · немає з’єднання");
+    setStatus("v3.6 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v3.5 · збереження…");
+    setStatus("v3.6 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -492,7 +553,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v3.5 · хмара ✓");
+    setStatus("v3.6 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -503,7 +564,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v3.5 · помилка хмари");
+    setStatus("v3.6 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -844,11 +905,18 @@ function students(){
     $("#studentsGrid").innerHTML=rows.map(s=>{
       const ps=studentProjects(s.id);
       return `<button type="button" class="student-card student-open-card" data-student-id="${esc(String(s.id))}">
-        <div style="text-align:left">
-          <h3>${esc(s.name)}</h3>
-          <div class="muted">${esc(s.group||"")} · ${countDays(s.id)} зайнятих днів</div>
-          <div class="chips">
-            ${ps.map(p=>`<span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,esc(p.name))}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}
+        <div class="student-card-main">
+          <div class="student-list-avatar">
+            ${sharedStudentPhoto(s)
+              ? `<img src="${esc(sharedStudentPhoto(s))}" alt="${esc(s.name)}">`
+              : `<span>${esc((s.name||"?").trim().charAt(0).toUpperCase())}</span>`}
+          </div>
+          <div class="student-card-copy">
+            <h3>${esc(s.name)}</h3>
+            <div class="muted">${esc(s.group||"")} · ${countDays(s.id)} зайнятих днів</div>
+            <div class="chips">
+              ${ps.map(p=>`<span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,esc(p.name))}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}
+            </div>
           </div>
         </div>
       </button>`;
@@ -2817,14 +2885,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.5 · Firebase не налаштовано");
+    setStatus("v3.6 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v3.5 · завантаження хмари…");
+    setStatus("v3.6 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2846,7 +2914,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v3.5 · хмара ✓");
+    setStatus("v3.6 · хмара ✓");
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2887,19 +2955,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v3.5 · хмара ✓");
+      setStatus("v3.6 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v3.5 · хмара недоступна");
+      setStatus("v3.6 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v3.5 · хмара недоступна");
+    setStatus("v3.6 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2910,7 +2978,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.5 · Firebase не налаштовано");
+    setStatus("v3.6 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2926,19 +2994,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v3.5 · вхід ✓");
+        setStatus("v3.6 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v3.5 · потрібен вхід");
+        setStatus("v3.6 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v3.5 · помилка авторизації");
+    setStatus("v3.6 · помилка авторизації");
     showLogin();
   }
 }
