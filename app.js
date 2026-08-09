@@ -532,6 +532,7 @@ const OLDKEY="rems-control-v02";
 const OLDERKEY="rems-control-v01";
 const CLOUD_DOC="main";
 const clone=x=>JSON.parse(JSON.stringify(x));
+const studentMediaCache=new Map();
 let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||localStorage.getItem(OLDERKEY)||"null")||clone(window.REMS_SEED);
 let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false, cloudWriting=false;
 let firebaseApp=null, auth=null, currentUser=null;
@@ -539,7 +540,20 @@ const projectUiState={};
 let currentView="dashboard";
 const statusEl=()=>document.querySelector("#cloudStatus");
 const setStatus=(text)=>{ if(statusEl()) statusEl().textContent=text; };
-const cache=()=>localStorage.setItem(KEY,JSON.stringify(db));
+const coreDbSnapshot=()=>{
+  const clean=clone(db);
+  clean.students=(clean.students||[]).map(s=>{
+    const out={...s};
+    delete out.photoData;
+    if(out.publicProfile){
+      out.publicProfile={...out.publicProfile};
+      delete out.publicProfile.photoData;
+    }
+    return out;
+  });
+  return clean;
+};
+const cache=()=>localStorage.setItem(KEY,JSON.stringify(coreDbSnapshot()));
 
 const setWriteUiReady=(ready)=>{
   const btn=document.querySelector("#quickAdd");
@@ -554,20 +568,20 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v3.7 · немає з’єднання");
+    setStatus("v3.8 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v3.7 · збереження…");
-    const payload={...clone(db),updatedAt:new Date().toISOString()};
+    setStatus("v3.8 · збереження…");
+    const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
       payload,
       {merge:false}
     );
     cache();
-    setStatus("v3.7 · хмара ✓");
+    setStatus("v3.8 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -578,7 +592,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v3.7 · помилка хмари");
+    setStatus("v3.8 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -635,9 +649,53 @@ async function compressStudentPhoto(file){
   if(data.length>500000) throw new Error("Фото не вдалося достатньо стиснути. Спробуйте менший файл.");
   return data;
 }
+const studentMediaId=s=>publicProfileIdFor(s);
+const studentMediaFor=s=>studentMediaCache.get(studentMediaId(s))||null;
+
+const loadStudentMedia=async s=>{
+  if(!cloudDb||!s) return null;
+  const id=studentMediaId(s);
+  if(!id) return null;
+  try{
+    const snap=await getDoc(doc(cloudDb,"rems_student_media",id));
+    if(!snap.exists()){
+      studentMediaCache.delete(id);
+      return null;
+    }
+    const data=snap.data()||{};
+    studentMediaCache.set(id,data);
+    return data;
+  }catch(err){
+    console.error("Student media load failed:",id,err);
+    return null;
+  }
+};
+
+const loadAllStudentMedia=async()=>{
+  if(!cloudDb) return;
+  await Promise.all((db.students||[]).map(s=>loadStudentMedia(s)));
+};
+
+const saveStudentMedia=async(s,photoData)=>{
+  if(!cloudReady||!cloudDb||!currentUser) throw new Error("Хмара не готова");
+  const id=studentMediaId(s);
+  if(!id) throw new Error("Немає ID студента для фото");
+  const payload={
+    id,
+    studentId:String(s.id),
+    name:String(s.name||""),
+    photoData:String(photoData||""),
+    updatedAt:new Date().toISOString()
+  };
+  await setDoc(doc(cloudDb,"rems_student_media",id),payload,{merge:false});
+  studentMediaCache.set(id,payload);
+  return payload;
+};
+
 const sharedStudentPhoto=s=>{
+  const media=studentMediaFor(s);
   const pub=publicProfileFor?.(s);
-  return String(s?.photoData||pub?.photoData||s?.photoUrl||pub?.photo||"").trim();
+  return String(media?.photoData||s?.photoUrl||pub?.photo||"").trim();
 };
 
 const projectWatermarkStyle=p=>`--project-color:${p?.color||"#4b5563"};`;
@@ -741,7 +799,7 @@ const publicProfileFor=s=>{
   const existing=s?.publicProfile||REMS44_PUBLIC_SEED[pid];
   return clone(existing||{
     id:pid,name:s?.name||"",role:"Режисер/ка естради і шоу",
-    photo:"",photoData:String(s?.photoData||""),
+    photo:"",
     bio:[],skills:[],achievements:[],
     socials:{instagram:"",tiktok:"",youtube:"",telegram:"",facebook:"",email:""},
     videos:[],gallery:[],published:false
@@ -751,7 +809,7 @@ const sanitizePublicProfile=(s,profile)=>{
   const pid=publicProfileIdFor(s)||profile?.id;
   if(!pid) return null;
   return {
-    id:pid,name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),photoData:String(profile?.photoData||s?.photoData||"").trim(),published:profile?.published===true,
+    id:pid,name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),published:profile?.published===true,
     bio:Array.isArray(profile?.bio)?profile.bio.map(x=>String(x).trim()).filter(Boolean):[],
     skills:Array.isArray(profile?.skills)?profile.skills.map(x=>String(x).trim()).filter(Boolean):[],
     achievements:Array.isArray(profile?.achievements)?profile.achievements.map(x=>String(x).trim()).filter(Boolean):[],
@@ -1233,13 +1291,13 @@ function editPublicProfile(id){
       return {title:(parts.shift()||"Відеоробота").trim(),youtube:parts.join("|").trim()};
     }).filter(v=>v.youtube);
     const pubPhotoFile=$("#pubPhotoFile")?.files?.[0];
-    const sharedPhotoData=pubPhotoFile?await compressStudentPhoto(pubPhotoFile):String(s.photoData||profile.photoData||"");
-    const next={...profile,published:$("#pubPublished").checked,name:$("#pubName").value.trim(),role:$("#pubRole").value.trim(),photo:$("#pubPhoto").value.trim(),photoData:sharedPhotoData,
+    const sharedPhotoData=pubPhotoFile?await compressStudentPhoto(pubPhotoFile):null;
+    const next={...profile,published:$("#pubPublished").checked,name:$("#pubName").value.trim(),role:$("#pubRole").value.trim(),photo:$("#pubPhoto").value.trim(),
       bio:splitLines($("#pubBio").value),skills:splitLines($("#pubSkills").value),achievements:splitLines($("#pubAchievements").value),
       socials:{instagram:$("#pubInstagram").value.trim(),tiktok:$("#pubTiktok").value.trim(),youtube:$("#pubYoutube").value.trim(),
         telegram:$("#pubTelegram").value.trim(),facebook:$("#pubFacebook").value.trim(),email:$("#pubEmail").value.trim()},
       videos:parsedVideos,gallery:splitLines($("#pubGallery").value)};
-    db.students=db.students.map(st=>String(st.id)===String(id)?{...st,photoData:sharedPhotoData||st.photoData||"",publicProfile:next}:st);
+    db.students=db.students.map(st=>String(st.id)===String(id)?{...st,publicProfile:next}:st);
     const ok=await save();
     if(!ok){
       if(submit){submit.disabled=false;submit.textContent="Зберегти й опублікувати";}
@@ -1247,6 +1305,7 @@ function editPublicProfile(id){
     }
     try{
       const updated=sBy(id);
+      if(updated && sharedPhotoData!==null) await saveStudentMedia(updated,sharedPhotoData);
       if(updated) await publishOnePublicProfile(updated);
       alert(next.published?"Профіль опубліковано на REMS-44.":"Профіль збережено, але він прихований з REMS-44.");
       openStudent(id);
@@ -1330,16 +1389,15 @@ function editStudent(id){
     };
 
     const photoFile=$("#studentPhotoFile")?.files?.[0];
+    let pendingPhotoData=null;
     if(photoFile){
-      patch.photoData=await compressStudentPhoto(photoFile);
+      pendingPhotoData=await compressStudentPhoto(photoFile);
       patch.photoUrl="";
-      const pub=publicProfileFor(s);
-      if(pub) patch.publicProfile={...pub,photoData:patch.photoData};
     }else if(removeStudentPhotoRequested){
-      patch.photoData="";
+      pendingPhotoData="";
       patch.photoUrl="";
       const pub=publicProfileFor(s);
-      if(pub) patch.publicProfile={...pub,photoData:"",photo:""};
+      if(pub) patch.publicProfile={...pub,photo:""};
     }
 
     db.students=db.students.map(student =>
@@ -1360,6 +1418,15 @@ function editStudent(id){
     if(!updated){
       alert("Картку збережено, але не вдалося відкрити студента.");
       return;
+    }
+
+    if(pendingPhotoData!==null){
+      try{
+        await saveStudentMedia(updated,pendingPhotoData);
+      }catch(err){
+        console.error("Student photo save failed:",err);
+        alert("Картку збережено, але фото не вдалося записати окремо.");
+      }
     }
 
     if(publicProfileIdFor(updated)){
@@ -2912,14 +2979,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.7 · Firebase не налаштовано");
+    setStatus("v3.8 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v3.7 · завантаження хмари…");
+    setStatus("v3.8 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2936,12 +3003,12 @@ async function initCloud(){
       };
       cache();
     }else{
-      await setDoc(ref,{...clone(db),updatedAt:new Date().toISOString()},{merge:false});
+      await setDoc(ref,{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});
     }
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v3.7 · хмара ✓");
+    setStatus("v3.8 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -2956,7 +3023,7 @@ async function initCloud(){
       if(changed){
         cache();
         try{
-          await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{...clone(db),updatedAt:new Date().toISOString()},{merge:false});
+          await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});
         }catch(err){console.error("Public migration save failed:",err);}
       }
       localStorage.setItem("rems_public_existing_profiles_v37","1");
@@ -2970,6 +3037,35 @@ async function initCloud(){
         localStorage.setItem("rems_public_docs_seed_v37","1");
       }catch(err){console.error("Public profile seeding failed:",err);}
     }
+
+    if(!localStorage.getItem("rems_student_media_migrated_v38")){
+      let hadEmbedded=false;
+      for(const s of db.students){
+        const legacy=String(s?.photoData||s?.publicProfile?.photoData||"").trim();
+        if(legacy){
+          hadEmbedded=true;
+          try{ await saveStudentMedia(s,legacy); }catch(err){ console.error("Legacy photo migration failed:",s.id,err); }
+        }
+      }
+      if(hadEmbedded){
+        db.students=db.students.map(s=>{
+          const out={...s};
+          delete out.photoData;
+          if(out.publicProfile){
+            out.publicProfile={...out.publicProfile};
+            delete out.publicProfile.photoData;
+          }
+          return out;
+        });
+        cache();
+        try{
+          await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});
+        }catch(err){ console.error("Core media cleanup failed:",err); }
+      }
+      localStorage.setItem("rems_student_media_migrated_v38","1");
+    }
+
+    await loadAllStudentMedia();
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -3005,24 +3101,26 @@ async function initCloud(){
       applyingRemote=false;
 
       currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
-      try{
-        refreshCurrentView();
-      }catch(renderErr){
-        console.error("View refresh error:",renderErr);
-      }
-      setStatus("v3.7 · хмара ✓");
+      loadAllStudentMedia().finally(()=>{
+        try{
+          refreshCurrentView();
+        }catch(renderErr){
+          console.error("View refresh error:",renderErr);
+        }
+      });
+      setStatus("v3.8 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v3.7 · хмара недоступна");
+      setStatus("v3.8 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v3.7 · хмара недоступна");
+    setStatus("v3.8 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -3033,7 +3131,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.7 · Firebase не налаштовано");
+    setStatus("v3.8 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -3049,19 +3147,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v3.7 · вхід ✓");
+        setStatus("v3.8 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v3.7 · потрібен вхід");
+        setStatus("v3.8 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v3.7 · помилка авторизації");
+    setStatus("v3.8 · помилка авторизації");
     showLogin();
   }
 }
