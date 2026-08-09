@@ -1,4 +1,18 @@
 
+(function injectPublicPublishToggleV37(){
+  if(document.getElementById("remsPublicPublishToggleV37")) return;
+  const st=document.createElement("style");
+  st.id="remsPublicPublishToggleV37";
+  st.textContent=`
+    .public-publish-toggle{display:flex!important;flex-direction:row!important;align-items:center;gap:12px;padding:14px 16px;border:1px solid #dbe3ef;border-radius:14px;background:#f8fafc;cursor:pointer}
+    .public-publish-toggle input{width:20px!important;height:20px!important;flex:0 0 auto}
+    .public-publish-toggle span{display:grid;gap:3px}
+    .public-publish-toggle small{color:#6b7280;font-size:11px}
+  `;
+  document.head.appendChild(st);
+})();
+
+
 (function injectStudentListAvatarV36(){
   if(document.getElementById("remsStudentListAvatarV36")) return;
   const st=document.createElement("style");
@@ -540,12 +554,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v3.6 · немає з’єднання");
+    setStatus("v3.7 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v3.6 · збереження…");
+    setStatus("v3.7 · збереження…");
     const payload={...clone(db),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -553,7 +567,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v3.6 · хмара ✓");
+    setStatus("v3.7 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -564,7 +578,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v3.6 · помилка хмари");
+    setStatus("v3.7 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -704,6 +718,7 @@ const REMS44_PUBLIC_BASE="https://rems-44.github.io/REMS-44/";
 const REMS44_PUBLIC_PROFILES={"Вінцюк Андрій": "vintsiuk-andrii", "Власенко Даша": "vlasenko-dasha", "Гострик Катя": "hostryk-katya", "Давидова Світлана": "davydova-svitlana", "Жолуденко Поліна": "zholudenko-polina", "Касєєв Данило": "kasieiev-danylo", "Колишкін Андрій": "kolyshkin-andrii", "Кошелєва Мирослава": "koshelieva-myroslava", "Максімова Саміра": "maksimova-samira", "Міленіна Марія": "milenina-mariia", "Олейников Даніїл": "oleinykov-daniil", "Позняк Артур": "pozniak-artur", "Ташута Артем": "tashuta-artem", "Чиньонова Даша": "chynionova-dasha"};
 const normalizePersonName=name=>String(name||"").toLowerCase().replace(/[’'`]/g,"").replace(/[^a-zа-яіїєґ0-9 ]/gi," ").replace(/\s+/g," ").trim();
 const publicProfileIdFor=s=>{
+  if(!s) return "";
   if(REMS44_PUBLIC_PROFILES[s?.name]) return REMS44_PUBLIC_PROFILES[s.name];
   const target=normalizePersonName(s?.name).split(" ").filter(Boolean);
   const surname=target[0]||"", first=target[1]||"";
@@ -711,7 +726,8 @@ const publicProfileIdFor=s=>{
     const n=normalizePersonName(name).split(" ").filter(Boolean);
     return n[0]===surname && (!first||!n[1]||n[1]===first);
   });
-  return entry?.[1]||"";
+  if(entry?.[1]) return entry[1];
+  return `control-${String(s.id).replace(/[^a-zA-Z0-9_-]/g,"-")}`;
 };
 const publicProfileUrlFor=s=>{
   const pid=publicProfileIdFor(s);
@@ -722,13 +738,20 @@ const REMS44_PUBLIC_SEED={"vintsiuk-andrii":{"id":"vintsiuk-andrii","name":"Ві
 const publicProfileFor=s=>{
   const pid=publicProfileIdFor(s);
   if(!pid) return null;
-  return clone(s?.publicProfile||REMS44_PUBLIC_SEED[pid]||{id:pid,name:s?.name||"",role:"Режисер/ка естради і шоу",photo:"",bio:[],skills:[],achievements:[],socials:{instagram:"",tiktok:"",youtube:"",telegram:"",facebook:"",email:""},videos:[],gallery:[]});
+  const existing=s?.publicProfile||REMS44_PUBLIC_SEED[pid];
+  return clone(existing||{
+    id:pid,name:s?.name||"",role:"Режисер/ка естради і шоу",
+    photo:"",photoData:String(s?.photoData||""),
+    bio:[],skills:[],achievements:[],
+    socials:{instagram:"",tiktok:"",youtube:"",telegram:"",facebook:"",email:""},
+    videos:[],gallery:[],published:false
+  });
 };
 const sanitizePublicProfile=(s,profile)=>{
   const pid=publicProfileIdFor(s)||profile?.id;
   if(!pid) return null;
   return {
-    id:pid,name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),photoData:String(profile?.photoData||s?.photoData||"").trim(),
+    id:pid,name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),photoData:String(profile?.photoData||s?.photoData||"").trim(),published:profile?.published===true,
     bio:Array.isArray(profile?.bio)?profile.bio.map(x=>String(x).trim()).filter(Boolean):[],
     skills:Array.isArray(profile?.skills)?profile.skills.map(x=>String(x).trim()).filter(Boolean):[],
     achievements:Array.isArray(profile?.achievements)?profile.achievements.map(x=>String(x).trim()).filter(Boolean):[],
@@ -1011,7 +1034,7 @@ function openStudent(id){
         <div class="profile-hero-actions-row">
           <div class="profile-hero-context">Картка студента</div>
           <div class="hero-actions">
-            ${publicProfileUrlFor(s)?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічна сторінка ↗</a><button class="ghost" id="editPublicProfileBtn">Публічний профіль</button>`:""}
+            ${publicProfileFor(s)?.published===true?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічна сторінка ↗</a>`:""}<button class="ghost" id="editPublicProfileBtn">${publicProfileFor(s)?.published===true?"Публічний профіль":"Створити публічний профіль"}</button>
             <button class="ghost" id="editStudentBtn">Редагувати</button>
             <button class="ghost" id="closeStudentBtn">Закрити</button>
           </div>
@@ -1073,7 +1096,7 @@ function openStudent(id){
 
     $("#closeStudentBtn").onclick=()=>dialog.close();
     $("#editStudentBtn").onclick=()=>editStudent(id);
-    if($("#editPublicProfileBtn")) $("#editPublicProfileBtn").onclick=()=>editPublicProfile(id);
+    $("#editPublicProfileBtn").onclick=()=>editPublicProfile(id);
 
     const monthNames={"01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень","07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"};
     const months=["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"];
@@ -1158,6 +1181,10 @@ function editPublicProfile(id){
       <a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Переглянути ↗</a>
     </div>
     <form id="publicProfileForm" class="profile-edit-form" style="margin-top:18px">
+      <label class="full public-publish-toggle">
+        <input id="pubPublished" type="checkbox" ${profile.published===true?"checked":""}>
+        <span><b>Показувати цього студента на REMS-44</b><small>${profile.published===true?"Зараз профіль опублікований":"Зараз профіль прихований"}</small></span>
+      </label>
       <label class="full">Ім’я на сайті<input id="pubName" value="${esc(profile.name||s.name)}"></label>
       <label class="full">Спеціальність / роль<input id="pubRole" value="${esc(profile.role||"")}"></label>
       <div class="full shared-photo-editor">
@@ -1207,7 +1234,7 @@ function editPublicProfile(id){
     }).filter(v=>v.youtube);
     const pubPhotoFile=$("#pubPhotoFile")?.files?.[0];
     const sharedPhotoData=pubPhotoFile?await compressStudentPhoto(pubPhotoFile):String(s.photoData||profile.photoData||"");
-    const next={...profile,name:$("#pubName").value.trim(),role:$("#pubRole").value.trim(),photo:$("#pubPhoto").value.trim(),photoData:sharedPhotoData,
+    const next={...profile,published:$("#pubPublished").checked,name:$("#pubName").value.trim(),role:$("#pubRole").value.trim(),photo:$("#pubPhoto").value.trim(),photoData:sharedPhotoData,
       bio:splitLines($("#pubBio").value),skills:splitLines($("#pubSkills").value),achievements:splitLines($("#pubAchievements").value),
       socials:{instagram:$("#pubInstagram").value.trim(),tiktok:$("#pubTiktok").value.trim(),youtube:$("#pubYoutube").value.trim(),
         telegram:$("#pubTelegram").value.trim(),facebook:$("#pubFacebook").value.trim(),email:$("#pubEmail").value.trim()},
@@ -1221,7 +1248,7 @@ function editPublicProfile(id){
     try{
       const updated=sBy(id);
       if(updated) await publishOnePublicProfile(updated);
-      alert("Публічний профіль оновлено.");
+      alert(next.published?"Профіль опубліковано на REMS-44.":"Профіль збережено, але він прихований з REMS-44.");
       openStudent(id);
     }catch(err){
       console.error(err);
@@ -2885,14 +2912,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.6 · Firebase не налаштовано");
+    setStatus("v3.7 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v3.6 · завантаження хмари…");
+    setStatus("v3.7 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -2914,7 +2941,35 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v3.6 · хмара ✓");
+    setStatus("v3.7 · хмара ✓");
+
+    if(!localStorage.getItem("rems_public_existing_profiles_v37")){
+      let changed=false;
+      db.students=db.students.map(s=>{
+        const pid=publicProfileIdFor(s);
+        if(!REMS44_PUBLIC_SEED[pid]) return s;
+        const pp=publicProfileFor(s);
+        if(pp?.published===true) return s;
+        changed=true;
+        return {...s,publicProfile:{...pp,published:true}};
+      });
+      if(changed){
+        cache();
+        try{
+          await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{...clone(db),updatedAt:new Date().toISOString()},{merge:false});
+        }catch(err){console.error("Public migration save failed:",err);}
+      }
+      localStorage.setItem("rems_public_existing_profiles_v37","1");
+    }
+
+    if(!localStorage.getItem("rems_public_docs_seed_v37")){
+      try{
+        for(const s of db.students){
+          if(publicProfileFor(s)?.published===true) await publishOnePublicProfile(s);
+        }
+        localStorage.setItem("rems_public_docs_seed_v37","1");
+      }catch(err){console.error("Public profile seeding failed:",err);}
+    }
 
     // v1.3.4: repair/seed project calendars in the actual cloud document.
     if(!localStorage.getItem("rems_voice14_seed_v2")){
@@ -2955,19 +3010,19 @@ async function initCloud(){
       }catch(renderErr){
         console.error("View refresh error:",renderErr);
       }
-      setStatus("v3.6 · хмара ✓");
+      setStatus("v3.7 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v3.6 · хмара недоступна");
+      setStatus("v3.7 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v3.6 · хмара недоступна");
+    setStatus("v3.7 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -2978,7 +3033,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.6 · Firebase не налаштовано");
+    setStatus("v3.7 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -2994,19 +3049,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v3.6 · вхід ✓");
+        setStatus("v3.7 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v3.6 · потрібен вхід");
+        setStatus("v3.7 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v3.6 · помилка авторизації");
+    setStatus("v3.7 · помилка авторизації");
     showLogin();
   }
 }
