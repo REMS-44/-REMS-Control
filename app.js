@@ -1,3 +1,6 @@
+(function(){const s=document.createElement("style");s.textContent=`
+.industry-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}.industry-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px;display:grid;gap:9px}.industry-card img,.industry-card-empty{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:11px;background:#111318;color:#fff;display:grid;place-items:center;font-size:32px}.industry-card-meta{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em}.industry-card h3,.industry-card p{margin:0}.industry-card p{color:#6b7280;font-size:12px}.industry-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-top:16px}.industry-form-grid label,.industry-block label{display:grid;gap:6px;font-size:12px;color:#374151}.industry-form-grid input,.industry-form-grid textarea,.industry-block input,.industry-block textarea{width:100%;border:1px solid #dfe3e8;border-radius:10px;padding:10px;font:inherit}.industry-form-grid textarea,.industry-block textarea{min-height:110px;resize:vertical}.industry-form-grid .full{grid-column:1/-1}.industry-publish{display:flex!important;grid-template-columns:auto 1fr!important;align-items:center;gap:10px;padding:12px;background:#f8fafc;border-radius:12px}.industry-publish input{width:20px!important;height:20px}.industry-publish span{display:grid}.industry-publish small{color:#6b7280}.industry-builder{margin-top:18px}.industry-addbar{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 14px}.industry-block{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:13px;margin-bottom:10px;display:grid;gap:9px}.industry-block-head{display:flex;justify-content:space-between;align-items:center}.industry-block-head>div{display:flex;gap:5px}.industry-file{background:#f8fafc;padding:9px;border-radius:9px}.ib-progress{font-size:11px;color:#4b5563}.industry-savebar{position:sticky;bottom:12px;background:#fffffff2;border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-top:16px;display:flex;justify-content:space-between;z-index:5}.danger{border:0;background:#fee2e2;color:#991b1b;border-radius:10px;padding:9px 12px;font-weight:700}.loading{padding:30px;color:#6b7280}@media(max-width:700px){.industry-form-grid{grid-template-columns:1fr}.industry-form-grid .full{grid-column:auto}}
+`;document.head.appendChild(s)})();
 
 (function injectPublicPublishToggleV37(){
   if(document.getElementById("remsPublicPublishToggleV37")) return;
@@ -525,7 +528,8 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
 
 const KEY="rems-control-v031-cache";
 const OLDKEY="rems-control-v02";
@@ -535,7 +539,7 @@ const clone=x=>JSON.parse(JSON.stringify(x));
 const studentMediaCache=new Map();
 let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||localStorage.getItem(OLDERKEY)||"null")||clone(window.REMS_SEED);
 let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false, cloudWriting=false;
-let firebaseApp=null, auth=null, currentUser=null;
+let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null;
 const projectUiState={};
 let currentView="dashboard";
 const statusEl=()=>document.querySelector("#cloudStatus");
@@ -875,7 +879,7 @@ const countConflicts=()=>{
 function switchView(v,label){
   currentView=v;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
-  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад"}[v]);
+  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад",industry:"Зустріч із індустрією"}[v]);
   views[v]();
 }
 function refreshCurrentView(){
@@ -2381,7 +2385,77 @@ function schedule(){
   render();
 }
 
-const views={dashboard,students,projects,calendar,schedule};
+
+// ===== «Зустріч із індустрією» · REMS Control v4.0 =====
+const INDUSTRY_COLLECTION="rems_industry_meetings";
+const industryBlockNames={text:"Текст",heading:"Підзаголовок",quote:"Цитата",image:"Велике фото",twoImages:"2 фото",gallery:"Галерея",story:"Відео 9:16",youtube:"YouTube"};
+let industryCache=[];
+const industryId=()=>`meeting-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+const industryBlockId=()=>`b-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+async function industryLoad(){
+  if(!cloudDb) return [];
+  const snap=await getDocs(collection(cloudDb,INDUSTRY_COLLECTION));
+  industryCache=[]; snap.forEach(d=>industryCache.push({...d.data(),id:d.id}));
+  industryCache.sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+  return industryCache;
+}
+async function industryUpload(file,meetingId,kind="media"){
+  if(!file) return "";
+  if(!mediaStorage) throw new Error("Firebase Storage ще не готовий");
+  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"-");
+  const path=`industry/${meetingId}/${Date.now()}-${kind}-${safe}`;
+  const r=storageRef(mediaStorage,path); await uploadBytes(r,file); return await getDownloadURL(r);
+}
+function industryBlockHtml(b={id:industryBlockId(),type:"text"}){
+  const head=`<div class="industry-block-head"><b>${industryBlockNames[b.type]||b.type}</b><div><button type="button" class="mini ib-up">↑</button><button type="button" class="mini ib-down">↓</button><button type="button" class="mini ib-remove">×</button></div></div>`;
+  const media=(label,key="url",accept="image/*")=>`<label>${label}<input class="ib-${key}" value="${esc(b[key]||"")}" placeholder="URL або завантаж файл нижче"></label><label class="industry-file">Завантажити файл<input class="ib-file" data-key="${key}" type="file" accept="${accept}"></label>`;
+  let body="";
+  if(b.type==="text") body=`<label>Текст<textarea class="ib-content">${esc(b.content||"")}</textarea></label>`;
+  if(b.type==="heading") body=`<label>Підзаголовок<input class="ib-content" value="${esc(b.content||"")}"></label>`;
+  if(b.type==="quote") body=`<label>Цитата<textarea class="ib-content">${esc(b.content||"")}</textarea></label><label>Автор / контекст<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="image") body=media("Фото")+`<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="twoImages") body=media("Перше фото","url")+media("Друге фото","url2")+`<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="gallery") body=`<label>Фото галереї · URL по одному в рядку<textarea class="ib-content">${esc((b.items||[]).join("\\n"))}</textarea></label><label class="industry-file">Додати фото до галереї<input class="ib-gallery-files" type="file" accept="image/*" multiple></label>`;
+  if(b.type==="story") body=media("Вертикальне відео MP4","url","video/mp4,video/webm")+`<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="youtube") body=`<label>Посилання YouTube<input class="ib-url" value="${esc(b.url||"")}"></label><label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  return `<div class="industry-block" data-id="${b.id}" data-type="${b.type}">${head}${body}<div class="ib-progress"></div></div>`;
+}
+function industryWireBlocks(meetingId){
+  $$(".industry-block").forEach(el=>{
+    el.querySelector(".ib-remove").onclick=()=>el.remove();
+    el.querySelector(".ib-up").onclick=()=>el.previousElementSibling&&el.parentNode.insertBefore(el,el.previousElementSibling);
+    el.querySelector(".ib-down").onclick=()=>el.nextElementSibling&&el.parentNode.insertBefore(el.nextElementSibling,el);
+    el.querySelectorAll(".ib-file").forEach(inp=>inp.onchange=async()=>{
+      const file=inp.files?.[0]; if(!file)return; const out=el.querySelector(`.ib-${inp.dataset.key}`); const prog=el.querySelector(".ib-progress");
+      try{prog.textContent="Завантаження…"; out.value=await industryUpload(file,meetingId,el.dataset.type); prog.textContent="Файл завантажено ✓";}catch(e){console.error(e);prog.textContent="Помилка завантаження";}
+    });
+    const gf=el.querySelector(".ib-gallery-files"); if(gf) gf.onchange=async()=>{
+      const area=el.querySelector(".ib-content"), prog=el.querySelector(".ib-progress");
+      try{prog.textContent="Завантаження галереї…"; const urls=[]; for(const f of gf.files) urls.push(await industryUpload(f,meetingId,"gallery")); area.value=[area.value.trim(),...urls].filter(Boolean).join("\\n"); prog.textContent=`Додано: ${urls.length} ✓`;}catch(e){console.error(e);prog.textContent="Помилка завантаження";}
+    };
+  });
+}
+function industryReadBlocks(){return $$(".industry-block").map(el=>({id:el.dataset.id,type:el.dataset.type,content:el.querySelector(".ib-content")?.value.trim()||"",url:el.querySelector(".ib-url")?.value.trim()||"",url2:el.querySelector(".ib-url2")?.value.trim()||"",caption:el.querySelector(".ib-caption")?.value.trim()||"",items:el.dataset.type==="gallery"?(el.querySelector(".ib-content")?.value||"").split(/\\n+/).map(x=>x.trim()).filter(Boolean):[]}));}
+async function industryEditor(m=null){
+  const item=m?clone(m):{id:industryId(),published:false,blocks:[]};
+  $("#pageTitle").textContent=m?"Редагування зустрічі":"Нова зустріч";
+  $("#app").innerHTML=`<div class="industry-editor"><button class="ghost" id="industryBack">← До всіх зустрічей</button><div class="section-head"><div><h2>${m?"Редагувати":"Створити"} матеріал</h2><p>Серія майстер-класів «Зустріч із індустрією»</p></div></div><div class="industry-form-grid"><label>Гість<input id="imGuest" value="${esc(item.guest||"")}"></label><label>Професія / посада<input id="imRole" value="${esc(item.guestRole||"")}"></label><label>Тема зустрічі<input id="imTitle" value="${esc(item.title||"")}"></label><label>Дата<input id="imDate" type="date" value="${esc(item.date||"")}"></label><label class="full">Короткий анонс<textarea id="imExcerpt">${esc(item.excerpt||"")}</textarea></label><label class="full">Обкладинка<input id="imCover" value="${esc(item.cover||"")}" placeholder="URL або завантаж нижче"></label><label class="industry-file full">Завантажити обкладинку<input id="imCoverFile" type="file" accept="image/*"></label><label class="industry-publish full"><input id="imPublished" type="checkbox" ${item.published?"checked":""}><span><b>Опублікувати на сайті</b><small>Вимкнено — матеріал залишається чернеткою</small></span></label></div><div class="industry-builder"><h3>Стаття</h3><p class="muted">Додавай блоки в потрібній послідовності. Їх можна рухати стрілками.</p><div class="industry-addbar">${Object.entries(industryBlockNames).map(([k,v])=>`<button type="button" class="ghost industry-add" data-type="${k}">+ ${v}</button>`).join("")}</div><div id="industryBlocks">${(item.blocks||[]).map(industryBlockHtml).join("")}</div></div><div class="industry-savebar"><button class="danger" id="industryDelete" ${m?"":"style=display:none"}>Видалити</button><button class="primary" id="industrySave">Зберегти</button></div></div>`;
+  industryWireBlocks(item.id);
+  $("#industryBack").onclick=industry;
+  $("#imCoverFile").onchange=async()=>{const f=$("#imCoverFile").files?.[0];if(!f)return;$("#imCoverFile").disabled=true;try{$("#imCover").value=await industryUpload(f,item.id,"cover");}finally{$("#imCoverFile").disabled=false;}};
+  $$(".industry-add").forEach(b=>b.onclick=()=>{$("#industryBlocks").insertAdjacentHTML("beforeend",industryBlockHtml({id:industryBlockId(),type:b.dataset.type}));industryWireBlocks(item.id);});
+  $("#industrySave").onclick=async()=>{const btn=$("#industrySave");btn.disabled=true;btn.textContent="Збереження…";const data={id:item.id,guest:$("#imGuest").value.trim(),guestRole:$("#imRole").value.trim(),title:$("#imTitle").value.trim(),date:$("#imDate").value,excerpt:$("#imExcerpt").value.trim(),cover:$("#imCover").value.trim(),published:$("#imPublished").checked,blocks:industryReadBlocks(),updatedAt:new Date().toISOString()};try{await setDoc(doc(cloudDb,INDUSTRY_COLLECTION,data.id),data,{merge:false});alert(data.published?"Матеріал опубліковано.":"Чернетку збережено.");industry();}catch(e){console.error(e);alert("Не вдалося зберегти матеріал у Firebase.");}finally{btn.disabled=false;btn.textContent="Зберегти";}};
+  if(m) $("#industryDelete").onclick=async()=>{if(!confirm("Видалити цю зустріч?"))return;await deleteDoc(doc(cloudDb,INDUSTRY_COLLECTION,item.id));industry();};
+}
+async function industry(){
+  $("#pageTitle").textContent="Зустріч із індустрією"; $("#pageSubtitle").textContent="Серія майстер-класів РЕМС-44";
+  $("#app").innerHTML=`<div class="loading">Завантаження…</div>`;
+  try{await industryLoad();}catch(e){console.error(e);$("#app").innerHTML=`<div class="empty">Не вдалося завантажити матеріали. Перевір Firebase Rules.</div>`;return;}
+  $("#app").innerHTML=`<div class="section-head"><div><h2>Зустріч із індустрією</h2><p>Статті про майстер-класи, фото, відео та цитати.</p></div><button class="primary" id="industryNew">+ Нова зустріч</button></div><div class="industry-grid">${industryCache.length?industryCache.map(m=>`<article class="industry-card">${m.cover?`<img src="${esc(m.cover)}" alt="">`:`<div class="industry-card-empty">✦</div>`}<div class="industry-card-meta">${esc(m.date||"Без дати")} · ${m.published?"Опубліковано":"Чернетка"}</div><h3>${esc(m.guest||m.title||"Без назви")}</h3><p>${esc(m.guestRole||m.title||"")}</p><button class="ghost industry-edit" data-id="${m.id}">Редагувати</button></article>`).join(""):`<div class="empty">Ще немає жодної зустрічі.</div>`}</div>`;
+  $("#industryNew").onclick=()=>industryEditor(); $$(".industry-edit").forEach(b=>b.onclick=()=>industryEditor(industryCache.find(x=>x.id===b.dataset.id)));
+}
+
+const views={dashboard,students,projects,calendar,schedule,industry};
 $$(".nav").forEach(b=>b.onclick=()=>switchView(b.dataset.view,b.querySelector("span")?.textContent||b.textContent.trim()));
 $("#quickAdd").onclick=()=>{
   if(!cloudReady){
@@ -2989,6 +3063,7 @@ async function initCloud(){
     setStatus("v3.8 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
+    mediaStorage=getStorage(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
     const snap=await getDoc(ref);
 
