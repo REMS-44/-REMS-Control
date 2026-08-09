@@ -572,12 +572,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v3.8 · немає з’єднання");
+    setStatus("v4.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v3.8 · збереження…");
+    setStatus("v4.0 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -585,7 +585,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v3.8 · хмара ✓");
+    setStatus("v4.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -596,7 +596,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v3.8 · помилка хмари");
+    setStatus("v4.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -3053,14 +3053,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.8 · Firebase не налаштовано");
+    setStatus("v4.0 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v3.8 · завантаження хмари…");
+    setStatus("v4.0 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     mediaStorage=getStorage(firebaseApp);
@@ -3083,7 +3083,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v3.8 · хмара ✓");
+    setStatus("v4.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -3183,19 +3183,19 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v3.8 · хмара ✓");
+      setStatus("v4.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v3.8 · хмара недоступна");
+      setStatus("v4.0 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v3.8 · хмара недоступна");
+    setStatus("v4.0 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -3206,7 +3206,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v3.8 · Firebase не налаштовано");
+    setStatus("v4.0 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -3222,19 +3222,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v3.8 · вхід ✓");
+        setStatus("v4.0 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v3.8 · потрібен вхід");
+        setStatus("v4.0 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v3.8 · помилка авторизації");
+    setStatus("v4.0 · помилка авторизації");
     showLogin();
   }
 }
