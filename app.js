@@ -572,12 +572,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v4.0.4 · немає з’єднання");
+    setStatus("v4.0.5 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v4.0.4 · збереження…");
+    setStatus("v4.0.5 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -585,7 +585,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v4.0.4 · хмара ✓");
+    setStatus("v4.0.5 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -596,7 +596,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v4.0.4 · помилка хмари");
+    setStatus("v4.0.5 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1169,7 +1169,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v4.0.4 · аналіз відновлення…");
+  setStatus("v4.0.5 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1278,7 +1278,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v4.0.4 · відновлено ✓");
+    setStatus("v4.0.5 · відновлено ✓");
     students();
 
     alert(
@@ -1292,7 +1292,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v4.0.4 · помилка відновлення");
+    setStatus("v4.0.5 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -2723,6 +2723,7 @@ function schedule(){
 
 // ===== «Зустріч із індустрією» · REMS Control v4.0 =====
 const INDUSTRY_COLLECTION="rems_industry_meetings";
+const INDUSTRY_MEDIA_COLLECTION="rems_industry_media";
 const industryBlockNames={text:"Текст",heading:"Підзаголовок",quote:"Цитата",image:"Велике фото",twoImages:"2 фото",gallery:"Галерея",story:"Відео 9:16",youtube:"YouTube"};
 let industryCache=[];
 const industryId=()=>`meeting-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
@@ -2734,12 +2735,59 @@ async function industryLoad(){
   industryCache.sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
   return industryCache;
 }
+async function compressIndustryImage(file){
+  const bitmap=await createImageBitmap(file);
+  const maxSide=1600;
+  let w=bitmap.width, h=bitmap.height;
+  const scale=Math.min(1,maxSide/Math.max(w,h));
+  w=Math.max(1,Math.round(w*scale));
+  h=Math.max(1,Math.round(h*scale));
+  const canvas=document.createElement("canvas");
+  canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext("2d",{alpha:false});
+  ctx.fillStyle="#111";
+  ctx.fillRect(0,0,w,h);
+  ctx.drawImage(bitmap,0,0,w,h);
+  try{bitmap.close?.();}catch{}
+  let q=.82;
+  let data=canvas.toDataURL("image/webp",q);
+  // Keep safely below Firestore's 1 MiB document limit.
+  while(data.length>650000 && q>.42){
+    q-=.07;
+    data=canvas.toDataURL("image/webp",q);
+  }
+  if(data.length>850000){
+    throw new Error("Фото завелике навіть після стискання. Спробуй інше фото.");
+  }
+  return data;
+}
 async function industryUpload(file,meetingId,kind="media"){
   if(!file) return "";
-  if(!mediaStorage) throw new Error("Firebase Storage ще не готовий");
+  // Images are stored in Firestore, just like student photos.
+  // This avoids dependence on Firebase Storage for article photos.
+  if(String(file.type||"").startsWith("image/")){
+    if(!cloudDb||!currentUser) throw new Error("Firebase ще не готовий");
+    const id=`media-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    const data=await compressIndustryImage(file);
+    await setDoc(doc(cloudDb,INDUSTRY_MEDIA_COLLECTION,id),{
+      id,
+      meetingId:String(meetingId||""),
+      kind:String(kind||"image"),
+      name:String(file.name||"photo"),
+      mime:"image/webp",
+      data,
+      createdAt:new Date().toISOString()
+    },{merge:false});
+    return `firestore-media://${id}`;
+  }
+
+  // Video remains URL/Storage based because video files are too large for Firestore.
+  if(!mediaStorage) throw new Error("Firebase Storage ще не готовий для відео");
   const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"-");
   const path=`industry/${meetingId}/${Date.now()}-${kind}-${safe}`;
-  const r=storageRef(mediaStorage,path); await uploadBytes(r,file); return await getDownloadURL(r);
+  const r=storageRef(mediaStorage,path);
+  await uploadBytes(r,file);
+  return await getDownloadURL(r);
 }
 function industryBlockHtml(b={id:industryBlockId(),type:"text"}){
   const head=`<div class="industry-block-head"><b>${industryBlockNames[b.type]||b.type}</b><div><button type="button" class="mini ib-up">↑</button><button type="button" class="mini ib-down">↓</button><button type="button" class="mini ib-remove">×</button></div></div>`;
@@ -2774,10 +2822,24 @@ function industryReadBlocks(){return $$(".industry-block").map(el=>({id:el.datas
 async function industryEditor(m=null){
   const item=m?clone(m):{id:industryId(),published:false,blocks:[]};
   $("#pageTitle").textContent=m?"Редагування зустрічі":"Нова зустріч";
-  $("#app").innerHTML=`<div class="industry-editor"><button class="ghost" id="industryBack">← До всіх зустрічей</button><div class="section-head"><div><h2>${m?"Редагувати":"Створити"} матеріал</h2><p>Серія майстер-класів «Зустріч із індустрією»</p></div></div><div class="industry-form-grid"><label>Гість<input id="imGuest" value="${esc(item.guest||"")}"></label><label>Професія / посада<input id="imRole" value="${esc(item.guestRole||"")}"></label><label>Тема зустрічі<input id="imTitle" value="${esc(item.title||"")}"></label><label>Дата<input id="imDate" type="date" value="${esc(item.date||"")}"></label><label class="full">Короткий анонс<textarea id="imExcerpt">${esc(item.excerpt||"")}</textarea></label><label class="full">Обкладинка<input id="imCover" value="${esc(item.cover||"")}" placeholder="URL або завантаж нижче"></label><label class="industry-file full">Завантажити обкладинку<input id="imCoverFile" type="file" accept="image/*"></label><label class="industry-publish full"><input id="imPublished" type="checkbox" ${item.published?"checked":""}><span><b>Опублікувати на сайті</b><small>Вимкнено — матеріал залишається чернеткою</small></span></label></div><div class="industry-builder"><h3>Стаття</h3><p class="muted">Додавай блоки в потрібній послідовності. Їх можна рухати стрілками.</p><div class="industry-addbar">${Object.entries(industryBlockNames).map(([k,v])=>`<button type="button" class="ghost industry-add" data-type="${k}">+ ${v}</button>`).join("")}</div><div id="industryBlocks">${(item.blocks||[]).map(industryBlockHtml).join("")}</div></div><div class="industry-savebar"><button class="danger" id="industryDelete" ${m?"":"style=display:none"}>Видалити</button><button class="primary" id="industrySave">Зберегти</button></div></div>`;
+  $("#app").innerHTML=`<div class="industry-editor"><button class="ghost" id="industryBack">← До всіх зустрічей</button><div class="section-head"><div><h2>${m?"Редагувати":"Створити"} матеріал</h2><p>Серія майстер-класів «Зустріч із індустрією»</p></div></div><div class="industry-form-grid"><label>Гість<input id="imGuest" value="${esc(item.guest||"")}"></label><label>Професія / посада<input id="imRole" value="${esc(item.guestRole||"")}"></label><label>Тема зустрічі<input id="imTitle" value="${esc(item.title||"")}"></label><label>Дата<input id="imDate" type="date" value="${esc(item.date||"")}"></label><label class="full">Короткий анонс<textarea id="imExcerpt">${esc(item.excerpt||"")}</textarea></label><label class="full">Обкладинка<input id="imCover" value="${esc(item.cover||"")}" placeholder="Завантаж фото нижче або встав URL"></label><label class="industry-file full">Завантажити обкладинку<input id="imCoverFile" type="file" accept="image/*"><span class="ib-progress" id="imCoverProgress"></span></label><label class="industry-publish full"><input id="imPublished" type="checkbox" ${item.published?"checked":""}><span><b>Опублікувати на сайті</b><small>Вимкнено — матеріал залишається чернеткою</small></span></label></div><div class="industry-builder"><h3>Стаття</h3><p class="muted">Додавай блоки в потрібній послідовності. Їх можна рухати стрілками.</p><div class="industry-addbar">${Object.entries(industryBlockNames).map(([k,v])=>`<button type="button" class="ghost industry-add" data-type="${k}">+ ${v}</button>`).join("")}</div><div id="industryBlocks">${(item.blocks||[]).map(industryBlockHtml).join("")}</div></div><div class="industry-savebar"><button class="danger" id="industryDelete" ${m?"":"style=display:none"}>Видалити</button><button class="primary" id="industrySave">Зберегти</button></div></div>`;
   industryWireBlocks(item.id);
   $("#industryBack").onclick=industry;
-  $("#imCoverFile").onchange=async()=>{const f=$("#imCoverFile").files?.[0];if(!f)return;$("#imCoverFile").disabled=true;try{$("#imCover").value=await industryUpload(f,item.id,"cover");}finally{$("#imCoverFile").disabled=false;}};
+  $("#imCoverFile").onchange=async()=>{
+    const f=$("#imCoverFile").files?.[0]; if(!f)return;
+    const prog=$("#imCoverProgress");
+    $("#imCoverFile").disabled=true;
+    try{
+      prog.textContent="Стискаємо й зберігаємо фото…";
+      $("#imCover").value=await industryUpload(f,item.id,"cover");
+      prog.textContent="Фото збережено ✓";
+    }catch(e){
+      console.error(e);
+      prog.textContent=`Помилка: ${e?.message||e}`;
+    }finally{
+      $("#imCoverFile").disabled=false;
+    }
+  };
   $$(".industry-add").forEach(b=>b.onclick=()=>{$("#industryBlocks").insertAdjacentHTML("beforeend",industryBlockHtml({id:industryBlockId(),type:b.dataset.type}));industryWireBlocks(item.id);});
   $("#industrySave").onclick=async()=>{
     const btn=$("#industrySave");
@@ -3425,14 +3487,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.0.4 · Firebase не налаштовано");
+    setStatus("v4.0.5 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v4.0.4 · завантаження хмари…");
+    setStatus("v4.0.5 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     mediaStorage=getStorage(firebaseApp);
@@ -3455,7 +3517,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.0.4 · хмара ✓");
+    setStatus("v4.0.5 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -3555,19 +3617,19 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.0.4 · хмара ✓");
+      setStatus("v4.0.5 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v4.0.4 · хмара недоступна");
+      setStatus("v4.0.5 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v4.0.4 · хмара недоступна");
+    setStatus("v4.0.5 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -3578,7 +3640,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.0.4 · Firebase не налаштовано");
+    setStatus("v4.0.5 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -3594,19 +3656,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v4.0.4 · вхід ✓");
+        setStatus("v4.0.5 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v4.0.4 · потрібен вхід");
+        setStatus("v4.0.5 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v4.0.4 · помилка авторизації");
+    setStatus("v4.0.5 · помилка авторизації");
     showLogin();
   }
 }
