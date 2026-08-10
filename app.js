@@ -2778,11 +2778,19 @@ async function industrySetPreview(box,value){
   box.innerHTML=src?`<img src="${src}" alt="">`:"";
   box.classList.toggle("has-image",!!src);
 }
-let industryUploadsPending=0;
-function industryUploading(delta){
-  industryUploadsPending=Math.max(0,industryUploadsPending+delta);
-  const btn=$("#industrySave");
-  if(btn){btn.disabled=industryUploadsPending>0; if(industryUploadsPending>0) btn.textContent="Чекаємо фото…"; else if(btn.textContent==="Чекаємо фото…") btn.textContent="Зберегти";}
+let industryUploadJobs=new Set();
+function industryTrackUpload(promise){
+  const job=Promise.resolve(promise);
+  industryUploadJobs.add(job);
+  job.finally(()=>industryUploadJobs.delete(job));
+  return job;
+}
+async function industryWaitForUploads(){
+  const jobs=[...industryUploadJobs];
+  if(!jobs.length) return;
+  const results=await Promise.allSettled(jobs);
+  const failed=results.find(r=>r.status==="rejected");
+  if(failed) throw failed.reason;
 }
 async function industryUpload(file,meetingId,kind="media"){
   if(!file) return "";
@@ -2833,18 +2841,26 @@ function industryWireBlocks(meetingId){
     el.querySelector(".ib-down").onclick=()=>el.nextElementSibling&&el.parentNode.insertBefore(el.nextElementSibling,el);
     el.querySelectorAll(".ib-file").forEach(inp=>inp.onchange=async()=>{
       const file=inp.files?.[0]; if(!file)return; const out=el.querySelector(`.ib-${inp.dataset.key}`); const prog=el.querySelector(".ib-progress");
-      industryUploading(1);
-      try{prog.textContent="Завантаження…"; out.value=await industryUpload(file,meetingId,el.dataset.type); await industrySetPreview(el.querySelector(`[data-preview="${inp.dataset.key}"]`),out.value); prog.textContent="Фото збережено ✓";}catch(e){console.error(e);prog.textContent=`Помилка: ${e?.message||e}`;}finally{industryUploading(-1);}
+      const task=(async()=>{
+        prog.textContent="Завантаження…";
+        out.value=await industryUpload(file,meetingId,el.dataset.type);
+        await industrySetPreview(el.querySelector(`[data-preview="${inp.dataset.key}"]`),out.value);
+        prog.textContent="Фото збережено ✓";
+      })();
+      try{await industryTrackUpload(task);}catch(e){console.error(e);prog.textContent=`Помилка: ${e?.message||e}`;}
     });
     const gf=el.querySelector(".ib-gallery-files"); if(gf) gf.onchange=async()=>{
       const area=el.querySelector(".ib-content"), prog=el.querySelector(".ib-progress");
-      try{prog.textContent="Завантаження галереї…"; const urls=[]; for(const f of gf.files) urls.push(await industryUpload(f,meetingId,"gallery")); area.value=[area.value.trim(),...urls].filter(Boolean).join("\\n"); prog.textContent=`Додано: ${urls.length} ✓`;}catch(e){console.error(e);prog.textContent="Помилка завантаження";}
+      const task=(async()=>{prog.textContent="Завантаження галереї…"; const urls=[]; for(const f of gf.files) urls.push(await industryUpload(f,meetingId,"gallery")); area.value=[area.value.trim(),...urls].filter(Boolean).join("\\n"); prog.textContent=`Додано: ${urls.length} ✓`;})();
+      try{await industryTrackUpload(task);}catch(e){console.error(e);prog.textContent=`Помилка: ${e?.message||e}`;}
     };
     el.querySelectorAll("[data-preview]").forEach(box=>{ const input=el.querySelector(`.ib-${box.dataset.preview}`); if(input?.value) industrySetPreview(box,input.value); });
   });
 }
 function industryReadBlocks(){return $$(".industry-block").map(el=>({id:el.dataset.id,type:el.dataset.type,content:el.querySelector(".ib-content")?.value.trim()||"",url:el.querySelector(".ib-url")?.value.trim()||"",url2:el.querySelector(".ib-url2")?.value.trim()||"",caption:el.querySelector(".ib-caption")?.value.trim()||"",items:el.dataset.type==="gallery"?(el.querySelector(".ib-content")?.value||"").split(/\\n+/).map(x=>x.trim()).filter(Boolean):[]}));}
 async function industryEditor(m=null){
+  // New editor session: never inherit unfinished upload state from a previous article.
+  industryUploadJobs=new Set();
   const item=m?clone(m):{id:industryId(),published:false,blocks:[]};
   $("#pageTitle").textContent=m?"Редагування зустрічі":"Нова зустріч";
   $("#app").innerHTML=`<div class="industry-editor"><button class="ghost" id="industryBack">← До всіх зустрічей</button><div class="section-head"><div><h2>${m?"Редагувати":"Створити"} матеріал</h2><p>Серія майстер-класів «Зустріч із індустрією»</p></div></div><div class="industry-form-grid"><label>Гість<input id="imGuest" value="${esc(item.guest||"")}"></label><label>Професія / посада<input id="imRole" value="${esc(item.guestRole||"")}"></label><label>Тема зустрічі<input id="imTitle" value="${esc(item.title||"")}"></label><label>Дата<input id="imDate" type="date" value="${esc(item.date||"")}"></label><label class="full">Короткий анонс<textarea id="imExcerpt">${esc(item.excerpt||"")}</textarea></label><label class="full">Обкладинка<input id="imCover" value="${esc(item.cover||"")}" placeholder="Завантаж фото нижче або встав URL"></label><label class="industry-file full">Завантажити обкладинку<input id="imCoverFile" type="file" accept="image/*"><span class="ib-progress" id="imCoverProgress"></span><span class="industry-media-preview" id="imCoverPreview"></span></label><label class="industry-publish full"><input id="imPublished" type="checkbox" ${item.published?"checked":""}><span><b>Опублікувати на сайті</b><small>Вимкнено — матеріал залишається чернеткою</small></span></label></div><div class="industry-builder"><h3>Стаття</h3><p class="muted">Додавай блоки в потрібній послідовності. Їх можна рухати стрілками.</p><div class="industry-addbar">${Object.entries(industryBlockNames).map(([k,v])=>`<button type="button" class="ghost industry-add" data-type="${k}">+ ${v}</button>`).join("")}</div><div id="industryBlocks">${(item.blocks||[]).map(industryBlockHtml).join("")}</div></div><div class="industry-savebar"><button class="danger" id="industryDelete" ${m?"":"style=display:none"}>Видалити</button><button class="primary" id="industrySave">Зберегти</button></div></div>`;
@@ -2855,24 +2871,25 @@ async function industryEditor(m=null){
     const f=$("#imCoverFile").files?.[0]; if(!f)return;
     const prog=$("#imCoverProgress");
     $("#imCoverFile").disabled=true;
-    industryUploading(1);
-    try{
+    const task=(async()=>{
       prog.textContent="Стискаємо й зберігаємо фото…";
       $("#imCover").value=await industryUpload(f,item.id,"cover");
       await industrySetPreview($("#imCoverPreview"),$("#imCover").value);
       prog.textContent="Фото збережено ✓";
-    }catch(e){
-      console.error(e);
-      prog.textContent=`Помилка: ${e?.message||e}`;
-    }finally{
-      $("#imCoverFile").disabled=false;
-      industryUploading(-1);
-    }
+    })();
+    try{await industryTrackUpload(task);}
+    catch(e){console.error(e);prog.textContent=`Помилка: ${e?.message||e}`;}
+    finally{$("#imCoverFile").disabled=false;}
   };
   $$(".industry-add").forEach(b=>b.onclick=()=>{$("#industryBlocks").insertAdjacentHTML("beforeend",industryBlockHtml({id:industryBlockId(),type:b.dataset.type}));industryWireBlocks(item.id);});
   $("#industrySave").onclick=async()=>{
     const btn=$("#industrySave");
-    if(industryUploadsPending>0){ alert("Зачекай, поки всі фотографії завершать завантаження."); return; }
+    if(industryUploadJobs.size){
+      btn.disabled=true;
+      btn.textContent="Завершуємо фото…";
+      try{await industryWaitForUploads();}
+      catch(e){btn.disabled=false;btn.textContent="Зберегти";alert(`Не вдалося зберегти одне з фото. ${e?.message||e}`);return;}
+    }
     const guest=$("#imGuest").value.trim();
     const title=$("#imTitle").value.trim();
     if(!guest && !title){
