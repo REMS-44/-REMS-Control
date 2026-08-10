@@ -572,12 +572,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v4.0 · немає з’єднання");
+    setStatus("v4.0.3 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v4.0 · збереження…");
+    setStatus("v4.0.3 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -585,7 +585,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v4.0 · хмара ✓");
+    setStatus("v4.0.3 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -596,7 +596,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v4.0 · помилка хмари");
+    setStatus("v4.0.3 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -876,15 +876,28 @@ const eventAssignments=()=>{
 const countConflicts=()=>{
   const map=eventAssignments(); return Object.values(map).filter(v=>v.length>1).length;
 }
+function updateQuickAddForView(v){
+  const btn=$("#quickAdd");
+  if(!btn) return;
+  if(v==="industry"){
+    btn.textContent="+ Нова зустріч";
+    btn.title="Створити новий матеріал «Зустріч із індустрією»";
+  }else{
+    btn.textContent="+ Новий проєкт";
+    btn.title="";
+  }
+}
 function switchView(v,label){
   currentView=v;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
   $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад",industry:"Зустріч із індустрією"}[v]);
+  updateQuickAddForView(v);
   views[v]();
 }
 function refreshCurrentView(){
   const v=currentView && views[currentView] ? currentView : (document.querySelector(".nav.active")?.dataset.view||"dashboard");
   currentView=v;
+  updateQuickAddForView(v);
   views[v]();
 }
 function dashboard(){
@@ -966,6 +979,174 @@ function dashboard(){
   $$(".dashboard-project-card").forEach(btn=>btn.onclick=()=>openProjectCard(btn.dataset.projectId));
 }
 
+
+const recoveryNormalizeName=v=>String(v||"")
+  .trim()
+  .toLowerCase()
+  .replace(/[’'`]/g,"")
+  .replace(/[-_]+/g," ")
+  .replace(/\s+/g," ");
+
+const recoveryDownloadBackup=()=>{
+  const payload={
+    exportedAt:new Date().toISOString(),
+    source:"REMS Control before student recovery",
+    rems_control:coreDbSnapshot()
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`REMS-Control-backup-before-recovery-${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.json`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+};
+
+async function recoverStudentsFromFirebase(){
+  if(!cloudReady||!cloudDb||!currentUser){
+    alert("Хмара ще не готова. Зачекай кілька секунд і спробуй ще раз.");
+    return;
+  }
+
+  const ok=confirm(
+    "Безпечне відновлення студентів\n\n"+
+    "REMS Control зараз:\n"+
+    "• збере студентів із rems_student_media та rems_public_profiles;\n"+
+    "• НЕ видалятиме наявних студентів;\n"+
+    "• НЕ чіпатиме проєкти, події, розклад і зустрічі з індустрією;\n"+
+    "• перед змінами автоматично завантажить резервну JSON-копію поточного rems_control.\n\n"+
+    "Продовжити?"
+  );
+  if(!ok) return;
+
+  setStatus("v4.0.3 · аналіз відновлення…");
+
+  try{
+    const [mediaSnap,profilesSnap]=await Promise.all([
+      getDocs(collection(cloudDb,"rems_student_media")),
+      getDocs(collection(cloudDb,"rems_public_profiles"))
+    ]);
+
+    const mediaDocs=mediaSnap.docs.map(d=>({docId:d.id,...(d.data()||{})}));
+    const profileDocs=profilesSnap.docs.map(d=>({docId:d.id,...(d.data()||{})}));
+
+    // Save a local backup BEFORE touching db.
+    recoveryDownloadBackup();
+
+    const existingById=new Map((db.students||[]).map(s=>[String(s.id),s]));
+    const existingByName=new Map((db.students||[]).map(s=>[recoveryNormalizeName(s.name),s]));
+
+    // Profiles by normalized name. They are useful for profile content, but media
+    // is the authoritative source for the original REMS Control student id.
+    const profilesByName=new Map();
+    profileDocs.forEach(p=>{
+      const key=recoveryNormalizeName(p.name);
+      if(key) profilesByName.set(key,p);
+    });
+
+    let added=0, enriched=0;
+    const addedNames=[];
+
+    // First recover from student media because it stores studentId + name + photoData.
+    for(const m of mediaDocs){
+      const name=String(m.name||"").trim();
+      if(!name) continue;
+      const nameKey=recoveryNormalizeName(name);
+      const sid=String(m.studentId||"").trim();
+
+      let s=(sid&&existingById.get(sid))||existingByName.get(nameKey);
+
+      if(!s){
+        // Preserve original student id whenever rems_student_media has it.
+        let newId=sid;
+        if(!newId || existingById.has(newId)){
+          let n=1;
+          do{ newId=`recovered-${Date.now()}-${n++}`; }while(existingById.has(newId));
+        }
+
+        const pp=profilesByName.get(nameKey);
+        s={
+          id:newId,
+          name,
+          group:"РЕМС-44"
+        };
+        if(pp){
+          const clean=sanitizePublicProfile(s,pp);
+          if(clean) s.publicProfile=clean;
+        }
+
+        db.students.push(s);
+        existingById.set(String(s.id),s);
+        existingByName.set(nameKey,s);
+        added++;
+        addedNames.push(name);
+      }else{
+        const pp=profilesByName.get(nameKey);
+        if(pp && !s.publicProfile){
+          const clean=sanitizePublicProfile(s,pp);
+          if(clean){
+            s.publicProfile=clean;
+            enriched++;
+          }
+        }
+      }
+
+      // Keep media in the in-memory cache so the recovered photo appears immediately.
+      studentMediaCache.set(studentMediaId(s)||m.docId,m);
+    }
+
+    // Then recover profile-only students that have no media document.
+    for(const p of profileDocs){
+      const name=String(p.name||"").trim();
+      if(!name) continue;
+      const key=recoveryNormalizeName(name);
+      if(existingByName.has(key)) continue;
+
+      // For profile-only records use a stable recovered id; never overwrite another id.
+      let base=String(p.id||p.docId||"profile").trim();
+      let newId=`recovered-${base}`;
+      let i=2;
+      while(existingById.has(newId)) newId=`recovered-${base}-${i++}`;
+
+      const s={id:newId,name,group:"РЕМС-44"};
+      const clean=sanitizePublicProfile(s,p);
+      if(clean) s.publicProfile=clean;
+      db.students.push(s);
+      existingById.set(String(s.id),s);
+      existingByName.set(key,s);
+      added++;
+      addedNames.push(name);
+    }
+
+    // Stable Ukrainian alphabetical order makes the recovered list easier to inspect.
+    db.students.sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"uk"));
+
+    cache();
+
+    // One deliberate cloud write, after the merge is complete.
+    const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
+    await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
+
+    await loadAllStudentMedia();
+    setStatus("v4.0.3 · відновлено ✓");
+    students();
+
+    alert(
+      `Відновлення завершено.\n\n`+
+      `Було студентів перед відновленням: ${existingById.size-added}\n`+
+      `Додано відсутніх: ${added}\n`+
+      `Усього тепер: ${db.students.length}\n`+
+      `Профілі доповнено: ${enriched}\n\n`+
+      (addedNames.length?`Додані:\n${addedNames.join("\n")}`:"Нових студентів для додавання не знайдено.")+
+      `\n\nРезервна копія стану ДО відновлення вже завантажена на комп’ютер.`
+    );
+  }catch(err){
+    console.error("Student recovery failed:",err);
+    setStatus("v4.0.3 · помилка відновлення");
+    alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
+  }
+}
+
 function students(){
   app.innerHTML=`
     <div class="toolbar">
@@ -974,6 +1155,7 @@ function students(){
         <option value="">Усі проєкти</option>
         ${db.projects.map(p=>`<option value="${esc(String(p.id))}">${esc(p.name)}</option>`).join("")}
       </select>
+      <button type="button" class="ghost" id="recoverStudentsBtn">Відновити студентів із Firebase</button>
     </div>
     <div class="students-grid" id="studentsGrid"></div>`;
 
@@ -1021,6 +1203,7 @@ function students(){
 
   $("#studentSearch").oninput=render;
   $("#studentProjectFilter").onchange=render;
+  $("#recoverStudentsBtn").onclick=recoverStudentsFromFirebase;
   render();
 }
 
@@ -2444,15 +2627,48 @@ async function industryEditor(m=null){
   $("#industryBack").onclick=industry;
   $("#imCoverFile").onchange=async()=>{const f=$("#imCoverFile").files?.[0];if(!f)return;$("#imCoverFile").disabled=true;try{$("#imCover").value=await industryUpload(f,item.id,"cover");}finally{$("#imCoverFile").disabled=false;}};
   $$(".industry-add").forEach(b=>b.onclick=()=>{$("#industryBlocks").insertAdjacentHTML("beforeend",industryBlockHtml({id:industryBlockId(),type:b.dataset.type}));industryWireBlocks(item.id);});
-  $("#industrySave").onclick=async()=>{const btn=$("#industrySave");btn.disabled=true;btn.textContent="Збереження…";const data={id:item.id,guest:$("#imGuest").value.trim(),guestRole:$("#imRole").value.trim(),title:$("#imTitle").value.trim(),date:$("#imDate").value,excerpt:$("#imExcerpt").value.trim(),cover:$("#imCover").value.trim(),published:$("#imPublished").checked,blocks:industryReadBlocks(),updatedAt:new Date().toISOString()};try{await setDoc(doc(cloudDb,INDUSTRY_COLLECTION,data.id),data,{merge:false});alert(data.published?"Матеріал опубліковано.":"Чернетку збережено.");industry();}catch(e){console.error(e);alert("Не вдалося зберегти матеріал у Firebase.");}finally{btn.disabled=false;btn.textContent="Зберегти";}};
+  $("#industrySave").onclick=async()=>{
+    const btn=$("#industrySave");
+    const guest=$("#imGuest").value.trim();
+    const title=$("#imTitle").value.trim();
+    if(!guest && !title){
+      alert("Вкажи хоча б ім’я гостя або тему зустрічі.");
+      return;
+    }
+    btn.disabled=true;
+    btn.textContent="Збереження…";
+    const data={
+      id:item.id,
+      guest,
+      guestRole:$("#imRole").value.trim(),
+      title,
+      date:$("#imDate").value,
+      excerpt:$("#imExcerpt").value.trim(),
+      cover:$("#imCover").value.trim(),
+      published:$("#imPublished").checked,
+      blocks:industryReadBlocks(),
+      updatedAt:new Date().toISOString()
+    };
+    try{
+      await setDoc(doc(cloudDb,INDUSTRY_COLLECTION,data.id),data,{merge:false});
+      alert(data.published?"Матеріал опубліковано.":"Чернетку збережено.");
+      industry();
+    }catch(e){
+      console.error(e);
+      alert(`Не вдалося зберегти зустріч у Firebase. ${e?.code||e?.message||""}`);
+    }finally{
+      btn.disabled=false;
+      btn.textContent="Зберегти";
+    }
+  };
   if(m) $("#industryDelete").onclick=async()=>{if(!confirm("Видалити цю зустріч?"))return;await deleteDoc(doc(cloudDb,INDUSTRY_COLLECTION,item.id));industry();};
 }
 async function industry(){
   $("#pageTitle").textContent="Зустріч із індустрією"; $("#pageSubtitle").textContent="Серія майстер-класів РЕМС-44";
   $("#app").innerHTML=`<div class="loading">Завантаження…</div>`;
   try{await industryLoad();}catch(e){console.error(e);$("#app").innerHTML=`<div class="empty">Не вдалося завантажити матеріали. Перевір Firebase Rules.</div>`;return;}
-  $("#app").innerHTML=`<div class="section-head"><div><h2>Зустріч із індустрією</h2><p>Статті про майстер-класи, фото, відео та цитати.</p></div><button class="primary" id="industryNew">+ Нова зустріч</button></div><div class="industry-grid">${industryCache.length?industryCache.map(m=>`<article class="industry-card">${m.cover?`<img src="${esc(m.cover)}" alt="">`:`<div class="industry-card-empty">✦</div>`}<div class="industry-card-meta">${esc(m.date||"Без дати")} · ${m.published?"Опубліковано":"Чернетка"}</div><h3>${esc(m.guest||m.title||"Без назви")}</h3><p>${esc(m.guestRole||m.title||"")}</p><button class="ghost industry-edit" data-id="${m.id}">Редагувати</button></article>`).join(""):`<div class="empty">Ще немає жодної зустрічі.</div>`}</div>`;
-  $("#industryNew").onclick=()=>industryEditor(); $$(".industry-edit").forEach(b=>b.onclick=()=>industryEditor(industryCache.find(x=>x.id===b.dataset.id)));
+  $("#app").innerHTML=`<div class="section-head"><div><h2>Матеріали зустрічей</h2><p>Створюй і редагуй статті серії майстер-класів та гостьових лекцій.</p></div></div><div class="industry-grid">${industryCache.length?industryCache.map(m=>`<article class="industry-card">${m.cover?`<img src="${esc(m.cover)}" alt="">`:`<div class="industry-card-empty">Без обкладинки</div>`}<div class="industry-card-meta">${esc(m.date||"Без дати")} · ${m.published?"Опубліковано":"Чернетка"}</div><h3>${esc(m.guest||m.title||"Без назви")}</h3><p>${esc(m.guestRole||m.title||"")}</p><button class="ghost industry-edit" data-id="${m.id}">Редагувати матеріал</button></article>`).join(""):`<div class="empty">Ще немає жодної зустрічі. Натисни «+ Нова зустріч» угорі праворуч.</div>`}</div>`;
+  $$(".industry-edit").forEach(b=>b.onclick=()=>industryEditor(industryCache.find(x=>x.id===b.dataset.id)));
 }
 
 const views={dashboard,students,projects,calendar,schedule,industry};
@@ -2460,6 +2676,10 @@ $$(".nav").forEach(b=>b.onclick=()=>switchView(b.dataset.view,b.querySelector("s
 $("#quickAdd").onclick=()=>{
   if(!cloudReady){
     alert("Зачекайте кілька секунд: REMS Control ще завантажує хмарну базу.");
+    return;
+  }
+  if(currentView==="industry"){
+    industryEditor();
     return;
   }
   $("#projectDialog").showModal();
@@ -3053,14 +3273,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.0 · Firebase не налаштовано");
+    setStatus("v4.0.3 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v4.0 · завантаження хмари…");
+    setStatus("v4.0.3 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     mediaStorage=getStorage(firebaseApp);
@@ -3083,7 +3303,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.0 · хмара ✓");
+    setStatus("v4.0.3 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -3183,19 +3403,19 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.0 · хмара ✓");
+      setStatus("v4.0.3 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v4.0 · хмара недоступна");
+      setStatus("v4.0.3 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v4.0 · хмара недоступна");
+    setStatus("v4.0.3 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -3206,7 +3426,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.0 · Firebase не налаштовано");
+    setStatus("v4.0.3 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -3222,19 +3442,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v4.0 · вхід ✓");
+        setStatus("v4.0.3 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v4.0 · потрібен вхід");
+        setStatus("v4.0.3 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v4.0 · помилка авторизації");
+    setStatus("v4.0.3 · помилка авторизації");
     showLogin();
   }
 }
