@@ -572,12 +572,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v4.0.3 · немає з’єднання");
+    setStatus("v4.0.4 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v4.0.3 · збереження…");
+    setStatus("v4.0.4 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -585,7 +585,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v4.0.3 · хмара ✓");
+    setStatus("v4.0.4 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -596,7 +596,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v4.0.3 · помилка хмари");
+    setStatus("v4.0.4 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1002,6 +1002,156 @@ const recoveryDownloadBackup=()=>{
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
 };
 
+
+const shortStudentName=name=>{
+  const parts=String(name||"").trim().split(/\s+/).filter(Boolean);
+  return parts.length>=2 ? `${parts[0]} ${parts[1]}` : parts.join(" ");
+};
+const studentPairKey=name=>recoveryNormalizeName(shortStudentName(name));
+
+const downloadDedupeBackup=()=>{
+  const payload={
+    exportedAt:new Date().toISOString(),
+    source:"REMS Control before duplicate cleanup",
+    rems_control:coreDbSnapshot()
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`REMS-Control-backup-before-dedupe-${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.json`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+};
+
+const studentRichnessScore=s=>{
+  const sid=String(s?.id||"");
+  const assignments=(db.assignments||[]).filter(a=>String(a.studentId)===sid).length;
+  const events=(db.events||[]).filter(e=>Array.isArray(e.studentIds)&&e.studentIds.map(String).includes(sid)).length;
+  const profile=s?.publicProfile||{};
+  const profileFields=[
+    profile.bio,profile.skills,profile.achievements,profile.videos,profile.gallery
+  ].reduce((n,v)=>n+(Array.isArray(v)?v.length:0),0);
+  const socials=profile.socials&&typeof profile.socials==="object"
+    ? Object.values(profile.socials).filter(Boolean).length : 0;
+  return assignments*1000 + events*1000 + profileFields*20 + socials*10
+    + (profile.published?30:0) + (String(s?.name||"").split(/\s+/).length>=3?5:0);
+};
+
+async function cleanupStudentDuplicates(){
+  const groups=new Map();
+  for(const s of db.students||[]){
+    const key=studentPairKey(s.name);
+    if(!key) continue;
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(s);
+  }
+
+  const duplicateGroups=[...groups.values()].filter(g=>g.length>1);
+  const allNeedShortening=(db.students||[]).filter(s=>shortStudentName(s.name)!==String(s.name||"").trim()).length;
+
+  if(!duplicateGroups.length && !allNeedShortening){
+    alert("Дублікатів немає, а імена вже записані без по батькові.");
+    return;
+  }
+
+  const preview=duplicateGroups.slice(0,12).map(g=>
+    `• ${g.map(s=>s.name).join("  ↔  ")}`
+  ).join("\n");
+
+  const ok=confirm(
+    "Очистити дублікати та залишити імена без по батькові?\n\n"+
+    `Знайдено груп дублікатів: ${duplicateGroups.length}\n`+
+    `Імен із по батькові для скорочення: ${allNeedShortening}\n\n`+
+    (preview?`${preview}${duplicateGroups.length>12?"\n…":""}\n\n`:"")+
+    "Що буде зроблено:\n"+
+    "• для кожної людини залишиться ОДНА картка;\n"+
+    "• ім’я буде у форматі «Прізвище Ім’я»;\n"+
+    "• збережеться запис, у якого більше проєктів/подій/профільних даних;\n"+
+    "• участь у проєктах і подіях із дубліката буде перенесена;\n"+
+    "• фото не видаляються;\n"+
+    "• перед змінами автоматично завантажиться резервна JSON-копія.\n\n"+
+    "Продовжити?"
+  );
+  if(!ok) return;
+
+  downloadDedupeBackup();
+
+  let removed=0;
+  const idMap=new Map();
+  const keepers=[];
+
+  for(const group of groups.values()){
+    const ranked=[...group].sort((a,b)=>studentRichnessScore(b)-studentRichnessScore(a));
+    const keeper=ranked[0];
+
+    // Prefer richer profile data from any duplicate if keeper lacks it.
+    for(const other of ranked.slice(1)){
+      if(!keeper.publicProfile && other.publicProfile) keeper.publicProfile=clone(other.publicProfile);
+      idMap.set(String(other.id),String(keeper.id));
+      removed++;
+    }
+
+    keeper.name=shortStudentName(keeper.name);
+    if(keeper.publicProfile){
+      keeper.publicProfile={...keeper.publicProfile,name:keeper.name};
+    }
+    keepers.push(keeper);
+  }
+
+  // Remap assignments to the kept student id.
+  db.assignments=(db.assignments||[]).map(a=>{
+    const mapped=idMap.get(String(a.studentId));
+    return mapped ? {...a,studentId:mapped} : a;
+  });
+
+  // Deduplicate identical assignments after remap.
+  const seenAssignments=new Set();
+  db.assignments=db.assignments.filter(a=>{
+    const k=`${a.studentId}|${a.projectId}`;
+    if(seenAssignments.has(k)) return false;
+    seenAssignments.add(k);
+    return true;
+  });
+
+  // Remap event-level student ids and deduplicate them.
+  db.events=(db.events||[]).map(e=>{
+    if(!Array.isArray(e.studentIds)) return e;
+    const ids=e.studentIds.map(x=>idMap.get(String(x))||String(x));
+    return {...e,studentIds:[...new Set(ids)]};
+  });
+
+  // Shorten every remaining display name, even when there was no duplicate.
+  db.students=keepers.map(s=>{
+    const out={...s,name:shortStudentName(s.name)};
+    if(out.publicProfile) out.publicProfile={...out.publicProfile,name:out.name};
+    return out;
+  });
+
+  db.students.sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"uk"));
+  cache();
+
+  const saved=await save();
+  if(!saved){
+    alert(
+      "Дублікати прибрані локально, але Firebase не підтвердив запис.\n"+
+      "Резервна копія вже завантажена. Нічого більше не редагуй і повідом мені."
+    );
+    return;
+  }
+
+  await loadAllStudentMedia();
+  students();
+  alert(
+    `Готово.\n\n`+
+    `Прибрано дублікатів: ${removed}\n`+
+    `Студентів тепер: ${db.students.length}\n`+
+    `Імена відображаються без по батькові.\n\n`+
+    `Проєкти, події та розклад збережені.`
+  );
+}
+
+
 async function recoverStudentsFromFirebase(){
   if(!cloudReady||!cloudDb||!currentUser){
     alert("Хмара ще не готова. Зачекай кілька секунд і спробуй ще раз.");
@@ -1019,7 +1169,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v4.0.3 · аналіз відновлення…");
+  setStatus("v4.0.4 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1128,7 +1278,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v4.0.3 · відновлено ✓");
+    setStatus("v4.0.4 · відновлено ✓");
     students();
 
     alert(
@@ -1142,7 +1292,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v4.0.3 · помилка відновлення");
+    setStatus("v4.0.4 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -1156,6 +1306,7 @@ function students(){
         ${db.projects.map(p=>`<option value="${esc(String(p.id))}">${esc(p.name)}</option>`).join("")}
       </select>
       <button type="button" class="ghost" id="recoverStudentsBtn">Відновити студентів із Firebase</button>
+      <button type="button" class="ghost" id="cleanupStudentsBtn">Прибрати дублікати</button>
     </div>
     <div class="students-grid" id="studentsGrid"></div>`;
 
@@ -1204,6 +1355,7 @@ function students(){
   $("#studentSearch").oninput=render;
   $("#studentProjectFilter").onchange=render;
   $("#recoverStudentsBtn").onclick=recoverStudentsFromFirebase;
+  $("#cleanupStudentsBtn").onclick=cleanupStudentDuplicates;
   render();
 }
 
@@ -3273,14 +3425,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.0.3 · Firebase не налаштовано");
+    setStatus("v4.0.4 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v4.0.3 · завантаження хмари…");
+    setStatus("v4.0.4 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     mediaStorage=getStorage(firebaseApp);
@@ -3303,7 +3455,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.0.3 · хмара ✓");
+    setStatus("v4.0.4 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -3403,19 +3555,19 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.0.3 · хмара ✓");
+      setStatus("v4.0.4 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v4.0.3 · хмара недоступна");
+      setStatus("v4.0.4 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v4.0.3 · хмара недоступна");
+    setStatus("v4.0.4 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -3426,7 +3578,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.0.3 · Firebase не налаштовано");
+    setStatus("v4.0.4 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -3442,19 +3594,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v4.0.3 · вхід ✓");
+        setStatus("v4.0.4 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v4.0.3 · потрібен вхід");
+        setStatus("v4.0.4 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v4.0.3 · помилка авторизації");
+    setStatus("v4.0.4 · помилка авторизації");
     showLogin();
   }
 }
