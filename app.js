@@ -572,12 +572,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v4.0.5 · немає з’єднання");
+    setStatus("v4.1.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v4.0.5 · збереження…");
+    setStatus("v4.1.0 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -585,7 +585,7 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v4.0.5 · хмара ✓");
+    setStatus("v4.1.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -596,7 +596,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v4.0.5 · помилка хмари");
+    setStatus("v4.1.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1169,7 +1169,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v4.0.5 · аналіз відновлення…");
+  setStatus("v4.1.0 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1278,7 +1278,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v4.0.5 · відновлено ✓");
+    setStatus("v4.1.0 · відновлено ✓");
     students();
 
     alert(
@@ -1292,7 +1292,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v4.0.5 · помилка відновлення");
+    setStatus("v4.1.0 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -2724,7 +2724,20 @@ function schedule(){
 // ===== «Зустріч із індустрією» · REMS Control v4.0 =====
 const INDUSTRY_COLLECTION="rems_industry_meetings";
 const INDUSTRY_MEDIA_COLLECTION="rems_industry_media";
-const industryBlockNames={text:"Текст",heading:"Підзаголовок",quote:"Цитата",image:"Велике фото",twoImages:"2 фото",gallery:"Галерея",story:"Відео 9:16",youtube:"YouTube"};
+const industryBlockNames={
+  text:"Текст",
+  heading:"Підзаголовок",
+  quote:"Цитата",
+  gallery:"Фото",
+  story:"Відео",
+  youtube:"YouTube",
+  social:"Instagram / TikTok",
+  audio:"Аудіо",
+  file:"Файл / PDF",
+  link:"Посилання",
+  guest:"Про гостя",
+  divider:"Розділювач"
+};
 let industryCache=[];
 const industryId=()=>`meeting-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
 const industryBlockId=()=>`b-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
@@ -2820,50 +2833,140 @@ async function industryUpload(file,meetingId,kind="media"){
   await uploadBytes(r,file);
   return await getDownloadURL(r);
 }
+function industryBlockPickerHtml(){
+  return `<div class="industry-picker">
+    ${Object.entries(industryBlockNames).map(([k,v])=>`<button type="button" class="industry-pick" data-type="${k}">${v}</button>`).join("")}
+  </div>`;
+}
 function industryBlockHtml(b={id:industryBlockId(),type:"text"}){
-  const head=`<div class="industry-block-head"><b>${industryBlockNames[b.type]||b.type}</b><div><button type="button" class="mini ib-up">↑</button><button type="button" class="mini ib-down">↓</button><button type="button" class="mini ib-remove">×</button></div></div>`;
+  const name=industryBlockNames[b.type]||b.type;
+  const head=`<div class="industry-block-head">
+    <div><span class="industry-block-kind">Блок</span><b>${name}</b></div>
+    <div class="industry-block-actions">
+      <button type="button" class="mini ib-up" title="Вище">↑</button>
+      <button type="button" class="mini ib-down" title="Нижче">↓</button>
+      <button type="button" class="mini ib-remove" title="Видалити">×</button>
+    </div>
+  </div>`;
   const media=(label,key="url",accept="image/*")=>`<label>${label}<input class="ib-${key}" value="${esc(b[key]||"")}" placeholder="URL або завантаж файл нижче"></label><label class="industry-file">Завантажити файл<input class="ib-file" data-key="${key}" type="file" accept="${accept}"><span class="industry-media-preview" data-preview="${key}"></span></label>`;
   let body="";
-  if(b.type==="text") body=`<label>Текст<textarea class="ib-content">${esc(b.content||"")}</textarea></label>`;
-  if(b.type==="heading") body=`<label>Підзаголовок<input class="ib-content" value="${esc(b.content||"")}"></label>`;
-  if(b.type==="quote") body=`<label>Цитата<textarea class="ib-content">${esc(b.content||"")}</textarea></label><label>Автор / контекст<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
-  if(b.type==="image") body=media("Фото")+`<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
-  if(b.type==="twoImages") body=media("Перше фото","url")+media("Друге фото","url2")+`<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
-  if(b.type==="gallery") body=`<label>Фото галереї · URL по одному в рядку<textarea class="ib-content">${esc((b.items||[]).join("\\n"))}</textarea></label><label class="industry-file">Додати фото до галереї<input class="ib-gallery-files" type="file" accept="image/*" multiple></label>`;
-  if(b.type==="story") body=media("Вертикальне відео MP4","url","video/mp4,video/webm")+`<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
-  if(b.type==="youtube") body=`<label>Посилання YouTube<input class="ib-url" value="${esc(b.url||"")}"></label><label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
-  return `<div class="industry-block" data-id="${b.id}" data-type="${b.type}">${head}${body}<div class="ib-progress"></div></div>`;
+  if(b.type==="text") body=`<label>Текст<textarea class="ib-content ib-richtext" placeholder="Пиши наступну частину статті…">${esc(b.content||"")}</textarea></label>`;
+  if(b.type==="heading") body=`<label>Підзаголовок<input class="ib-content" value="${esc(b.content||"")}" placeholder="Назва розділу"></label>`;
+  if(b.type==="quote") body=`<label>Цитата<textarea class="ib-content" placeholder="Важлива репліка гостя…">${esc(b.content||"")}</textarea></label><label>Автор / контекст<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="gallery") body=`<div class="industry-photo-block">
+      <label>Фото · можна додавати скільки завгодно
+        <textarea class="ib-content industry-photo-urls" placeholder="Фото з’являтимуться тут автоматично">${esc((b.items||[]).join("\\n"))}</textarea>
+      </label>
+      <label class="industry-file industry-photo-upload">+ Додати фото
+        <input class="ib-gallery-files" type="file" accept="image/*" multiple>
+      </label>
+      <div class="industry-gallery-preview"></div>
+      <label>Підпис до фото / групи фото<input class="ib-caption" value="${esc(b.caption||"")}"></label>
+    </div>`;
+  if(b.type==="story") body=media("Відео","url","video/mp4,video/webm")+`<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="youtube") body=`<label>Посилання YouTube<input class="ib-url" value="${esc(b.url||"")}" placeholder="https://youtube.com/..."></label><label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="social") body=`<label>Instagram / TikTok<input class="ib-url" value="${esc(b.url||"")}" placeholder="Встав посилання на Reel, пост або TikTok"></label><label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="audio") body=`<label>Посилання на аудіо<input class="ib-url" value="${esc(b.url||"")}" placeholder="URL аудіофайлу"></label><label>Назва / підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="file") body=`<label>Посилання на файл / PDF<input class="ib-url" value="${esc(b.url||"")}" placeholder="URL документа"></label><label>Назва файла<input class="ib-content" value="${esc(b.content||"")}" placeholder="Наприклад: Презентація майстер-класу"></label><label>Короткий опис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="link") body=`<label>Посилання<input class="ib-url" value="${esc(b.url||"")}" placeholder="https://..."></label><label>Заголовок картки<input class="ib-content" value="${esc(b.content||"")}"></label><label>Опис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="guest") body=`<div class="industry-guest-fields">${media("Фото гостя","url")}<label>Ім’я гостя<input class="ib-content" value="${esc(b.content||"")}"></label><label>Професія / коротка довідка<textarea class="ib-caption">${esc(b.caption||"")}</textarea></label><label>Instagram / сайт<input class="ib-url2" value="${esc(b.url2||"")}"></label></div>`;
+  if(b.type==="divider") body=`<div class="industry-divider-preview"><span></span></div>`;
+  return `<div class="industry-block" data-id="${b.id}" data-type="${b.type}">
+    ${head}
+    <div class="industry-block-body">${body}<div class="ib-progress"></div></div>
+    <button type="button" class="industry-insert-toggle">+ Додати блок після цього</button>
+    <div class="industry-inline-picker" hidden>${industryBlockPickerHtml()}</div>
+  </div>`;
+}
+async function industryGalleryPreview(el){
+  const wrap=el.querySelector(".industry-gallery-preview");
+  if(!wrap)return;
+  const area=el.querySelector(".ib-content");
+  const vals=(area?.value||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  wrap.innerHTML="";
+  for(const v of vals){
+    const box=document.createElement("div");
+    box.className="industry-gallery-thumb";
+    const img=document.createElement("img");
+    const src=await industryResolveMedia(v);
+    if(src) img.src=src;
+    const del=document.createElement("button");
+    del.type="button"; del.textContent="×"; del.title="Прибрати фото";
+    del.onclick=()=>{
+      const next=(area.value||"").split(/\n+/).map(x=>x.trim()).filter(Boolean).filter(x=>x!==v);
+      area.value=next.join("\n");
+      industryGalleryPreview(el);
+    };
+    box.append(img,del); wrap.append(box);
+  }
 }
 function industryWireBlocks(meetingId){
   $$(".industry-block").forEach(el=>{
     el.querySelector(".ib-remove").onclick=()=>el.remove();
     el.querySelector(".ib-up").onclick=()=>el.previousElementSibling&&el.parentNode.insertBefore(el,el.previousElementSibling);
     el.querySelector(".ib-down").onclick=()=>el.nextElementSibling&&el.parentNode.insertBefore(el.nextElementSibling,el);
+    const toggle=el.querySelector(".industry-insert-toggle");
+    const inline=el.querySelector(".industry-inline-picker");
+    toggle.onclick=()=>{inline.hidden=!inline.hidden;};
+    inline.querySelectorAll(".industry-pick").forEach(btn=>btn.onclick=()=>{
+      el.insertAdjacentHTML("afterend",industryBlockHtml({id:industryBlockId(),type:btn.dataset.type}));
+      industryWireBlocks(meetingId);
+    });
     el.querySelectorAll(".ib-file").forEach(inp=>inp.onchange=async()=>{
-      const file=inp.files?.[0]; if(!file)return; const out=el.querySelector(`.ib-${inp.dataset.key}`); const prog=el.querySelector(".ib-progress");
+      const file=inp.files?.[0]; if(!file)return;
+      const out=el.querySelector(`.ib-${inp.dataset.key}`);
+      const prog=el.querySelector(".ib-progress");
       const task=(async()=>{
         prog.textContent="Завантаження…";
         out.value=await industryUpload(file,meetingId,el.dataset.type);
         await industrySetPreview(el.querySelector(`[data-preview="${inp.dataset.key}"]`),out.value);
-        prog.textContent="Фото збережено ✓";
+        prog.textContent="Файл збережено ✓";
       })();
       try{await industryTrackUpload(task);}catch(e){console.error(e);prog.textContent=`Помилка: ${e?.message||e}`;}
     });
-    const gf=el.querySelector(".ib-gallery-files"); if(gf) gf.onchange=async()=>{
-      const area=el.querySelector(".ib-content"), prog=el.querySelector(".ib-progress");
-      const task=(async()=>{prog.textContent="Завантаження галереї…"; const urls=[]; for(const f of gf.files) urls.push(await industryUpload(f,meetingId,"gallery")); area.value=[area.value.trim(),...urls].filter(Boolean).join("\\n"); prog.textContent=`Додано: ${urls.length} ✓`;})();
+    const gf=el.querySelector(".ib-gallery-files");
+    if(gf) gf.onchange=async()=>{
+      const area=el.querySelector(".ib-content"),prog=el.querySelector(".ib-progress");
+      const files=[...gf.files];
+      if(!files.length)return;
+      const task=(async()=>{
+        prog.textContent=`Завантаження фото: 0/${files.length}`;
+        const urls=[];
+        for(let i=0;i<files.length;i++){
+          urls.push(await industryUpload(files[i],meetingId,"gallery"));
+          prog.textContent=`Завантаження фото: ${i+1}/${files.length}`;
+        }
+        area.value=[area.value.trim(),...urls].filter(Boolean).join("\n");
+        await industryGalleryPreview(el);
+        prog.textContent=`Додано фото: ${urls.length} ✓`;
+        gf.value="";
+      })();
       try{await industryTrackUpload(task);}catch(e){console.error(e);prog.textContent=`Помилка: ${e?.message||e}`;}
     };
-    el.querySelectorAll("[data-preview]").forEach(box=>{ const input=el.querySelector(`.ib-${box.dataset.preview}`); if(input?.value) industrySetPreview(box,input.value); });
+    el.querySelectorAll("[data-preview]").forEach(box=>{
+      const input=el.querySelector(`.ib-${box.dataset.preview}`);
+      if(input?.value)industrySetPreview(box,input.value);
+    });
+    if(el.dataset.type==="gallery")industryGalleryPreview(el);
   });
 }
-function industryReadBlocks(){return $$(".industry-block").map(el=>({id:el.dataset.id,type:el.dataset.type,content:el.querySelector(".ib-content")?.value.trim()||"",url:el.querySelector(".ib-url")?.value.trim()||"",url2:el.querySelector(".ib-url2")?.value.trim()||"",caption:el.querySelector(".ib-caption")?.value.trim()||"",items:el.dataset.type==="gallery"?(el.querySelector(".ib-content")?.value||"").split(/\\n+/).map(x=>x.trim()).filter(Boolean):[]}));}
+function industryReadBlocks(){
+  return $$(".industry-block").map(el=>({
+    id:el.dataset.id,
+    type:el.dataset.type,
+    content:el.querySelector(".ib-content")?.value.trim()||"",
+    url:el.querySelector(".ib-url")?.value.trim()||"",
+    url2:el.querySelector(".ib-url2")?.value.trim()||"",
+    caption:el.querySelector(".ib-caption")?.value.trim()||"",
+    items:el.dataset.type==="gallery"?(el.querySelector(".ib-content")?.value||"").split(/\n+/).map(x=>x.trim()).filter(Boolean):[]
+  }));
+}
 async function industryEditor(m=null){
   // New editor session: never inherit unfinished upload state from a previous article.
   industryUploadJobs=new Set();
   const item=m?clone(m):{id:industryId(),published:false,blocks:[]};
   $("#pageTitle").textContent=m?"Редагування зустрічі":"Нова зустріч";
-  $("#app").innerHTML=`<div class="industry-editor"><button class="ghost" id="industryBack">← До всіх зустрічей</button><div class="section-head"><div><h2>${m?"Редагувати":"Створити"} матеріал</h2><p>Серія майстер-класів «Зустріч із індустрією»</p></div></div><div class="industry-form-grid"><label>Гість<input id="imGuest" value="${esc(item.guest||"")}"></label><label>Професія / посада<input id="imRole" value="${esc(item.guestRole||"")}"></label><label>Тема зустрічі<input id="imTitle" value="${esc(item.title||"")}"></label><label>Дата<input id="imDate" type="date" value="${esc(item.date||"")}"></label><label class="full">Короткий анонс<textarea id="imExcerpt">${esc(item.excerpt||"")}</textarea></label><label class="full">Обкладинка<input id="imCover" value="${esc(item.cover||"")}" placeholder="Завантаж фото нижче або встав URL"></label><label class="industry-file full">Завантажити обкладинку<input id="imCoverFile" type="file" accept="image/*"><span class="ib-progress" id="imCoverProgress"></span><span class="industry-media-preview" id="imCoverPreview"></span></label><label class="industry-publish full"><input id="imPublished" type="checkbox" ${item.published?"checked":""}><span><b>Опублікувати на сайті</b><small>Вимкнено — матеріал залишається чернеткою</small></span></label></div><div class="industry-builder"><h3>Стаття</h3><p class="muted">Додавай блоки в потрібній послідовності. Їх можна рухати стрілками.</p><div class="industry-addbar">${Object.entries(industryBlockNames).map(([k,v])=>`<button type="button" class="ghost industry-add" data-type="${k}">+ ${v}</button>`).join("")}</div><div id="industryBlocks">${(item.blocks||[]).map(industryBlockHtml).join("")}</div></div><div class="industry-savebar"><button class="danger" id="industryDelete" ${m?"":"style=display:none"}>Видалити</button><button class="primary" id="industrySave">Зберегти</button></div></div>`;
+  $("#app").innerHTML=`<div class="industry-editor"><button class="ghost" id="industryBack">← До всіх зустрічей</button><div class="section-head"><div><h2>${m?"Редагувати":"Створити"} матеріал</h2><p>Серія майстер-класів «Зустріч із індустрією»</p></div></div><div class="industry-form-grid"><label>Гість<input id="imGuest" value="${esc(item.guest||"")}"></label><label>Професія / посада<input id="imRole" value="${esc(item.guestRole||"")}"></label><label>Тема зустрічі<input id="imTitle" value="${esc(item.title||"")}"></label><label>Дата<input id="imDate" type="date" value="${esc(item.date||"")}"></label><label class="full">Короткий анонс<textarea id="imExcerpt">${esc(item.excerpt||"")}</textarea></label><label class="full">Обкладинка<input id="imCover" value="${esc(item.cover||"")}" placeholder="Завантаж фото нижче або встав URL"></label><label class="industry-file full">Завантажити обкладинку<input id="imCoverFile" type="file" accept="image/*"><span class="ib-progress" id="imCoverProgress"></span><span class="industry-media-preview" id="imCoverPreview"></span></label><label class="industry-publish full"><input id="imPublished" type="checkbox" ${item.published?"checked":""}><span><b>Опублікувати на сайті</b><small>Вимкнено — матеріал залишається чернеткою</small></span></label></div><div class="industry-builder"><div class="industry-builder-title"><div><h3>Стаття</h3><p class="muted">Будуй матеріал у потрібному порядку: текст → фото → текст → відео → цитата…</p></div></div><div class="industry-first-add"><b>Додати перший / наступний блок</b>${industryBlockPickerHtml()}</div><div id="industryBlocks">${(item.blocks||[]).map(industryBlockHtml).join("")}</div></div><div class="industry-savebar"><button class="danger" id="industryDelete" ${m?"":"style=display:none"}>Видалити</button><button class="primary" id="industrySave">Зберегти</button></div></div>`;
   industryWireBlocks(item.id);
   if(item.cover) industrySetPreview($("#imCoverPreview"),item.cover);
   $("#industryBack").onclick=industry;
@@ -2881,7 +2984,7 @@ async function industryEditor(m=null){
     catch(e){console.error(e);prog.textContent=`Помилка: ${e?.message||e}`;}
     finally{$("#imCoverFile").disabled=false;}
   };
-  $$(".industry-add").forEach(b=>b.onclick=()=>{$("#industryBlocks").insertAdjacentHTML("beforeend",industryBlockHtml({id:industryBlockId(),type:b.dataset.type}));industryWireBlocks(item.id);});
+  $$(".industry-first-add .industry-pick").forEach(b=>b.onclick=()=>{$("#industryBlocks").insertAdjacentHTML("beforeend",industryBlockHtml({id:industryBlockId(),type:b.dataset.type}));industryWireBlocks(item.id);});
   $("#industrySave").onclick=async()=>{
     const btn=$("#industrySave");
     if(industryUploadJobs.size){
@@ -3534,14 +3637,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.0.5 · Firebase не налаштовано");
+    setStatus("v4.1.0 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v4.0.5 · завантаження хмари…");
+    setStatus("v4.1.0 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     mediaStorage=getStorage(firebaseApp);
@@ -3564,7 +3667,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.0.5 · хмара ✓");
+    setStatus("v4.1.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -3664,19 +3767,19 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.0.5 · хмара ✓");
+      setStatus("v4.1.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v4.0.5 · хмара недоступна");
+      setStatus("v4.1.0 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v4.0.5 · хмара недоступна");
+    setStatus("v4.1.0 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -3687,7 +3790,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.0.5 · Firebase не налаштовано");
+    setStatus("v4.1.0 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -3703,19 +3806,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v4.0.5 · вхід ✓");
+        setStatus("v4.1.0 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v4.0.5 · потрібен вхід");
+        setStatus("v4.1.0 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v4.0.5 · помилка авторизації");
+    setStatus("v4.1.0 · помилка авторизації");
     showLogin();
   }
 }
