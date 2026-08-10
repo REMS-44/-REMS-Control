@@ -1,5 +1,5 @@
 (function(){const s=document.createElement("style");s.textContent=`
-.industry-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}.industry-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px;display:grid;gap:9px}.industry-card img,.industry-card-empty{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:11px;background:#111318;color:#fff;display:grid;place-items:center;font-size:32px}.industry-card-meta{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em}.industry-card h3,.industry-card p{margin:0}.industry-card p{color:#6b7280;font-size:12px}.industry-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-top:16px}.industry-form-grid label,.industry-block label{display:grid;gap:6px;font-size:12px;color:#374151}.industry-form-grid input,.industry-form-grid textarea,.industry-block input,.industry-block textarea{width:100%;border:1px solid #dfe3e8;border-radius:10px;padding:10px;font:inherit}.industry-form-grid textarea,.industry-block textarea{min-height:110px;resize:vertical}.industry-form-grid .full{grid-column:1/-1}.industry-publish{display:flex!important;grid-template-columns:auto 1fr!important;align-items:center;gap:10px;padding:12px;background:#f8fafc;border-radius:12px}.industry-publish input{width:20px!important;height:20px}.industry-publish span{display:grid}.industry-publish small{color:#6b7280}.industry-builder{margin-top:18px}.industry-addbar{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 14px}.industry-block{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:13px;margin-bottom:10px;display:grid;gap:9px}.industry-block-head{display:flex;justify-content:space-between;align-items:center}.industry-block-head>div{display:flex;gap:5px}.industry-file{background:#f8fafc;padding:9px;border-radius:9px}.ib-progress{font-size:11px;color:#4b5563}.industry-savebar{position:sticky;bottom:12px;background:#fffffff2;border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-top:16px;display:flex;justify-content:space-between;z-index:5}.danger{border:0;background:#fee2e2;color:#991b1b;border-radius:10px;padding:9px 12px;font-weight:700}.loading{padding:30px;color:#6b7280}@media(max-width:700px){.industry-form-grid{grid-template-columns:1fr}.industry-form-grid .full{grid-column:auto}}
+.industry-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}.industry-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px;display:grid;gap:9px}.industry-card img,.industry-card-empty{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:11px;background:#111318;color:#fff;display:grid;place-items:center;font-size:32px}.industry-card-meta{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em}.industry-card h3,.industry-card p{margin:0}.industry-card p{color:#6b7280;font-size:12px}.industry-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-top:16px}.industry-form-grid label,.industry-block label{display:grid;gap:6px;font-size:12px;color:#374151}.industry-form-grid input,.industry-form-grid textarea,.industry-block input,.industry-block textarea{width:100%;border:1px solid #dfe3e8;border-radius:10px;padding:10px;font:inherit}.industry-form-grid textarea,.industry-block textarea{min-height:110px;resize:vertical}.industry-form-grid .full{grid-column:1/-1}.industry-publish{display:flex!important;grid-template-columns:auto 1fr!important;align-items:center;gap:10px;padding:12px;background:#f8fafc;border-radius:12px}.industry-publish input{width:20px!important;height:20px}.industry-publish span{display:grid}.industry-publish small{color:#6b7280}.industry-builder{margin-top:18px}.industry-addbar{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 14px}.industry-block{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:13px;margin-bottom:10px;display:grid;gap:9px}.industry-block-head{display:flex;justify-content:space-between;align-items:center}.industry-block-head>div{display:flex;gap:5px}.industry-file{background:#f8fafc;padding:9px;border-radius:9px}.ib-progress{font-size:11px;color:#4b5563}.industry-media-preview{margin-top:7px;width:160px;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:#eef1f4;display:none}.industry-media-preview.has-image{display:block}.industry-media-preview img{width:100%;height:100%;object-fit:cover;display:block}.industry-file input[type=file]{margin-top:4px}.industry-savebar{position:sticky;bottom:12px;background:#fffffff2;border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-top:16px;display:flex;justify-content:space-between;z-index:5}.danger{border:0;background:#fee2e2;color:#991b1b;border-radius:10px;padding:9px 12px;font-weight:700}.loading{padding:30px;color:#6b7280}@media(max-width:700px){.industry-form-grid{grid-template-columns:1fr}.industry-form-grid .full{grid-column:auto}}
 `;document.head.appendChild(s)})();
 
 (function injectPublicPublishToggleV37(){
@@ -2761,6 +2761,29 @@ async function compressIndustryImage(file){
   }
   return data;
 }
+async function industryResolveMedia(value){
+  const s=String(value||"").trim();
+  const prefix="firestore-media://";
+  if(!s.startsWith(prefix)) return s;
+  const id=s.slice(prefix.length);
+  if(!id||!cloudDb) return "";
+  try{
+    const snap=await getDoc(doc(cloudDb,INDUSTRY_MEDIA_COLLECTION,id));
+    return snap.exists()?String(snap.data()?.data||""):"";
+  }catch(e){ console.error("Industry media preview failed",e); return ""; }
+}
+async function industrySetPreview(box,value){
+  if(!box)return;
+  const src=await industryResolveMedia(value);
+  box.innerHTML=src?`<img src="${src}" alt="">`:"";
+  box.classList.toggle("has-image",!!src);
+}
+let industryUploadsPending=0;
+function industryUploading(delta){
+  industryUploadsPending=Math.max(0,industryUploadsPending+delta);
+  const btn=$("#industrySave");
+  if(btn){btn.disabled=industryUploadsPending>0; if(industryUploadsPending>0) btn.textContent="Чекаємо фото…"; else if(btn.textContent==="Чекаємо фото…") btn.textContent="Зберегти";}
+}
 async function industryUpload(file,meetingId,kind="media"){
   if(!file) return "";
   // Images are stored in Firestore, just like student photos.
@@ -2791,7 +2814,7 @@ async function industryUpload(file,meetingId,kind="media"){
 }
 function industryBlockHtml(b={id:industryBlockId(),type:"text"}){
   const head=`<div class="industry-block-head"><b>${industryBlockNames[b.type]||b.type}</b><div><button type="button" class="mini ib-up">↑</button><button type="button" class="mini ib-down">↓</button><button type="button" class="mini ib-remove">×</button></div></div>`;
-  const media=(label,key="url",accept="image/*")=>`<label>${label}<input class="ib-${key}" value="${esc(b[key]||"")}" placeholder="URL або завантаж файл нижче"></label><label class="industry-file">Завантажити файл<input class="ib-file" data-key="${key}" type="file" accept="${accept}"></label>`;
+  const media=(label,key="url",accept="image/*")=>`<label>${label}<input class="ib-${key}" value="${esc(b[key]||"")}" placeholder="URL або завантаж файл нижче"></label><label class="industry-file">Завантажити файл<input class="ib-file" data-key="${key}" type="file" accept="${accept}"><span class="industry-media-preview" data-preview="${key}"></span></label>`;
   let body="";
   if(b.type==="text") body=`<label>Текст<textarea class="ib-content">${esc(b.content||"")}</textarea></label>`;
   if(b.type==="heading") body=`<label>Підзаголовок<input class="ib-content" value="${esc(b.content||"")}"></label>`;
@@ -2810,39 +2833,46 @@ function industryWireBlocks(meetingId){
     el.querySelector(".ib-down").onclick=()=>el.nextElementSibling&&el.parentNode.insertBefore(el.nextElementSibling,el);
     el.querySelectorAll(".ib-file").forEach(inp=>inp.onchange=async()=>{
       const file=inp.files?.[0]; if(!file)return; const out=el.querySelector(`.ib-${inp.dataset.key}`); const prog=el.querySelector(".ib-progress");
-      try{prog.textContent="Завантаження…"; out.value=await industryUpload(file,meetingId,el.dataset.type); prog.textContent="Файл завантажено ✓";}catch(e){console.error(e);prog.textContent="Помилка завантаження";}
+      industryUploading(1);
+      try{prog.textContent="Завантаження…"; out.value=await industryUpload(file,meetingId,el.dataset.type); await industrySetPreview(el.querySelector(`[data-preview="${inp.dataset.key}"]`),out.value); prog.textContent="Фото збережено ✓";}catch(e){console.error(e);prog.textContent=`Помилка: ${e?.message||e}`;}finally{industryUploading(-1);}
     });
     const gf=el.querySelector(".ib-gallery-files"); if(gf) gf.onchange=async()=>{
       const area=el.querySelector(".ib-content"), prog=el.querySelector(".ib-progress");
       try{prog.textContent="Завантаження галереї…"; const urls=[]; for(const f of gf.files) urls.push(await industryUpload(f,meetingId,"gallery")); area.value=[area.value.trim(),...urls].filter(Boolean).join("\\n"); prog.textContent=`Додано: ${urls.length} ✓`;}catch(e){console.error(e);prog.textContent="Помилка завантаження";}
     };
+    el.querySelectorAll("[data-preview]").forEach(box=>{ const input=el.querySelector(`.ib-${box.dataset.preview}`); if(input?.value) industrySetPreview(box,input.value); });
   });
 }
 function industryReadBlocks(){return $$(".industry-block").map(el=>({id:el.dataset.id,type:el.dataset.type,content:el.querySelector(".ib-content")?.value.trim()||"",url:el.querySelector(".ib-url")?.value.trim()||"",url2:el.querySelector(".ib-url2")?.value.trim()||"",caption:el.querySelector(".ib-caption")?.value.trim()||"",items:el.dataset.type==="gallery"?(el.querySelector(".ib-content")?.value||"").split(/\\n+/).map(x=>x.trim()).filter(Boolean):[]}));}
 async function industryEditor(m=null){
   const item=m?clone(m):{id:industryId(),published:false,blocks:[]};
   $("#pageTitle").textContent=m?"Редагування зустрічі":"Нова зустріч";
-  $("#app").innerHTML=`<div class="industry-editor"><button class="ghost" id="industryBack">← До всіх зустрічей</button><div class="section-head"><div><h2>${m?"Редагувати":"Створити"} матеріал</h2><p>Серія майстер-класів «Зустріч із індустрією»</p></div></div><div class="industry-form-grid"><label>Гість<input id="imGuest" value="${esc(item.guest||"")}"></label><label>Професія / посада<input id="imRole" value="${esc(item.guestRole||"")}"></label><label>Тема зустрічі<input id="imTitle" value="${esc(item.title||"")}"></label><label>Дата<input id="imDate" type="date" value="${esc(item.date||"")}"></label><label class="full">Короткий анонс<textarea id="imExcerpt">${esc(item.excerpt||"")}</textarea></label><label class="full">Обкладинка<input id="imCover" value="${esc(item.cover||"")}" placeholder="Завантаж фото нижче або встав URL"></label><label class="industry-file full">Завантажити обкладинку<input id="imCoverFile" type="file" accept="image/*"><span class="ib-progress" id="imCoverProgress"></span></label><label class="industry-publish full"><input id="imPublished" type="checkbox" ${item.published?"checked":""}><span><b>Опублікувати на сайті</b><small>Вимкнено — матеріал залишається чернеткою</small></span></label></div><div class="industry-builder"><h3>Стаття</h3><p class="muted">Додавай блоки в потрібній послідовності. Їх можна рухати стрілками.</p><div class="industry-addbar">${Object.entries(industryBlockNames).map(([k,v])=>`<button type="button" class="ghost industry-add" data-type="${k}">+ ${v}</button>`).join("")}</div><div id="industryBlocks">${(item.blocks||[]).map(industryBlockHtml).join("")}</div></div><div class="industry-savebar"><button class="danger" id="industryDelete" ${m?"":"style=display:none"}>Видалити</button><button class="primary" id="industrySave">Зберегти</button></div></div>`;
+  $("#app").innerHTML=`<div class="industry-editor"><button class="ghost" id="industryBack">← До всіх зустрічей</button><div class="section-head"><div><h2>${m?"Редагувати":"Створити"} матеріал</h2><p>Серія майстер-класів «Зустріч із індустрією»</p></div></div><div class="industry-form-grid"><label>Гість<input id="imGuest" value="${esc(item.guest||"")}"></label><label>Професія / посада<input id="imRole" value="${esc(item.guestRole||"")}"></label><label>Тема зустрічі<input id="imTitle" value="${esc(item.title||"")}"></label><label>Дата<input id="imDate" type="date" value="${esc(item.date||"")}"></label><label class="full">Короткий анонс<textarea id="imExcerpt">${esc(item.excerpt||"")}</textarea></label><label class="full">Обкладинка<input id="imCover" value="${esc(item.cover||"")}" placeholder="Завантаж фото нижче або встав URL"></label><label class="industry-file full">Завантажити обкладинку<input id="imCoverFile" type="file" accept="image/*"><span class="ib-progress" id="imCoverProgress"></span><span class="industry-media-preview" id="imCoverPreview"></span></label><label class="industry-publish full"><input id="imPublished" type="checkbox" ${item.published?"checked":""}><span><b>Опублікувати на сайті</b><small>Вимкнено — матеріал залишається чернеткою</small></span></label></div><div class="industry-builder"><h3>Стаття</h3><p class="muted">Додавай блоки в потрібній послідовності. Їх можна рухати стрілками.</p><div class="industry-addbar">${Object.entries(industryBlockNames).map(([k,v])=>`<button type="button" class="ghost industry-add" data-type="${k}">+ ${v}</button>`).join("")}</div><div id="industryBlocks">${(item.blocks||[]).map(industryBlockHtml).join("")}</div></div><div class="industry-savebar"><button class="danger" id="industryDelete" ${m?"":"style=display:none"}>Видалити</button><button class="primary" id="industrySave">Зберегти</button></div></div>`;
   industryWireBlocks(item.id);
+  if(item.cover) industrySetPreview($("#imCoverPreview"),item.cover);
   $("#industryBack").onclick=industry;
   $("#imCoverFile").onchange=async()=>{
     const f=$("#imCoverFile").files?.[0]; if(!f)return;
     const prog=$("#imCoverProgress");
     $("#imCoverFile").disabled=true;
+    industryUploading(1);
     try{
       prog.textContent="Стискаємо й зберігаємо фото…";
       $("#imCover").value=await industryUpload(f,item.id,"cover");
+      await industrySetPreview($("#imCoverPreview"),$("#imCover").value);
       prog.textContent="Фото збережено ✓";
     }catch(e){
       console.error(e);
       prog.textContent=`Помилка: ${e?.message||e}`;
     }finally{
       $("#imCoverFile").disabled=false;
+      industryUploading(-1);
     }
   };
   $$(".industry-add").forEach(b=>b.onclick=()=>{$("#industryBlocks").insertAdjacentHTML("beforeend",industryBlockHtml({id:industryBlockId(),type:b.dataset.type}));industryWireBlocks(item.id);});
   $("#industrySave").onclick=async()=>{
     const btn=$("#industrySave");
+    if(industryUploadsPending>0){ alert("Зачекай, поки всі фотографії завершать завантаження."); return; }
     const guest=$("#imGuest").value.trim();
     const title=$("#imTitle").value.trim();
     if(!guest && !title){
