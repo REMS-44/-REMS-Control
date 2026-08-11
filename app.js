@@ -529,7 +529,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
 
 const KEY="rems-control-v031-cache";
 const OLDKEY="rems-control-v02";
@@ -2858,10 +2858,10 @@ async function industryWaitForUploads(){
   const failed=results.find(r=>r.status==="rejected");
   if(failed) throw failed.reason;
 }
-async function industryUpload(file,meetingId,kind="media"){
+async function industryUpload(file,meetingId,kind="media",onProgress=null){
   if(!file) return "";
-  // Images are stored in Firestore, just like student photos.
-  // This avoids dependence on Firebase Storage for article photos.
+
+  // Images remain in Firestore exactly as before.
   if(String(file.type||"").startsWith("image/")){
     if(!cloudDb||!currentUser) throw new Error("Firebase ще не готовий");
     const id=`media-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
@@ -2875,16 +2875,57 @@ async function industryUpload(file,meetingId,kind="media"){
       data,
       createdAt:new Date().toISOString()
     },{merge:false});
+    if(onProgress) onProgress(100);
     return `firestore-media://${id}`;
   }
 
-  // Video remains URL/Storage based because video files are too large for Firestore.
-  if(!mediaStorage) throw new Error("Firebase Storage ще не готовий для відео");
-  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"-");
+  // Large media (MP4, MOV, M4V, WebM, etc.) goes to Firebase Storage.
+  // Resumable upload reports real progress instead of looking frozen.
+  if(!mediaStorage) throw new Error("Firebase Storage ще не готовий");
+  if(!currentUser) throw new Error("Потрібно увійти в REMS Control");
+
+  const original=String(file.name||"media");
+  const dot=original.lastIndexOf(".");
+  const ext=dot>=0?original.slice(dot).replace(/[^a-zA-Z0-9.]/g,""):"";
+  const base=(dot>=0?original.slice(0,dot):original)
+    .replace(/[^a-zA-Z0-9_-]/g,"-")
+    .replace(/-+/g,"-")
+    .replace(/^-|-$/g,"") || "media";
+  const safe=`${base}${ext}`;
   const path=`industry/${meetingId}/${Date.now()}-${kind}-${safe}`;
   const r=storageRef(mediaStorage,path);
-  await uploadBytes(r,file);
-  return await getDownloadURL(r);
+
+  const metadata={
+    contentType:file.type||undefined,
+    customMetadata:{
+      originalName:original,
+      meetingId:String(meetingId||""),
+      kind:String(kind||"media")
+    }
+  };
+
+  const task=uploadBytesResumable(r,file,metadata);
+
+  await new Promise((resolve,reject)=>{
+    task.on("state_changed",
+      snap=>{
+        const total=snap.totalBytes||file.size||1;
+        const pct=Math.max(0,Math.min(100,Math.round((snap.bytesTransferred/total)*100)));
+        if(onProgress) onProgress(pct,snap.bytesTransferred,total);
+      },
+      err=>{
+        let msg=err?.message||String(err);
+        if(err?.code==="storage/unauthorized") msg="Firebase Storage не дозволяє завантаження. Перевір Storage Rules.";
+        if(err?.code==="storage/quota-exceeded") msg="Перевищено ліміт Firebase Storage.";
+        if(err?.code==="storage/retry-limit-exceeded") msg="Завантаження перервалося через мережу. Спробуй ще раз.";
+        reject(new Error(msg));
+      },
+      resolve
+    );
+  });
+
+  if(onProgress) onProgress(100,file.size,file.size);
+  return await getDownloadURL(task.snapshot.ref);
 }
 function industryBlockPickerHtml(){
   return `<div class="industry-picker">
@@ -2916,7 +2957,7 @@ function industryBlockHtml(b={id:industryBlockId(),type:"text"}){
       <div class="industry-gallery-preview"></div>
       <label>Підпис до фото / групи фото<input class="ib-caption" value="${esc(b.caption||"")}"></label>
     </div>`;
-  if(b.type==="story") body=media("Відео","url","video/mp4,video/webm")+`<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="story") body=media("Відео","url","video/*,.mov,.mp4,.m4v,.webm,.avi,.mkv")+`<div class="ib-progress">Підтримується вибір MP4, MOV, M4V, WebM та інших відеофайлів. Для найкращого відтворення на сайті рекомендовано MP4 (H.264).</div><label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
   if(b.type==="youtube") body=`<label>Посилання YouTube<input class="ib-url" value="${esc(b.url||"")}" placeholder="https://youtube.com/..."></label>${industryStoredValueHtml(b.url,"YouTube збережено")}<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
   if(b.type==="social") body=`<label>Instagram / TikTok<input class="ib-url" value="${esc(b.url||"")}" placeholder="Встав посилання на Reel, пост або TikTok"></label>${industryStoredValueHtml(b.url,"Посилання збережено")}<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
   if(b.type==="audio") body=`<label>Посилання на аудіо<input class="ib-url" value="${esc(b.url||"")}" placeholder="URL аудіофайлу"></label>${industryStoredValueHtml(b.url,"Аудіо збережено")}<label>Назва / підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
@@ -2969,13 +3010,26 @@ function industryWireBlocks(meetingId){
       const file=inp.files?.[0]; if(!file)return;
       const out=el.querySelector(`.ib-${inp.dataset.key}`);
       const prog=el.querySelector(".ib-progress");
+      const isVideo=String(file.type||"").startsWith("video/") || /\.(mov|mp4|m4v|webm|avi|mkv)$/i.test(file.name||"");
+      const mb=file.size/1024/1024;
       const task=(async()=>{
-        prog.textContent="Завантаження…";
-        out.value=await industryUpload(file,meetingId,el.dataset.type);
+        prog.textContent=isVideo
+          ? `Підготовка відео · ${mb.toFixed(1)} МБ…`
+          : "Завантаження…";
+        out.value=await industryUpload(file,meetingId,el.dataset.type,(pct)=>{
+          prog.textContent=isVideo
+            ? `Завантаження відео: ${pct}% · ${mb.toFixed(1)} МБ`
+            : `Завантаження: ${pct}%`;
+        });
         await industrySetPreview(el.querySelector(`[data-preview="${inp.dataset.key}"]`),out.value);
-        prog.textContent="Файл збережено ✓";
+        prog.textContent=isVideo?"Відео завантажено ✓":"Файл збережено ✓";
       })();
-      try{await industryTrackUpload(task);}catch(e){console.error(e);prog.textContent=`Помилка: ${e?.message||e}`;}
+      try{
+        await industryTrackUpload(task);
+      }catch(e){
+        console.error(e);
+        prog.textContent=`Помилка: ${e?.message||e}`;
+      }
     });
     const gf=el.querySelector(".ib-gallery-files");
     if(gf) gf.onchange=async()=>{
@@ -3042,9 +3096,9 @@ async function industryEditor(m=null){
     const btn=$("#industrySave");
     if(industryUploadJobs.size){
       btn.disabled=true;
-      btn.textContent="Завершуємо фото…";
+      btn.textContent="Завершуємо завантаження…";
       try{await industryWaitForUploads();}
-      catch(e){btn.disabled=false;btn.textContent="Зберегти";alert(`Не вдалося зберегти одне з фото. ${e?.message||e}`);return;}
+      catch(e){btn.disabled=false;btn.textContent="Зберегти";alert(`Не вдалося завершити завантаження медіа. ${e?.message||e}`);return;}
     }
     const guest=$("#imGuest").value.trim();
     const title=$("#imTitle").value.trim();
