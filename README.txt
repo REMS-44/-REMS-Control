@@ -1,22 +1,23 @@
-REMS Control v4.1.3 — VIDEO UPLOAD + PROGRESS
+REMS Control v4.2 — PERSONAL STUDENT SCHEDULES
 
-У репозиторії REMS-Control замінити ТІЛЬКИ:
+Замінити у репозиторії REMS-Control:
 - app.js
 - index.html
+- styles.css (якщо є в архіві)
 
-Що змінено:
-- відео завантажується напряму у Firebase Storage;
-- використовується resumable upload для великих файлів;
-- видно реальний прогрес: 1%, 25%, 70%, 100%;
-- MOV тепер видно у виборі файлів;
-- приймаються video/* + MOV, MP4, M4V, WebM, AVI, MKV;
-- для сайту рекомендований MP4 (H.264), бо не всі браузери відтворюють MOV/AVI/MKV;
-- фото продовжують зберігатися у Firestore як раніше;
-- якщо Storage забороняє запис, редактор покаже конкретну помилку замість безкінечного очікування.
+Що з'явиться:
+- нова вкладка «Особисті розклади»
+- для кожного студента — унікальне особисте посилання
+- кнопки «Відкрити» та «Копіювати посилання»
+- особисте посилання також є в картці студента
+- персональний розклад оновлюється після змін у REMS Control
+- студент нічого не може редагувати
 
-Після заміни:
-Commit to main -> Push origin -> Ctrl+F5.
+Нова Firestore collection:
+rems_student_schedules
 
-ВАЖЛИВО:
-Якщо прогрес одразу покаже помилку Firebase Storage / unauthorized,
-тоді проблема вже не у файлі й не у форматі — треба налаштувати Firebase Storage Rules / доступ.
+Потрібне правило Firestore:
+match /rems_student_schedules/{scheduleId} {
+  allow read: if true;
+  allow write: if request.auth != null;
+}

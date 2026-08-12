@@ -540,6 +540,16 @@ const studentMediaCache=new Map();
 let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||localStorage.getItem(OLDERKEY)||"null")||clone(window.REMS_SEED);
 let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false, cloudWriting=false;
 let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null;
+
+const STUDENT_SCHEDULE_COLLECTION="rems_student_schedules";
+const STUDENT_SCHEDULE_PUBLIC_BASE="https://rems-44.github.io/REMS-44/my.html";
+const scheduleToken=()=>crypto.randomUUID().replace(/-/g,"")+Math.random().toString(36).slice(2,10);
+const ensureStudentScheduleToken=s=>{
+  if(!s.scheduleToken) s.scheduleToken=scheduleToken();
+  return s.scheduleToken;
+};
+const studentScheduleUrl=s=>`${STUDENT_SCHEDULE_PUBLIC_BASE}?key=${encodeURIComponent(ensureStudentScheduleToken(s))}`;
+
 const projectUiState={};
 let currentView="dashboard";
 const statusEl=()=>document.querySelector("#cloudStatus");
@@ -572,12 +582,13 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v4.1.1 · немає з’єднання");
+    setStatus("v4.2.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v4.1.1 · збереження…");
+    setStatus("v4.2.0 · збереження…");
+    (db.students||[]).forEach(ensureStudentScheduleToken);
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -585,7 +596,12 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    setStatus("v4.1.1 · хмара ✓");
+    try{
+      await publishAllStudentSchedules();
+    }catch(scheduleErr){
+      console.error("Student schedules sync failed:",scheduleErr);
+    }
+    setStatus("v4.2.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -596,7 +612,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v4.1.1 · помилка хмари");
+    setStatus("v4.2.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -621,6 +637,66 @@ const eventMetaText=e=>{
   return parts.join(" · ");
 };
 const pBy=id=>db.projects.find(p=>String(p.id)===String(id));
+
+const studentScheduleItems=s=>{
+  const sid=String(s.id);
+  const items=[];
+  (db.events||[]).forEach(e=>{
+    if(!studentsForEvent(e).some(x=>String(x.id)===sid)) return;
+    const p=pBy(e.projectId);
+    if(!p) return;
+    items.push({
+      date:String(e.date||""),
+      type:String(e.type||""),
+      startTime:String(e.startTime||""),
+      endTime:String(e.endTime||""),
+      location:String(e.location||""),
+      note:String(e.note||""),
+      projectId:String(p.id||""),
+      projectName:String(p.name||"Проєкт"),
+      projectColor:String(p.color||"#8a8f98")
+    });
+  });
+  items.sort((a,b)=>a.date.localeCompare(b.date)||a.startTime.localeCompare(b.startTime)||a.projectName.localeCompare(b.projectName,"uk"));
+  return items;
+};
+async function publishOneStudentSchedule(s){
+  if(!cloudReady||!cloudDb||!currentUser) throw new Error("Хмара не готова");
+  const token=ensureStudentScheduleToken(s);
+  const payload={
+    token,
+    studentId:String(s.id),
+    name:String(s.name||""),
+    group:String(s.group||""),
+    items:studentScheduleItems(s),
+    updatedAt:new Date().toISOString()
+  };
+  await setDoc(doc(cloudDb,STUDENT_SCHEDULE_COLLECTION,token),payload,{merge:false});
+  return payload;
+}
+async function publishAllStudentSchedules(){
+  if(!cloudReady||!cloudDb||!currentUser) return;
+  const jobs=(db.students||[]).map(s=>publishOneStudentSchedule(s));
+  const results=await Promise.allSettled(jobs);
+  const failed=results.filter(x=>x.status==="rejected");
+  if(failed.length) console.error("Student schedule publish errors:",failed);
+}
+async function copyStudentScheduleLink(s){
+  try{
+    ensureStudentScheduleToken(s);
+    const ok=await save();
+    if(!ok) throw new Error("Не вдалося зберегти токен у хмарі");
+    await publishOneStudentSchedule(s);
+    const url=studentScheduleUrl(s);
+    await navigator.clipboard.writeText(url);
+    alert(`Посилання скопійовано.\n\n${s.name}\n${url}`);
+  }catch(err){
+    console.error(err);
+    const url=studentScheduleUrl(s);
+    prompt("Скопіюй посилання вручну:",url);
+  }
+}
+
 
 const projectLogoFile=p=>{
   if(p?.logoData) return p.logoData;
@@ -882,7 +958,11 @@ function updateQuickAddForView(v){
   if(v==="industry"){
     btn.textContent="+ Нова зустріч";
     btn.title="Створити новий матеріал «Зустріч із індустрією»";
+    btn.style.display="";
+  }else if(v==="studentSchedules"){
+    btn.style.display="none";
   }else{
+    btn.style.display="";
     btn.textContent="+ Новий проєкт";
     btn.title="";
   }
@@ -890,7 +970,7 @@ function updateQuickAddForView(v){
 function switchView(v,label){
   currentView=v;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
-  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад",industry:"Зустріч із індустрією"}[v]);
+  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад",studentSchedules:"Особисті розклади",industry:"Зустріч із індустрією"}[v]);
   updateQuickAddForView(v);
   views[v]();
 }
@@ -1169,7 +1249,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v4.1.1 · аналіз відновлення…");
+  setStatus("v4.2.0 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1278,7 +1358,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v4.1.1 · відновлено ✓");
+    setStatus("v4.2.0 · відновлено ✓");
     students();
 
     alert(
@@ -1292,7 +1372,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v4.1.1 · помилка відновлення");
+    setStatus("v4.2.0 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -1431,7 +1511,7 @@ function openStudent(id){
         <div class="profile-hero-actions-row">
           <div class="profile-hero-context">Картка студента</div>
           <div class="hero-actions">
-            ${publicProfileFor(s)?.published===true?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічна сторінка ↗</a>`:""}<button class="ghost" id="editPublicProfileBtn">${publicProfileFor(s)?.published===true?"Публічний профіль":"Створити публічний профіль"}</button>
+            ${publicProfileFor(s)?.published===true?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічна сторінка ↗</a>`:""}<a class="ghost schedule-personal-open" href="${studentScheduleUrl(s)}" target="_blank" rel="noopener">Особистий розклад ↗</a><button class="ghost" id="copyStudentScheduleBtn">Копіювати посилання</button><button class="ghost" id="editPublicProfileBtn">${publicProfileFor(s)?.published===true?"Публічний профіль":"Створити публічний профіль"}</button>
             <button class="ghost" id="editStudentBtn">Редагувати</button>
             <button class="ghost" id="closeStudentBtn">Закрити</button>
           </div>
@@ -1494,6 +1574,7 @@ function openStudent(id){
     $("#closeStudentBtn").onclick=()=>dialog.close();
     $("#editStudentBtn").onclick=()=>editStudent(id);
     $("#editPublicProfileBtn").onclick=()=>editPublicProfile(id);
+    $("#copyStudentScheduleBtn").onclick=()=>copyStudentScheduleLink(s);
 
     const monthNames={"01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень","07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"};
     const months=["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"];
@@ -3146,7 +3227,61 @@ async function industry(){
   $$(".industry-edit").forEach(b=>b.onclick=()=>industryEditor(industryCache.find(x=>x.id===b.dataset.id)));
 }
 
-const views={dashboard,students,projects,calendar,schedule,industry};
+
+function studentSchedules(){
+  $("#pageTitle").textContent="Особисті розклади";
+  $("#pageSubtitle").textContent="Персональні read-only сторінки студентів · оновлюються з REMS Control";
+  const today=new Date().toISOString().slice(0,10);
+  const rows=(db.students||[]).map(s=>{
+    const upcoming=studentScheduleItems(s).filter(x=>x.date>=today);
+    return {s,upcoming};
+  }).sort((a,b)=>String(a.s.name||"").localeCompare(String(b.s.name||""),"uk"));
+
+  $("#app").innerHTML=`
+    <div class="student-schedules-page">
+      <div class="schedule-admin-note">
+        <div><b>Як це працює</b><p>Дай студентові його особисте посилання один раз. Коли ти змінюєш дати, час, місце або склад учасників у REMS Control — персональний розклад синхронізується автоматично.</p></div>
+        <button class="ghost" id="syncAllStudentSchedulesBtn">Оновити всі зараз</button>
+      </div>
+      <div class="schedule-admin-grid">
+        ${rows.map(({s,upcoming})=>`
+          <article class="schedule-admin-card">
+            <div class="schedule-admin-card-top">
+              <div><h3>${esc(s.name)}</h3><span>${esc(s.group||"")}</span></div>
+              <strong>${upcoming.length}</strong>
+            </div>
+            <div class="schedule-admin-next">${upcoming[0]?`${fullfmt(upcoming[0].date)} · ${esc(upcoming[0].projectName)} · ${esc(upcoming[0].type)}`:"Найближчих активностей немає"}</div>
+            <div class="schedule-admin-actions">
+              <a class="ghost" href="${studentScheduleUrl(s)}" target="_blank" rel="noopener">Відкрити ↗</a>
+              <button class="ghost copy-personal-schedule" data-id="${esc(String(s.id))}">Копіювати посилання</button>
+            </div>
+          </article>`).join("")}
+      </div>
+    </div>`;
+
+  $("#syncAllStudentSchedulesBtn").onclick=async e=>{
+    const b=e.currentTarget;
+    b.disabled=true;b.textContent="Оновлення…";
+    try{
+      (db.students||[]).forEach(ensureStudentScheduleToken);
+      await save();
+      await publishAllStudentSchedules();
+      b.textContent="Оновлено ✓";
+    }catch(err){
+      console.error(err);
+      b.textContent="Помилка";
+      alert("Не вдалося оновити студентські розклади.");
+    }finally{
+      setTimeout(()=>{if(document.body.contains(b)){b.disabled=false;b.textContent="Оновити всі зараз";}},1800);
+    }
+  };
+  $$(".copy-personal-schedule").forEach(b=>b.onclick=()=>{
+    const s=sBy(b.dataset.id);
+    if(s) copyStudentScheduleLink(s);
+  });
+}
+
+const views={dashboard,students,projects,calendar,schedule,studentSchedules,industry};
 $$(".nav").forEach(b=>b.onclick=()=>switchView(b.dataset.view,b.querySelector("span")?.textContent||b.textContent.trim()));
 $("#quickAdd").onclick=()=>{
   if(!cloudReady){
@@ -3157,6 +3292,7 @@ $("#quickAdd").onclick=()=>{
     industryEditor();
     return;
   }
+  if(currentView==="studentSchedules") return;
   $("#projectDialog").showModal();
 };
 ensureNewProjectLogoField();
@@ -3748,14 +3884,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.1.1 · Firebase не налаштовано");
+    setStatus("v4.2.0 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v4.1.1 · завантаження хмари…");
+    setStatus("v4.2.0 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     mediaStorage=getStorage(firebaseApp);
@@ -3778,7 +3914,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.1.1 · хмара ✓");
+    setStatus("v4.2.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -3878,19 +4014,19 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.1.1 · хмара ✓");
+      setStatus("v4.2.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v4.1.1 · хмара недоступна");
+      setStatus("v4.2.0 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v4.1.1 · хмара недоступна");
+    setStatus("v4.2.0 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -3901,7 +4037,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.1.1 · Firebase не налаштовано");
+    setStatus("v4.2.0 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -3917,19 +4053,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v4.1.1 · вхід ✓");
+        setStatus("v4.2.0 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v4.1.1 · потрібен вхід");
+        setStatus("v4.2.0 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v4.1.1 · помилка авторизації");
+    setStatus("v4.2.0 · помилка авторизації");
     showLogin();
   }
 }
