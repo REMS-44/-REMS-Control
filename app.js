@@ -551,6 +551,80 @@ const ensureStudentScheduleToken=s=>{
 const studentScheduleUrl=s=>`${STUDENT_SCHEDULE_PUBLIC_BASE}?key=${encodeURIComponent(ensureStudentScheduleToken(s))}`;
 const loadAcknowledgementsForEvent=async e=>{try{const snap=await getDocs(collection(cloudDb,"rems_student_acknowledgements"));return snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>String(x.projectId||"")===String(e.projectId||"")&&String(x.date||"")===String(e.date||"")&&String(x.type||"")===String(e.type||""));}catch(err){console.error("Acknowledgements:",err);return[];}};
 
+const loadAllAcknowledgements=async()=>{
+  try{
+    const snap=await getDocs(collection(cloudDb,"rems_student_acknowledgements"));
+    return snap.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(err){ console.error("Acknowledgements:",err); return []; }
+};
+const acknowledgementStats=(e,all)=>{
+  const assigned=studentsForEvent(e);
+  const names=new Set((all||[]).filter(x=>
+    String(x.projectId||"")===String(e.projectId||"") &&
+    String(x.date||"")===String(e.date||"") &&
+    String(x.type||"")===String(e.type||"")
+  ).map(x=>String(x.studentName||"").trim()));
+  const yes=assigned.filter(s=>names.has(String(s.name||"").trim()));
+  const no=assigned.filter(s=>!names.has(String(s.name||"").trim()));
+  return {assigned,yes,no};
+};
+async function openProjectAcknowledgements(projectId){
+  const p=pBy(projectId); if(!p) return;
+  const dialog=ensureProjectCardDialog();
+  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body"><h2>${esc(p.name)}</h2><div class="profile-empty">Завантаження ознайомлень…</div></div>`;
+  if(!dialog.open) dialog.showModal();
+  const all=await loadAllAcknowledgements();
+  const evs=eventsFor(projectId);
+  const rows=evs.map(e=>({e,...acknowledgementStats(e,all)}));
+  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
+    <div class="project-section-head">
+      <div><span class="eyebrow">Ознайомлення</span><h2 style="margin:3px 0 0">${esc(p.name)}</h2></div>
+      <button class="ghost" id="ackBackToProject">Назад до проєкту</button>
+    </div>
+    <div class="ack-summary-list">
+      ${rows.map((r,i)=>`<div class="ack-summary-row">
+        <button type="button" class="ack-summary-main" data-ack-detail="${i}">
+          <span><b>${fmt(r.e.date)} · ${esc(r.e.type||"Подія")}</b><small>${eventMetaText(r.e)?esc(eventMetaText(r.e)):""}</small></span>
+          <strong class="${r.yes.length===r.assigned.length&&r.assigned.length?"complete":""}">${r.yes.length}/${r.assigned.length}</strong>
+        </button>
+        <div class="ack-summary-detail" data-ack-panel="${i}" hidden>
+          <div><b>✓ Ознайомилися (${r.yes.length})</b><p>${r.yes.map(s=>esc(s.name)).join("<br>")||"—"}</p></div>
+          <div><b>Не ознайомилися (${r.no.length})</b><p>${r.no.map(s=>esc(s.name)).join("<br>")||"—"}</p></div>
+        </div>
+      </div>`).join("")||'<div class="empty">У проєкті ще немає подій.</div>'}
+    </div>
+  </div>`;
+  dialog.querySelector("#ackBackToProject").onclick=()=>openProjectCard(projectId);
+  dialog.querySelectorAll("[data-ack-detail]").forEach(b=>b.onclick=()=>{
+    const panel=dialog.querySelector(`[data-ack-panel="${b.dataset.ackDetail}"]`);
+    panel.hidden=!panel.hidden;
+  });
+}
+async function updateAckIndicators(){
+  const all=await loadAllAcknowledgements();
+  document.querySelectorAll("[data-project-ack-count]").forEach(el=>{
+    const pid=el.dataset.projectAckCount;
+    const evs=eventsFor(pid);
+    let yes=0,total=0;
+    evs.forEach(e=>{const s=acknowledgementStats(e,all);yes+=s.yes.length;total+=s.assigned.length;});
+    el.textContent=`${yes}/${total}`;
+    el.classList.toggle("complete",total>0&&yes===total);
+  });
+  const dash=document.querySelector("#ackDashboardList");
+  if(dash){
+    const today=new Date().toISOString().slice(0,10);
+    const rows=(db.events||[]).filter(e=>String(e.date||"")>=today).map(e=>{
+      const s=acknowledgementStats(e,all); return {e,p:pBy(e.projectId),...s};
+    }).filter(x=>x.p&&x.assigned.length&&x.no.length)
+      .sort((x,y)=>String(x.e.date).localeCompare(String(y.e.date))).slice(0,8);
+    dash.innerHTML=rows.map(x=>`<button type="button" class="ack-dashboard-item" data-ack-project="${esc(String(x.e.projectId))}">
+      <span><b>${esc(x.p.name)}</b><small>${fmt(x.e.date)} · ${esc(x.e.type||"Подія")}</small></span>
+      <strong>${x.yes.length}/${x.assigned.length}</strong>
+    </button>`).join("")||'<div class="muted">Усі найближчі події ознайомлені ✓</div>';
+    dash.querySelectorAll("[data-ack-project]").forEach(b=>b.onclick=()=>openProjectAcknowledgements(b.dataset.ackProject));
+  }
+}
+
 
 const projectUiState={};
 let currentView="dashboard";
@@ -584,12 +658,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v5.0 · немає з’єднання");
+    setStatus("v5.1 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v5.0 · збереження…");
+    setStatus("v5.1 · збереження…");
     (db.students||[]).forEach(ensureStudentScheduleToken);
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
@@ -604,7 +678,7 @@ const save=async()=>{
     publishAllStudentSchedules().catch(scheduleErr=>{
       console.error("Student schedules sync failed:",scheduleErr);
     });
-    setStatus("v5.0 · хмара ✓");
+    setStatus("v5.1 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -615,7 +689,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v5.0 · помилка хмари");
+    setStatus("v5.1 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1052,6 +1126,11 @@ function dashboard(){
       <div class="card kpi"><span>Подій у базі</span><strong>${db.events.length}</strong></div>
     </div>
 
+    <div class="ack-dashboard card">
+      <div class="dashboard-projects-head"><h2>Потребують ознайомлення</h2><span class="muted">Найближчі події, які ще підтвердили не всі</span></div>
+      <div id="ackDashboardList"><div class="muted">Завантаження…</div></div>
+    </div>
+
     <div class="dashboard-projects-head"><h2>Проєкти</h2><span class="muted">Натисни на картку, щоб відкрити проєкт</span></div>
     <div class="dashboard-project-grid">
       ${db.projects.map(p=>{
@@ -1064,7 +1143,7 @@ function dashboard(){
             ${projectLogoHtml(p,"dashboard-project-logo")}
             <div class="dashboard-project-copy">
               <h3>${esc(p.name)}</h3>
-              <div class="muted">${evs.length} подій · ${people.length} студентів</div>
+              <div class="muted">${evs.length} подій · ${people.length} студентів · Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></div>
             </div>
             <span class="dashboard-project-arrow">→</span>
           </div>
@@ -1076,6 +1155,7 @@ function dashboard(){
 
   $$(".week-day-card").forEach(x=>x.onclick=()=>showDay(x.dataset.date));
   $$(".dashboard-project-card").forEach(btn=>btn.onclick=()=>openProjectCard(btn.dataset.projectId));
+  updateAckIndicators().catch(console.error);
 }
 
 
@@ -1268,7 +1348,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v5.0 · аналіз відновлення…");
+  setStatus("v5.1 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1377,7 +1457,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v5.0 · відновлено ✓");
+    setStatus("v5.1 · відновлено ✓");
     students();
 
     alert(
@@ -1391,7 +1471,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v5.0 · помилка відновлення");
+    setStatus("v5.1 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -1895,6 +1975,7 @@ function projects(){
           <div style="text-align:left;min-width:0">
             <h3 style="margin:0">${esc(p.name)}</h3>
             <div class="muted">${evs.length} подій · ${assigned.length} студентів</div>
+            <div class="project-ack-line">Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></div>
           </div>
         </div>
         <span class="project-open-arrow">→</span>
@@ -1904,8 +1985,12 @@ function projects(){
   }).join("")||'<div class="empty">Проєктів ще немає.</div>'}</div>`;
 
   $$(".project-open-card").forEach(btn=>{
-    btn.onclick=()=>openProjectCard(btn.dataset.projectId);
+    btn.onclick=e=>{
+      if(e.target.closest(".project-ack-line")) return openProjectAcknowledgements(btn.dataset.projectId);
+      openProjectCard(btn.dataset.projectId);
+    };
   });
+  updateAckIndicators().catch(console.error);
 }
 
 function projectMonthLabel(month){
@@ -2031,6 +2116,7 @@ function openProjectCard(id){
           <div><h2>${esc(p.name)}</h2><div class="muted">${esc(p.description||"")}</div></div>
         </div>
         <div style="display:flex;gap:8px">
+          <button class="ghost" id="projectAcknowledgementsBtn">Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></button>
           <button class="ghost" id="editProjectBtn">Редагувати</button>
           <button class="ghost" onclick="document.querySelector('#projectCardDialog').close()">Закрити</button>
         </div>
@@ -2127,6 +2213,8 @@ function openProjectCard(id){
   });
   dialog.querySelectorAll(".project-cal-day.has-event").forEach(day=>day.onclick=()=>showProjectDay(id,day.dataset.projectDay));
 
+  dialog.querySelector("#projectAcknowledgementsBtn").onclick=()=>openProjectAcknowledgements(id);
+  updateAckIndicators().catch(console.error);
   dialog.querySelector("#editProjectBtn").onclick=()=>editProjectCard(id);
   }catch(err){
     console.error("Project card error:",err);
@@ -3920,14 +4008,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.0 · Firebase не налаштовано");
+    setStatus("v5.1 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v5.0 · завантаження хмари…");
+    setStatus("v5.1 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     mediaStorage=getStorage(firebaseApp);
@@ -3950,7 +4038,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v5.0 · хмара ✓");
+    setStatus("v5.1 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4050,19 +4138,19 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v5.0 · хмара ✓");
+      setStatus("v5.1 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v5.0 · хмара недоступна");
+      setStatus("v5.1 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v5.0 · хмара недоступна");
+    setStatus("v5.1 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -4073,7 +4161,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.0 · Firebase не налаштовано");
+    setStatus("v5.1 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -4089,19 +4177,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v5.0 · вхід ✓");
+        setStatus("v5.1 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v5.0 · потрібен вхід");
+        setStatus("v5.1 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v5.0 · помилка авторизації");
+    setStatus("v5.1 · помилка авторизації");
     showLogin();
   }
 }
