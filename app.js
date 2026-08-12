@@ -601,7 +601,7 @@ const save=async()=>{
     }catch(scheduleErr){
       console.error("Student schedules sync failed:",scheduleErr);
     }
-    setStatus("v4.2.0 · хмара ✓");
+    setStatus("v4.2.1 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -654,7 +654,8 @@ const studentScheduleItems=s=>{
       note:String(e.note||""),
       projectId:String(p.id||""),
       projectName:String(p.name||"Проєкт"),
-      projectColor:String(p.color||"#8a8f98")
+      projectColor:String(p.color||"#8a8f98"),
+      projectLogo:String(p.logoData||"")
     });
   });
   items.sort((a,b)=>a.date.localeCompare(b.date)||a.startTime.localeCompare(b.startTime)||a.projectName.localeCompare(b.projectName,"uk"));
@@ -3914,7 +3915,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.2.0 · хмара ✓");
+    setStatus("v4.2.1 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4014,7 +4015,7 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.2.0 · хмара ✓");
+      setStatus("v4.2.1 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
