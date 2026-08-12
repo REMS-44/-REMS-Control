@@ -549,6 +549,8 @@ const ensureStudentScheduleToken=s=>{
   return s.scheduleToken;
 };
 const studentScheduleUrl=s=>`${STUDENT_SCHEDULE_PUBLIC_BASE}?key=${encodeURIComponent(ensureStudentScheduleToken(s))}`;
+const loadAcknowledgementsForEvent=async e=>{try{const snap=await getDocs(collection(cloudDb,"rems_student_acknowledgements"));return snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>String(x.projectId||"")===String(e.projectId||"")&&String(x.date||"")===String(e.date||"")&&String(x.type||"")===String(e.type||""));}catch(err){console.error("Acknowledgements:",err);return[];}};
+
 
 const projectUiState={};
 let currentView="dashboard";
@@ -582,12 +584,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v4.2.2 · немає з’єднання");
+    setStatus("v5.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v4.2.2 · збереження…");
+    setStatus("v5.0 · збереження…");
     (db.students||[]).forEach(ensureStudentScheduleToken);
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
@@ -602,7 +604,7 @@ const save=async()=>{
     publishAllStudentSchedules().catch(scheduleErr=>{
       console.error("Student schedules sync failed:",scheduleErr);
     });
-    setStatus("v4.2.2 · хмара ✓");
+    setStatus("v5.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -613,7 +615,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v4.2.2 · помилка хмари");
+    setStatus("v5.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1266,7 +1268,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v4.2.2 · аналіз відновлення…");
+  setStatus("v5.0 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1375,7 +1377,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v4.2.2 · відновлено ✓");
+    setStatus("v5.0 · відновлено ✓");
     students();
 
     alert(
@@ -1389,7 +1391,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v4.2.2 · помилка відновлення");
+    setStatus("v5.0 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -2184,6 +2186,7 @@ function editProjectEvent(projectId,ev){
       </label>
 
       <div class="full profile-actions">
+        <button type="button" class="ghost" id="viewEventAcknowledgements">Ознайомлення</button>
         <button type="button" class="ghost" id="cancelProjectEventEditBottom">Скасувати</button>
         <button type="submit" class="primary">Зберегти</button>
       </div>
@@ -2193,6 +2196,7 @@ function editProjectEvent(projectId,ev){
   const back=()=>openProjectCard(projectId);
   dialog.querySelector("#cancelProjectEventEdit").onclick=back;
   dialog.querySelector("#cancelProjectEventEditBottom").onclick=back;
+  dialog.querySelector("#viewEventAcknowledgements").onclick=async()=>{const btn=dialog.querySelector("#viewEventAcknowledgements"),old=btn.textContent;btn.disabled=true;btn.textContent="Завантаження…";const acks=await loadAcknowledgementsForEvent(ev);btn.disabled=false;btn.textContent=old;const assigned=studentsForEvent(ev),names=new Set(acks.map(x=>String(x.studentName||"").trim())),yes=assigned.filter(s=>names.has(String(s.name||"").trim())),no=assigned.filter(s=>!names.has(String(s.name||"").trim()));alert(`Ознайомилися: ${yes.length}/${assigned.length}\n\n✓ ${yes.map(s=>s.name).join("\n✓ ")||"—"}\n\nНе ознайомилися:\n${no.map(s=>s.name).join("\n")||"—"}`)};
 
   dialog.querySelector("#projectEventEditForm").onsubmit=async e=>{
     e.preventDefault();
@@ -3916,14 +3920,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.2.2 · Firebase не налаштовано");
+    setStatus("v5.0 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v4.2.2 · завантаження хмари…");
+    setStatus("v5.0 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     mediaStorage=getStorage(firebaseApp);
@@ -3946,7 +3950,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.2.2 · хмара ✓");
+    setStatus("v5.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4046,19 +4050,19 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.2.2 · хмара ✓");
+      setStatus("v5.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v4.2.2 · хмара недоступна");
+      setStatus("v5.0 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v4.2.2 · хмара недоступна");
+    setStatus("v5.0 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -4069,7 +4073,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.2.2 · Firebase не налаштовано");
+    setStatus("v5.0 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -4085,19 +4089,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v4.2.2 · вхід ✓");
+        setStatus("v5.0 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v4.2.2 · потрібен вхід");
+        setStatus("v5.0 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v4.2.2 · помилка авторизації");
+    setStatus("v5.0 · помилка авторизації");
     showLogin();
   }
 }
