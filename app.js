@@ -582,12 +582,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v4.2.0 · немає з’єднання");
+    setStatus("v4.2.2 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v4.2.0 · збереження…");
+    setStatus("v4.2.2 · збереження…");
     (db.students||[]).forEach(ensureStudentScheduleToken);
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
@@ -596,12 +596,13 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    try{
-      await publishAllStudentSchedules();
-    }catch(scheduleErr){
+    // Main REMS Control save is complete at this point.
+    // Personal student pages are refreshed in the background so editing a project
+    // never hangs on dozens of extra Firestore writes.
+    publishAllStudentSchedules().catch(scheduleErr=>{
       console.error("Student schedules sync failed:",scheduleErr);
-    }
-    setStatus("v4.2.1 · хмара ✓");
+    });
+    setStatus("v4.2.2 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -612,7 +613,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v4.2.0 · помилка хмари");
+    setStatus("v4.2.2 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -654,12 +655,26 @@ const studentScheduleItems=s=>{
       note:String(e.note||""),
       projectId:String(p.id||""),
       projectName:String(p.name||"Проєкт"),
-      projectColor:String(p.color||"#8a8f98"),
-      projectLogo:String(p.logoData||"")
+      projectColor:String(p.color||"#8a8f98")
     });
   });
   items.sort((a,b)=>a.date.localeCompare(b.date)||a.startTime.localeCompare(b.startTime)||a.projectName.localeCompare(b.projectName,"uk"));
   return items;
+};
+const studentScheduleProjects=s=>{
+  const map={};
+  const ids=new Set(studentScheduleItems(s).map(x=>String(x.projectId||"")).filter(Boolean));
+  ids.forEach(id=>{
+    const p=pBy(id);
+    if(!p) return;
+    map[id]={
+      name:String(p.name||"Проєкт"),
+      color:String(p.color||"#8a8f98"),
+      // projectLogoFile() supports both uploaded logoData and the legacy logos/ folder.
+      logo:String(projectLogoFile(p)||"")
+    };
+  });
+  return map;
 };
 async function publishOneStudentSchedule(s){
   if(!cloudReady||!cloudDb||!currentUser) throw new Error("Хмара не готова");
@@ -670,6 +685,7 @@ async function publishOneStudentSchedule(s){
     name:String(s.name||""),
     group:String(s.group||""),
     items:studentScheduleItems(s),
+    projects:studentScheduleProjects(s),
     updatedAt:new Date().toISOString()
   };
   await setDoc(doc(cloudDb,STUDENT_SCHEDULE_COLLECTION,token),payload,{merge:false});
@@ -1250,7 +1266,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v4.2.0 · аналіз відновлення…");
+  setStatus("v4.2.2 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1359,7 +1375,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v4.2.0 · відновлено ✓");
+    setStatus("v4.2.2 · відновлено ✓");
     students();
 
     alert(
@@ -1373,7 +1389,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v4.2.0 · помилка відновлення");
+    setStatus("v4.2.2 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -1930,6 +1946,7 @@ function showProjectDay(projectId,date){
   const pretty=new Date(date+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   const peopleIds=new Set(evs.flatMap(e=>studentsForEvent(e).map(s=>s.id)));
   const people=db.students.filter(s=>peopleIds.has(s.id));
+  const freePeople=db.students.filter(s=>!peopleIds.has(s.id));
   dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
     <div class="project-section-head">
       <div><h2 style="margin:0">${pretty}</h2><div class="muted">${esc(p.name)} · ${evs.length} подій · ${people.length} учасників</div></div>
@@ -1947,11 +1964,19 @@ function showProjectDay(projectId,date){
         </div>
       </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
     </div>
-    <div class="availability-card"><b>Студенти цього дня</b><div class="availability-list">
-      ${people.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Учасників не призначено.</span>'}
+    <div class="availability-card"><b>Зайняті студенти · ${people.length}</b><div class="availability-list">
+      ${people.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Зайнятих студентів немає.</span>'}
+    </div></div>
+    <div class="availability-card"><b>Вільні студенти · ${freePeople.length}</b><div class="availability-list">
+      ${freePeople.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
     </div></div>
   </div>`;
   dialog.querySelector("#backToProjectCalendar").onclick=()=>openProjectCard(projectId);
+  dialog.querySelectorAll(".project-day-student").forEach(b=>b.onclick=()=>{
+    const sid=resolveStudentId(b.dataset.id);
+    dialog.close();
+    if(sid!==undefined) openStudent(sid);
+  });
   dialog.querySelectorAll(".project-day-edit-event").forEach(b=>b.onclick=()=>editProjectEvent(projectId,evs[+b.dataset.index]));
   dialog.querySelectorAll(".project-day-people-event").forEach(b=>b.onclick=()=>editEventPeople(projectId,evs[+b.dataset.index]));
   dialog.querySelectorAll(".project-day-delete-event").forEach(b=>{
@@ -2459,9 +2484,15 @@ function showDay(date){
       </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
     </div>
     <div class="availability-card">
-      <b>Вільні студенти</b>
+      <b>Зайняті студенти · ${occupiedIds.size}</b>
       <div class="availability-list">
-        ${freeStudents.map(s=>`<button class="availability-chip day-student" data-id="${s.id}">${esc(s.name.split(" ")[0])}</button>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
+        ${db.students.filter(s=>occupiedIds.has(s.id)).map(s=>`<button class="availability-chip day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Зайнятих студентів немає.</span>'}
+      </div>
+    </div>
+    <div class="availability-card">
+      <b>Вільні студенти · ${freeStudents.length}</b>
+      <div class="availability-list">
+        ${freeStudents.map(s=>`<button class="availability-chip day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
       </div>
     </div>
   </div>`;
@@ -3885,14 +3916,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.2.0 · Firebase не налаштовано");
+    setStatus("v4.2.2 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v4.2.0 · завантаження хмари…");
+    setStatus("v4.2.2 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
     cloudDb=getFirestore(firebaseApp);
     mediaStorage=getStorage(firebaseApp);
@@ -3915,7 +3946,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.2.1 · хмара ✓");
+    setStatus("v4.2.2 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4015,19 +4046,19 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.2.1 · хмара ✓");
+      setStatus("v4.2.2 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v4.2.0 · хмара недоступна");
+      setStatus("v4.2.2 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v4.2.0 · хмара недоступна");
+    setStatus("v4.2.2 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -4038,7 +4069,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.2.0 · Firebase не налаштовано");
+    setStatus("v4.2.2 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -4054,19 +4085,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v4.2.0 · вхід ✓");
+        setStatus("v4.2.2 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v4.2.0 · потрібен вхід");
+        setStatus("v4.2.2 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v4.2.0 · помилка авторизації");
+    setStatus("v4.2.2 · помилка авторизації");
     showLogin();
   }
 }
