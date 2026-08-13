@@ -1664,16 +1664,31 @@ function openStudent(id){
     $("#personalScheduleBtn").onclick=async()=>{
       const btn=$("#personalScheduleBtn");
       const oldText=btn.textContent;
+
+      // Mobile Safari can block window.open() if it happens after an await.
+      // Open the tab immediately while the click is still a direct user gesture.
+      const pendingTab=window.open("about:blank","_blank");
+
       btn.disabled=true;
       btn.textContent="Відкриваю…";
+
       try{
         const url=await personalScheduleUrlForStudent(id);
+
         if(!url){
+          if(pendingTab) pendingTab.close();
           alert("Для цього студента ще немає особистого розкладу.");
           return;
         }
-        window.open(url,"_blank","noopener");
+
+        if(pendingTab){
+          pendingTab.location.href=url;
+        }else{
+          // Fallback for strict popup blocking: open in the current tab.
+          window.location.href=url;
+        }
       }catch(err){
+        if(pendingTab) pendingTab.close();
         console.error("Personal schedule open failed:",err);
         alert("Не вдалося відкрити особистий розклад.");
       }finally{
