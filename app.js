@@ -2285,6 +2285,12 @@ function editProjectEvent(projectId,ev){
         const pushResult=await notifyStudentsForEvent(target,"Розклад оновлено");
         if(pushResult?.sent===0){
           alert("Зміни збережено. У призначених студентів поки немає активних push-сповіщень.");
+        }else{
+          const failed=Number(pushResult?.failed||0);
+          alert(
+            `Зміни збережено. Сповіщення надіслано: ${pushResult.sent}.` +
+            (failed ? ` Не вдалося доставити: ${failed}.` : "")
+          );
         }
       }catch(pushErr){
         console.error("Schedule push failed:",pushErr);
@@ -3356,6 +3362,12 @@ const createEventFromForm=async(notify=false,sourceBtn=null)=>{
         const pushResult=await notifyStudentsForEvent(event,"Нова подія");
         if(pushResult?.sent===0){
           alert("Подію збережено. У призначених студентів поки немає активних push-сповіщень.");
+        }else{
+          const failed=Number(pushResult?.failed||0);
+          alert(
+            `Подію збережено. Сповіщення надіслано: ${pushResult.sent}.` +
+            (failed ? ` Не вдалося доставити: ${failed}.` : "")
+          );
         }
       }catch(pushErr){
         console.error("Schedule push failed:",pushErr);
