@@ -528,8 +528,9 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
 
 const KEY="rems-control-v031-cache";
 const OLDKEY="rems-control-v02";
@@ -539,93 +540,7 @@ const clone=x=>JSON.parse(JSON.stringify(x));
 const studentMediaCache=new Map();
 let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||localStorage.getItem(OLDERKEY)||"null")||clone(window.REMS_SEED);
 let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false, cloudWriting=false;
-let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null;
-
-const STUDENT_SCHEDULE_COLLECTION="rems_student_schedules";
-const STUDENT_SCHEDULE_PUBLIC_BASE="https://rems-44.github.io/REMS-44/my.html";
-const scheduleToken=()=>crypto.randomUUID().replace(/-/g,"")+Math.random().toString(36).slice(2,10);
-const ensureStudentScheduleToken=s=>{
-  if(!s.scheduleToken) s.scheduleToken=scheduleToken();
-  return s.scheduleToken;
-};
-const studentScheduleUrl=s=>`${STUDENT_SCHEDULE_PUBLIC_BASE}?key=${encodeURIComponent(ensureStudentScheduleToken(s))}`;
-const loadAcknowledgementsForEvent=async e=>{try{const snap=await getDocs(collection(cloudDb,"rems_student_acknowledgements"));return snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>String(x.projectId||"")===String(e.projectId||"")&&String(x.date||"")===String(e.date||"")&&String(x.type||"")===String(e.type||""));}catch(err){console.error("Acknowledgements:",err);return[];}};
-
-const loadAllAcknowledgements=async()=>{
-  try{
-    const snap=await getDocs(collection(cloudDb,"rems_student_acknowledgements"));
-    return snap.docs.map(d=>({id:d.id,...d.data()}));
-  }catch(err){ console.error("Acknowledgements:",err); return []; }
-};
-const acknowledgementStats=(e,all)=>{
-  const assigned=studentsForEvent(e);
-  const names=new Set((all||[]).filter(x=>
-    String(x.projectId||"")===String(e.projectId||"") &&
-    String(x.date||"")===String(e.date||"") &&
-    String(x.type||"")===String(e.type||"")
-  ).map(x=>String(x.studentName||"").trim()));
-  const yes=assigned.filter(s=>names.has(String(s.name||"").trim()));
-  const no=assigned.filter(s=>!names.has(String(s.name||"").trim()));
-  return {assigned,yes,no};
-};
-async function openProjectAcknowledgements(projectId){
-  const p=pBy(projectId); if(!p) return;
-  const dialog=ensureProjectCardDialog();
-  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body"><h2>${esc(p.name)}</h2><div class="profile-empty">Завантаження ознайомлень…</div></div>`;
-  if(!dialog.open) dialog.showModal();
-  const all=await loadAllAcknowledgements();
-  const evs=eventsFor(projectId);
-  const rows=evs.map(e=>({e,...acknowledgementStats(e,all)}));
-  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
-    <div class="project-section-head">
-      <div><span class="eyebrow">Ознайомлення</span><h2 style="margin:3px 0 0">${esc(p.name)}</h2></div>
-      <button class="ghost" id="ackBackToProject">Назад до проєкту</button>
-    </div>
-    <div class="ack-summary-list">
-      ${rows.map((r,i)=>`<div class="ack-summary-row">
-        <button type="button" class="ack-summary-main" data-ack-detail="${i}">
-          <span><b>${fmt(r.e.date)} · ${esc(r.e.type||"Подія")}</b><small>${eventMetaText(r.e)?esc(eventMetaText(r.e)):""}</small></span>
-          <strong class="${r.yes.length===r.assigned.length&&r.assigned.length?"complete":""}">${r.yes.length}/${r.assigned.length}</strong>
-        </button>
-        <div class="ack-summary-detail" data-ack-panel="${i}" hidden>
-          <div><b>✓ Ознайомилися (${r.yes.length})</b><p>${r.yes.map(s=>esc(s.name)).join("<br>")||"—"}</p></div>
-          <div><b>Не ознайомилися (${r.no.length})</b><p>${r.no.map(s=>esc(s.name)).join("<br>")||"—"}</p></div>
-        </div>
-      </div>`).join("")||'<div class="empty">У проєкті ще немає подій.</div>'}
-    </div>
-  </div>`;
-  dialog.querySelector("#ackBackToProject").onclick=()=>openProjectCard(projectId);
-  dialog.querySelectorAll("[data-ack-detail]").forEach(b=>b.onclick=()=>{
-    const panel=dialog.querySelector(`[data-ack-panel="${b.dataset.ackDetail}"]`);
-    panel.hidden=!panel.hidden;
-  });
-}
-async function updateAckIndicators(){
-  const all=await loadAllAcknowledgements();
-  document.querySelectorAll("[data-project-ack-count]").forEach(el=>{
-    const pid=el.dataset.projectAckCount;
-    const evs=eventsFor(pid);
-    let yes=0,total=0;
-    evs.forEach(e=>{const s=acknowledgementStats(e,all);yes+=s.yes.length;total+=s.assigned.length;});
-    el.textContent=`${yes}/${total}`;
-    el.classList.toggle("complete",total>0&&yes===total);
-  });
-  const dash=document.querySelector("#ackDashboardList");
-  if(dash){
-    const today=new Date().toISOString().slice(0,10);
-    const rows=(db.events||[]).filter(e=>String(e.date||"")>=today).map(e=>{
-      const s=acknowledgementStats(e,all); return {e,p:pBy(e.projectId),...s};
-    }).filter(x=>x.p&&x.assigned.length&&x.no.length)
-      .sort((x,y)=>String(x.e.date).localeCompare(String(y.e.date))).slice(0,8);
-    dash.innerHTML=rows.map(x=>`<button type="button" class="ack-dashboard-item" data-ack-project="${esc(String(x.e.projectId))}">
-      <span><b>${esc(x.p.name)}</b><small>${fmt(x.e.date)} · ${esc(x.e.type||"Подія")}</small></span>
-      <strong>${x.yes.length}/${x.assigned.length}</strong>
-    </button>`).join("")||'<div class="muted">Усі найближчі події ознайомлені ✓</div>';
-    dash.querySelectorAll("[data-ack-project]").forEach(b=>b.onclick=()=>openProjectAcknowledgements(b.dataset.ackProject));
-  }
-}
-
-
+let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null, functions=null;
 const projectUiState={};
 let currentView="dashboard";
 const statusEl=()=>document.querySelector("#cloudStatus");
@@ -654,17 +569,155 @@ const setWriteUiReady=(ready)=>{
   }
 };
 
+
+// v4.2 personal schedule sync: keeps existing private links and refreshes calendar data.
+async function syncExistingPersonalSchedules(){
+  if(!cloudReady || !cloudDb || !currentUser) return;
+  try{
+    const snap=await getDocs(collection(cloudDb,"rems_student_schedules"));
+    if(snap.empty) return;
+
+    const docs=snap.docs.map(d=>({id:d.id,data:d.data()||{}}));
+    const norm=v=>String(v||"").toLowerCase().replace(/[’'`]/g,"").replace(/\s+/g," ").trim();
+
+    for(const s of (db.students||[])){
+      const target=docs.find(d=>
+        (d.data.studentId && String(d.data.studentId)===String(s.id)) ||
+        (d.data.name && norm(d.data.name)===norm(s.name))
+      );
+      if(!target) continue; // Never change/create a student's private link here.
+
+      const studentEvents=(db.events||[])
+        .filter(e=>e?.date && studentsForEvent(e).some(st=>String(st.id)===String(s.id)))
+        .sort((a,b)=>`${a.date} ${a.startTime||""}`.localeCompare(`${b.date} ${b.startTime||""}`));
+
+      const projectIds=[...new Set(studentEvents.map(e=>String(e.projectId)))];
+      const projects={};
+      let embeddedLogoBytes=0;
+
+      for(const pid of projectIds){
+        const p=pBy(pid);
+        if(!p) continue;
+        let logo=projectLogoFile(p)||"";
+        // Avoid approaching Firestore's 1 MiB document limit when many custom data-URI logos exist.
+        if(logo.startsWith("data:")){
+          if(embeddedLogoBytes + logo.length > 650000) logo="";
+          else embeddedLogoBytes += logo.length;
+        }
+        projects[pid]={
+          name:String(p.name||""),
+          color:String(p.color||"#4b5563"),
+          logo:String(logo||"")
+        };
+      }
+
+      const items=studentEvents.map(e=>{
+        const p=pBy(e.projectId);
+        return {
+          projectId:String(e.projectId||""),
+          projectName:String(p?.name||"Активність"),
+          projectColor:String(p?.color||"#d9ff38"),
+          date:String(e.date||""),
+          type:String(e.type||"Подія"),
+          startTime:String(e.startTime||""),
+          endTime:String(e.endTime||""),
+          location:String(e.location||""),
+          note:String(e.note||"")
+        };
+      });
+
+      await setDoc(doc(cloudDb,"rems_student_schedules",target.id),{
+        ...target.data,
+        studentId:String(s.id),
+        name:String(s.name||target.data.name||""),
+        group:String(s.group||target.data.group||"РЕМС-44"),
+        items,
+        projects,
+        updatedAt:new Date().toISOString()
+      },{merge:false});
+    }
+  }catch(err){
+    console.error("Personal schedule sync failed:",err);
+  }
+}
+
+const scheduleKeysForStudentIds=async(studentIds=[])=>{
+  if(!cloudDb) return [];
+
+  const ids=new Set(
+    (studentIds||[])
+      .map(id=>String(id))
+      .filter(Boolean)
+  );
+
+  if(!ids.size) return [];
+
+  const snap=await getDocs(
+    collection(cloudDb,"rems_student_schedules")
+  );
+
+  return snap.docs
+    .filter(docSnap=>{
+      const data=docSnap.data()||{};
+      return ids.has(String(data.studentId||""));
+    })
+    .map(docSnap=>docSnap.id);
+};
+const sendSchedulePush=async({scheduleKeys,title,body,url})=>{
+  if(!functions) throw new Error("Cloud Functions ще не ініціалізовано");
+  if(!currentUser) throw new Error("Потрібна авторизація");
+
+  const sendNotification=httpsCallable(
+    functions,
+    "sendScheduleNotification"
+  );
+
+  const result=await sendNotification({
+    scheduleKeys,
+    title,
+    body,
+    url
+  });
+
+  return result.data;
+};
+
+const notifyStudentsForEvent=async(ev,actionLabel="Розклад оновлено")=>{
+  if(!ev) return {ok:true,sent:0,failed:0,recipients:0};
+
+  const studentIds=studentsForEvent(ev)
+    .map(s=>String(s.id))
+    .filter(Boolean);
+
+  const scheduleKeys=await scheduleKeysForStudentIds(studentIds);
+  if(!scheduleKeys.length){
+    return {ok:true,sent:0,failed:0,recipients:0};
+  }
+
+  const p=pBy(ev.projectId);
+  const details=[
+    String(ev.date||""),
+    eventTimeText(ev),
+    String(ev.location||"").trim()
+  ].filter(Boolean).join(" · ");
+
+  return sendSchedulePush({
+    scheduleKeys,
+    title:`REMS-44 · ${p?.name||"Розклад"}`,
+    body:`${actionLabel}: ${ev.type||"Подія"}${details?` · ${details}`:""}`,
+    url:"https://rems-44.github.io/REMS-44/"
+  });
+};
 const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v5.1 · немає з’єднання");
+    setStatus("v4.1.2 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v5.1 · збереження…");
-    (db.students||[]).forEach(ensureStudentScheduleToken);
+    setStatus("v4.1.2 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -672,13 +725,8 @@ const save=async()=>{
       {merge:false}
     );
     cache();
-    // Main REMS Control save is complete at this point.
-    // Personal student pages are refreshed in the background so editing a project
-    // never hangs on dozens of extra Firestore writes.
-    publishAllStudentSchedules().catch(scheduleErr=>{
-      console.error("Student schedules sync failed:",scheduleErr);
-    });
-    setStatus("v5.1 · хмара ✓");
+    await syncExistingPersonalSchedules();
+    setStatus("v4.2 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -689,7 +737,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v5.1 · помилка хмари");
+    setStatus("v4.1.2 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -714,82 +762,6 @@ const eventMetaText=e=>{
   return parts.join(" · ");
 };
 const pBy=id=>db.projects.find(p=>String(p.id)===String(id));
-
-const studentScheduleItems=s=>{
-  const sid=String(s.id);
-  const items=[];
-  (db.events||[]).forEach(e=>{
-    if(!studentsForEvent(e).some(x=>String(x.id)===sid)) return;
-    const p=pBy(e.projectId);
-    if(!p) return;
-    items.push({
-      date:String(e.date||""),
-      type:String(e.type||""),
-      startTime:String(e.startTime||""),
-      endTime:String(e.endTime||""),
-      location:String(e.location||""),
-      note:String(e.note||""),
-      projectId:String(p.id||""),
-      projectName:String(p.name||"Проєкт"),
-      projectColor:String(p.color||"#8a8f98")
-    });
-  });
-  items.sort((a,b)=>a.date.localeCompare(b.date)||a.startTime.localeCompare(b.startTime)||a.projectName.localeCompare(b.projectName,"uk"));
-  return items;
-};
-const studentScheduleProjects=s=>{
-  const map={};
-  const ids=new Set(studentScheduleItems(s).map(x=>String(x.projectId||"")).filter(Boolean));
-  ids.forEach(id=>{
-    const p=pBy(id);
-    if(!p) return;
-    map[id]={
-      name:String(p.name||"Проєкт"),
-      color:String(p.color||"#8a8f98"),
-      // projectLogoFile() supports both uploaded logoData and the legacy logos/ folder.
-      logo:String(projectLogoFile(p)||"")
-    };
-  });
-  return map;
-};
-async function publishOneStudentSchedule(s){
-  if(!cloudReady||!cloudDb||!currentUser) throw new Error("Хмара не готова");
-  const token=ensureStudentScheduleToken(s);
-  const payload={
-    token,
-    studentId:String(s.id),
-    name:String(s.name||""),
-    group:String(s.group||""),
-    items:studentScheduleItems(s),
-    projects:studentScheduleProjects(s),
-    updatedAt:new Date().toISOString()
-  };
-  await setDoc(doc(cloudDb,STUDENT_SCHEDULE_COLLECTION,token),payload,{merge:false});
-  return payload;
-}
-async function publishAllStudentSchedules(){
-  if(!cloudReady||!cloudDb||!currentUser) return;
-  const jobs=(db.students||[]).map(s=>publishOneStudentSchedule(s));
-  const results=await Promise.allSettled(jobs);
-  const failed=results.filter(x=>x.status==="rejected");
-  if(failed.length) console.error("Student schedule publish errors:",failed);
-}
-async function copyStudentScheduleLink(s){
-  try{
-    ensureStudentScheduleToken(s);
-    const ok=await save();
-    if(!ok) throw new Error("Не вдалося зберегти токен у хмарі");
-    await publishOneStudentSchedule(s);
-    const url=studentScheduleUrl(s);
-    await navigator.clipboard.writeText(url);
-    alert(`Посилання скопійовано.\n\n${s.name}\n${url}`);
-  }catch(err){
-    console.error(err);
-    const url=studentScheduleUrl(s);
-    prompt("Скопіюй посилання вручну:",url);
-  }
-}
-
 
 const projectLogoFile=p=>{
   if(p?.logoData) return p.logoData;
@@ -915,16 +887,32 @@ async function compressProjectLogo(file){
 
 function ensureEventTimeLocationFields(){
   const form=document.querySelector("#eventForm");
-  if(!form || form.querySelector("#eventStartTime")) return;
+  if(!form) return;
+
   const save=document.querySelector("#saveEvent");
-  const host=save?.parentElement||form;
-  const wrap=document.createElement("div");
-  wrap.className="full";
-  wrap.style.cssText="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px";
-  wrap.innerHTML=`<label>Початок<input id="eventStartTime" type="time"></label>
-    <label>Завершення<input id="eventEndTime" type="time"></label>
-    <label style="grid-column:1/-1">Локація<input id="eventLocation" placeholder="Напр. ВДНГ · павільйон 3 / ауд. 230 / студія"></label>`;
-  if(save?.parentElement) save.parentElement.before(wrap); else form.appendChild(wrap);
+
+  if(!form.querySelector("#eventStartTime")){
+    const wrap=document.createElement("div");
+    wrap.className="full";
+    wrap.style.cssText="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px";
+    wrap.innerHTML=`<label>Початок<input id="eventStartTime" type="time"></label>
+      <label>Завершення<input id="eventEndTime" type="time"></label>
+      <label style="grid-column:1/-1">Локація<input id="eventLocation" placeholder="Напр. ВДНГ · павільйон 3 / ауд. 230 / студія"></label>`;
+    if(save?.parentElement) save.parentElement.before(wrap); else form.appendChild(wrap);
+  }
+
+  if(save && !document.querySelector("#saveEventNotify")){
+    const notifyBtn=document.createElement("button");
+    notifyBtn.type="button";
+    notifyBtn.id="saveEventNotify";
+    notifyBtn.className="ghost";
+    notifyBtn.textContent="Зберегти та повідомити";
+    save.insertAdjacentElement("afterend",notifyBtn);
+    notifyBtn.onclick=async e=>{
+      e.preventDefault();
+      await createEventFromForm(true,notifyBtn);
+    };
+  }
 }
 
 function ensureNewProjectLogoField(){
@@ -1051,11 +1039,7 @@ function updateQuickAddForView(v){
   if(v==="industry"){
     btn.textContent="+ Нова зустріч";
     btn.title="Створити новий матеріал «Зустріч із індустрією»";
-    btn.style.display="";
-  }else if(v==="studentSchedules"){
-    btn.style.display="none";
   }else{
-    btn.style.display="";
     btn.textContent="+ Новий проєкт";
     btn.title="";
   }
@@ -1063,7 +1047,7 @@ function updateQuickAddForView(v){
 function switchView(v,label){
   currentView=v;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
-  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад",studentSchedules:"Особисті розклади",industry:"Зустріч із індустрією"}[v]);
+  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад",industry:"Зустріч із індустрією"}[v]);
   updateQuickAddForView(v);
   views[v]();
 }
@@ -1126,11 +1110,6 @@ function dashboard(){
       <div class="card kpi"><span>Подій у базі</span><strong>${db.events.length}</strong></div>
     </div>
 
-    <div class="ack-dashboard card">
-      <div class="dashboard-projects-head"><h2>Потребують ознайомлення</h2><span class="muted">Найближчі події, які ще підтвердили не всі</span></div>
-      <div id="ackDashboardList"><div class="muted">Завантаження…</div></div>
-    </div>
-
     <div class="dashboard-projects-head"><h2>Проєкти</h2><span class="muted">Натисни на картку, щоб відкрити проєкт</span></div>
     <div class="dashboard-project-grid">
       ${db.projects.map(p=>{
@@ -1143,7 +1122,7 @@ function dashboard(){
             ${projectLogoHtml(p,"dashboard-project-logo")}
             <div class="dashboard-project-copy">
               <h3>${esc(p.name)}</h3>
-              <div class="muted">${evs.length} подій · ${people.length} студентів · Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></div>
+              <div class="muted">${evs.length} подій · ${people.length} студентів</div>
             </div>
             <span class="dashboard-project-arrow">→</span>
           </div>
@@ -1155,7 +1134,6 @@ function dashboard(){
 
   $$(".week-day-card").forEach(x=>x.onclick=()=>showDay(x.dataset.date));
   $$(".dashboard-project-card").forEach(btn=>btn.onclick=()=>openProjectCard(btn.dataset.projectId));
-  updateAckIndicators().catch(console.error);
 }
 
 
@@ -1348,7 +1326,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v5.1 · аналіз відновлення…");
+  setStatus("v4.1.2 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1457,7 +1435,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v5.1 · відновлено ✓");
+    setStatus("v4.1.2 · відновлено ✓");
     students();
 
     alert(
@@ -1471,7 +1449,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v5.1 · помилка відновлення");
+    setStatus("v4.1.2 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -1610,7 +1588,7 @@ function openStudent(id){
         <div class="profile-hero-actions-row">
           <div class="profile-hero-context">Картка студента</div>
           <div class="hero-actions">
-            ${publicProfileFor(s)?.published===true?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічна сторінка ↗</a>`:""}<a class="ghost schedule-personal-open" href="${studentScheduleUrl(s)}" target="_blank" rel="noopener">Особистий розклад ↗</a><button class="ghost" id="copyStudentScheduleBtn">Копіювати посилання</button><button class="ghost" id="editPublicProfileBtn">${publicProfileFor(s)?.published===true?"Публічний профіль":"Створити публічний профіль"}</button>
+            ${publicProfileFor(s)?.published===true?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічна сторінка ↗</a>`:""}<button class="ghost" id="editPublicProfileBtn">${publicProfileFor(s)?.published===true?"Публічний профіль":"Створити публічний профіль"}</button>
             <button class="ghost" id="editStudentBtn">Редагувати</button>
             <button class="ghost" id="closeStudentBtn">Закрити</button>
           </div>
@@ -1673,7 +1651,6 @@ function openStudent(id){
     $("#closeStudentBtn").onclick=()=>dialog.close();
     $("#editStudentBtn").onclick=()=>editStudent(id);
     $("#editPublicProfileBtn").onclick=()=>editPublicProfile(id);
-    $("#copyStudentScheduleBtn").onclick=()=>copyStudentScheduleLink(s);
 
     const monthNames={"01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень","07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"};
     const months=["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"];
@@ -1975,7 +1952,6 @@ function projects(){
           <div style="text-align:left;min-width:0">
             <h3 style="margin:0">${esc(p.name)}</h3>
             <div class="muted">${evs.length} подій · ${assigned.length} студентів</div>
-            <div class="project-ack-line">Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></div>
           </div>
         </div>
         <span class="project-open-arrow">→</span>
@@ -1985,12 +1961,8 @@ function projects(){
   }).join("")||'<div class="empty">Проєктів ще немає.</div>'}</div>`;
 
   $$(".project-open-card").forEach(btn=>{
-    btn.onclick=e=>{
-      if(e.target.closest(".project-ack-line")) return openProjectAcknowledgements(btn.dataset.projectId);
-      openProjectCard(btn.dataset.projectId);
-    };
+    btn.onclick=()=>openProjectCard(btn.dataset.projectId);
   });
-  updateAckIndicators().catch(console.error);
 }
 
 function projectMonthLabel(month){
@@ -2033,7 +2005,6 @@ function showProjectDay(projectId,date){
   const pretty=new Date(date+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   const peopleIds=new Set(evs.flatMap(e=>studentsForEvent(e).map(s=>s.id)));
   const people=db.students.filter(s=>peopleIds.has(s.id));
-  const freePeople=db.students.filter(s=>!peopleIds.has(s.id));
   dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
     <div class="project-section-head">
       <div><h2 style="margin:0">${pretty}</h2><div class="muted">${esc(p.name)} · ${evs.length} подій · ${people.length} учасників</div></div>
@@ -2051,19 +2022,11 @@ function showProjectDay(projectId,date){
         </div>
       </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
     </div>
-    <div class="availability-card"><b>Зайняті студенти · ${people.length}</b><div class="availability-list">
-      ${people.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Зайнятих студентів немає.</span>'}
-    </div></div>
-    <div class="availability-card"><b>Вільні студенти · ${freePeople.length}</b><div class="availability-list">
-      ${freePeople.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
+    <div class="availability-card"><b>Студенти цього дня</b><div class="availability-list">
+      ${people.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Учасників не призначено.</span>'}
     </div></div>
   </div>`;
   dialog.querySelector("#backToProjectCalendar").onclick=()=>openProjectCard(projectId);
-  dialog.querySelectorAll(".project-day-student").forEach(b=>b.onclick=()=>{
-    const sid=resolveStudentId(b.dataset.id);
-    dialog.close();
-    if(sid!==undefined) openStudent(sid);
-  });
   dialog.querySelectorAll(".project-day-edit-event").forEach(b=>b.onclick=()=>editProjectEvent(projectId,evs[+b.dataset.index]));
   dialog.querySelectorAll(".project-day-people-event").forEach(b=>b.onclick=()=>editEventPeople(projectId,evs[+b.dataset.index]));
   dialog.querySelectorAll(".project-day-delete-event").forEach(b=>{
@@ -2116,7 +2079,6 @@ function openProjectCard(id){
           <div><h2>${esc(p.name)}</h2><div class="muted">${esc(p.description||"")}</div></div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="ghost" id="projectAcknowledgementsBtn">Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></button>
           <button class="ghost" id="editProjectBtn">Редагувати</button>
           <button class="ghost" onclick="document.querySelector('#projectCardDialog').close()">Закрити</button>
         </div>
@@ -2213,8 +2175,6 @@ function openProjectCard(id){
   });
   dialog.querySelectorAll(".project-cal-day.has-event").forEach(day=>day.onclick=()=>showProjectDay(id,day.dataset.projectDay));
 
-  dialog.querySelector("#projectAcknowledgementsBtn").onclick=()=>openProjectAcknowledgements(id);
-  updateAckIndicators().catch(console.error);
   dialog.querySelector("#editProjectBtn").onclick=()=>editProjectCard(id);
   }catch(err){
     console.error("Project card error:",err);
@@ -2274,9 +2234,9 @@ function editProjectEvent(projectId,ev){
       </label>
 
       <div class="full profile-actions">
-        <button type="button" class="ghost" id="viewEventAcknowledgements">Ознайомлення</button>
         <button type="button" class="ghost" id="cancelProjectEventEditBottom">Скасувати</button>
-        <button type="submit" class="primary">Зберегти</button>
+        <button type="submit" class="ghost" data-notify="0">Зберегти</button>
+        <button type="submit" class="primary" data-notify="1">Зберегти та повідомити</button>
       </div>
     </form>
   </div>`;
@@ -2284,10 +2244,10 @@ function editProjectEvent(projectId,ev){
   const back=()=>openProjectCard(projectId);
   dialog.querySelector("#cancelProjectEventEdit").onclick=back;
   dialog.querySelector("#cancelProjectEventEditBottom").onclick=back;
-  dialog.querySelector("#viewEventAcknowledgements").onclick=async()=>{const btn=dialog.querySelector("#viewEventAcknowledgements"),old=btn.textContent;btn.disabled=true;btn.textContent="Завантаження…";const acks=await loadAcknowledgementsForEvent(ev);btn.disabled=false;btn.textContent=old;const assigned=studentsForEvent(ev),names=new Set(acks.map(x=>String(x.studentName||"").trim())),yes=assigned.filter(s=>names.has(String(s.name||"").trim())),no=assigned.filter(s=>!names.has(String(s.name||"").trim()));alert(`Ознайомилися: ${yes.length}/${assigned.length}\n\n✓ ${yes.map(s=>s.name).join("\n✓ ")||"—"}\n\nНе ознайомилися:\n${no.map(s=>s.name).join("\n")||"—"}`)};
 
   dialog.querySelector("#projectEventEditForm").onsubmit=async e=>{
     e.preventDefault();
+    const shouldNotify=e.submitter?.dataset?.notify==="1";
     const newDate=dialog.querySelector("#editEventDate").value;
     const newType=dialog.querySelector("#editEventType").value.trim();
 
@@ -2319,6 +2279,19 @@ function editProjectEvent(projectId,ev){
       alert("Не вдалося зберегти зміну в хмарі.");
       return;
     }
+
+    if(shouldNotify){
+      try{
+        const pushResult=await notifyStudentsForEvent(target,"Розклад оновлено");
+        if(pushResult?.sent===0){
+          alert("Зміни збережено. У призначених студентів поки немає активних push-сповіщень.");
+        }
+      }catch(pushErr){
+        console.error("Schedule push failed:",pushErr);
+        alert("Зміни збережено, але сповіщення не вдалося надіслати.");
+      }
+    }
+
     openProjectCard(projectId);
   };
 }
@@ -2576,15 +2549,9 @@ function showDay(date){
       </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
     </div>
     <div class="availability-card">
-      <b>Зайняті студенти · ${occupiedIds.size}</b>
+      <b>Вільні студенти</b>
       <div class="availability-list">
-        ${db.students.filter(s=>occupiedIds.has(s.id)).map(s=>`<button class="availability-chip day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Зайнятих студентів немає.</span>'}
-      </div>
-    </div>
-    <div class="availability-card">
-      <b>Вільні студенти · ${freeStudents.length}</b>
-      <div class="availability-list">
-        ${freeStudents.map(s=>`<button class="availability-chip day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
+        ${freeStudents.map(s=>`<button class="availability-chip day-student" data-id="${s.id}">${esc(s.name.split(" ")[0])}</button>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
       </div>
     </div>
   </div>`;
@@ -3059,14 +3026,20 @@ function industryTrackUpload(promise){
 async function industryWaitForUploads(){
   const jobs=[...industryUploadJobs];
   if(!jobs.length) return;
-  const results=await Promise.allSettled(jobs);
-  const failed=results.find(r=>r.status==="rejected");
+  const timeout=new Promise((_,reject)=>
+    setTimeout(()=>reject(new Error("Завантаження медіа триває надто довго. Перевір файл або встав посилання.")),45000)
+  );
+  const results=await Promise.race([
+    Promise.allSettled(jobs),
+    timeout
+  ]);
+  const failed=Array.isArray(results)?results.find(r=>r.status==="rejected"):null;
   if(failed) throw failed.reason;
 }
-async function industryUpload(file,meetingId,kind="media",onProgress=null){
+async function industryUpload(file,meetingId,kind="media"){
   if(!file) return "";
-
-  // Images remain in Firestore exactly as before.
+  // Images are stored in Firestore, just like student photos.
+  // This avoids dependence on Firebase Storage for article photos.
   if(String(file.type||"").startsWith("image/")){
     if(!cloudDb||!currentUser) throw new Error("Firebase ще не готовий");
     const id=`media-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
@@ -3080,57 +3053,19 @@ async function industryUpload(file,meetingId,kind="media",onProgress=null){
       data,
       createdAt:new Date().toISOString()
     },{merge:false});
-    if(onProgress) onProgress(100);
     return `firestore-media://${id}`;
   }
 
-  // Large media (MP4, MOV, M4V, WebM, etc.) goes to Firebase Storage.
-  // Resumable upload reports real progress instead of looking frozen.
-  if(!mediaStorage) throw new Error("Firebase Storage ще не готовий");
-  if(!currentUser) throw new Error("Потрібно увійти в REMS Control");
-
-  const original=String(file.name||"media");
-  const dot=original.lastIndexOf(".");
-  const ext=dot>=0?original.slice(dot).replace(/[^a-zA-Z0-9.]/g,""):"";
-  const base=(dot>=0?original.slice(0,dot):original)
-    .replace(/[^a-zA-Z0-9_-]/g,"-")
-    .replace(/-+/g,"-")
-    .replace(/^-|-$/g,"") || "media";
-  const safe=`${base}${ext}`;
-  const path=`industry/${meetingId}/${Date.now()}-${kind}-${safe}`;
-  const r=storageRef(mediaStorage,path);
-
-  const metadata={
-    contentType:file.type||undefined,
-    customMetadata:{
-      originalName:original,
-      meetingId:String(meetingId||""),
-      kind:String(kind||"media")
-    }
-  };
-
-  const task=uploadBytesResumable(r,file,metadata);
-
-  await new Promise((resolve,reject)=>{
-    task.on("state_changed",
-      snap=>{
-        const total=snap.totalBytes||file.size||1;
-        const pct=Math.max(0,Math.min(100,Math.round((snap.bytesTransferred/total)*100)));
-        if(onProgress) onProgress(pct,snap.bytesTransferred,total);
-      },
-      err=>{
-        let msg=err?.message||String(err);
-        if(err?.code==="storage/unauthorized") msg="Firebase Storage не дозволяє завантаження. Перевір Storage Rules.";
-        if(err?.code==="storage/quota-exceeded") msg="Перевищено ліміт Firebase Storage.";
-        if(err?.code==="storage/retry-limit-exceeded") msg="Завантаження перервалося через мережу. Спробуй ще раз.";
-        reject(new Error(msg));
-      },
-      resolve
-    );
-  });
-
-  if(onProgress) onProgress(100,file.size,file.size);
-  return await getDownloadURL(task.snapshot.ref);
+  // Video/audio/PDF files are not stored in Firestore: they are too large.
+  // Direct Storage uploads previously caused the editor to wait indefinitely.
+  // Use a URL block / YouTube / Instagram-TikTok for these media types.
+  if(String(file.type||"").startsWith("video/")){
+    throw new Error("Відеофайл напряму не завантажується. Встав посилання на відео або використай блок YouTube / Instagram / TikTok.");
+  }
+  if(String(file.type||"").startsWith("audio/")){
+    throw new Error("Аудіофайл напряму не завантажується. Встав пряме посилання на аудіо.");
+  }
+  throw new Error("Цей тип файла напряму не завантажується. Використай посилання на файл.");
 }
 function industryBlockPickerHtml(){
   return `<div class="industry-picker">
@@ -3162,7 +3097,7 @@ function industryBlockHtml(b={id:industryBlockId(),type:"text"}){
       <div class="industry-gallery-preview"></div>
       <label>Підпис до фото / групи фото<input class="ib-caption" value="${esc(b.caption||"")}"></label>
     </div>`;
-  if(b.type==="story") body=media("Відео","url","video/*,.mov,.mp4,.m4v,.webm,.avi,.mkv")+`<div class="ib-progress">Підтримується вибір MP4, MOV, M4V, WebM та інших відеофайлів. Для найкращого відтворення на сайті рекомендовано MP4 (H.264).</div><label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
+  if(b.type==="story") body=`<label>Посилання на відео<input class="ib-url" value="${esc(b.url||"")}" placeholder="Пряме посилання на .mp4/.webm"></label>${industryStoredValueHtml(b.url,"Відео збережено")}<div class="ib-progress">Для відео з YouTube, Instagram або TikTok краще використовуй відповідний окремий блок.</div><label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
   if(b.type==="youtube") body=`<label>Посилання YouTube<input class="ib-url" value="${esc(b.url||"")}" placeholder="https://youtube.com/..."></label>${industryStoredValueHtml(b.url,"YouTube збережено")}<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
   if(b.type==="social") body=`<label>Instagram / TikTok<input class="ib-url" value="${esc(b.url||"")}" placeholder="Встав посилання на Reel, пост або TikTok"></label>${industryStoredValueHtml(b.url,"Посилання збережено")}<label>Підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
   if(b.type==="audio") body=`<label>Посилання на аудіо<input class="ib-url" value="${esc(b.url||"")}" placeholder="URL аудіофайлу"></label>${industryStoredValueHtml(b.url,"Аудіо збережено")}<label>Назва / підпис<input class="ib-caption" value="${esc(b.caption||"")}"></label>`;
@@ -3215,26 +3150,27 @@ function industryWireBlocks(meetingId){
       const file=inp.files?.[0]; if(!file)return;
       const out=el.querySelector(`.ib-${inp.dataset.key}`);
       const prog=el.querySelector(".ib-progress");
-      const isVideo=String(file.type||"").startsWith("video/") || /\.(mov|mp4|m4v|webm|avi|mkv)$/i.test(file.name||"");
-      const mb=file.size/1024/1024;
-      const task=(async()=>{
-        prog.textContent=isVideo
-          ? `Підготовка відео · ${mb.toFixed(1)} МБ…`
-          : "Завантаження…";
-        out.value=await industryUpload(file,meetingId,el.dataset.type,(pct)=>{
-          prog.textContent=isVideo
-            ? `Завантаження відео: ${pct}% · ${mb.toFixed(1)} МБ`
-            : `Завантаження: ${pct}%`;
-        });
-        await industrySetPreview(el.querySelector(`[data-preview="${inp.dataset.key}"]`),out.value);
-        prog.textContent=isVideo?"Відео завантажено ✓":"Файл збережено ✓";
-      })();
-      try{
-        await industryTrackUpload(task);
-      }catch(e){
-        console.error(e);
-        prog.textContent=`Помилка: ${e?.message||e}`;
+
+      if(String(file.type||"").startsWith("video/")){
+        inp.value="";
+        prog.textContent="Відео: встав URL у поле вище або використай блок YouTube / Instagram / TikTok.";
+        out.focus();
+        return;
       }
+      if(String(file.type||"").startsWith("audio/")){
+        inp.value="";
+        prog.textContent="Аудіо: встав пряме посилання у поле вище.";
+        out.focus();
+        return;
+      }
+
+      const task=(async()=>{
+        prog.textContent="Завантаження…";
+        out.value=await industryUpload(file,meetingId,el.dataset.type);
+        await industrySetPreview(el.querySelector(`[data-preview="${inp.dataset.key}"]`),out.value);
+        prog.textContent="Файл збережено ✓";
+      })();
+      try{await industryTrackUpload(task);}catch(e){console.error(e);prog.textContent=`Помилка: ${e?.message||e}`;}
     });
     const gf=el.querySelector(".ib-gallery-files");
     if(gf) gf.onchange=async()=>{
@@ -3301,7 +3237,7 @@ async function industryEditor(m=null){
     const btn=$("#industrySave");
     if(industryUploadJobs.size){
       btn.disabled=true;
-      btn.textContent="Завершуємо завантаження…";
+      btn.textContent="Завершуємо медіа…";
       try{await industryWaitForUploads();}
       catch(e){btn.disabled=false;btn.textContent="Зберегти";alert(`Не вдалося завершити завантаження медіа. ${e?.message||e}`);return;}
     }
@@ -3351,61 +3287,7 @@ async function industry(){
   $$(".industry-edit").forEach(b=>b.onclick=()=>industryEditor(industryCache.find(x=>x.id===b.dataset.id)));
 }
 
-
-function studentSchedules(){
-  $("#pageTitle").textContent="Особисті розклади";
-  $("#pageSubtitle").textContent="Персональні read-only сторінки студентів · оновлюються з REMS Control";
-  const today=new Date().toISOString().slice(0,10);
-  const rows=(db.students||[]).map(s=>{
-    const upcoming=studentScheduleItems(s).filter(x=>x.date>=today);
-    return {s,upcoming};
-  }).sort((a,b)=>String(a.s.name||"").localeCompare(String(b.s.name||""),"uk"));
-
-  $("#app").innerHTML=`
-    <div class="student-schedules-page">
-      <div class="schedule-admin-note">
-        <div><b>Як це працює</b><p>Дай студентові його особисте посилання один раз. Коли ти змінюєш дати, час, місце або склад учасників у REMS Control — персональний розклад синхронізується автоматично.</p></div>
-        <button class="ghost" id="syncAllStudentSchedulesBtn">Оновити всі зараз</button>
-      </div>
-      <div class="schedule-admin-grid">
-        ${rows.map(({s,upcoming})=>`
-          <article class="schedule-admin-card">
-            <div class="schedule-admin-card-top">
-              <div><h3>${esc(s.name)}</h3><span>${esc(s.group||"")}</span></div>
-              <strong>${upcoming.length}</strong>
-            </div>
-            <div class="schedule-admin-next">${upcoming[0]?`${fullfmt(upcoming[0].date)} · ${esc(upcoming[0].projectName)} · ${esc(upcoming[0].type)}`:"Найближчих активностей немає"}</div>
-            <div class="schedule-admin-actions">
-              <a class="ghost" href="${studentScheduleUrl(s)}" target="_blank" rel="noopener">Відкрити ↗</a>
-              <button class="ghost copy-personal-schedule" data-id="${esc(String(s.id))}">Копіювати посилання</button>
-            </div>
-          </article>`).join("")}
-      </div>
-    </div>`;
-
-  $("#syncAllStudentSchedulesBtn").onclick=async e=>{
-    const b=e.currentTarget;
-    b.disabled=true;b.textContent="Оновлення…";
-    try{
-      (db.students||[]).forEach(ensureStudentScheduleToken);
-      await save();
-      await publishAllStudentSchedules();
-      b.textContent="Оновлено ✓";
-    }catch(err){
-      console.error(err);
-      b.textContent="Помилка";
-      alert("Не вдалося оновити студентські розклади.");
-    }finally{
-      setTimeout(()=>{if(document.body.contains(b)){b.disabled=false;b.textContent="Оновити всі зараз";}},1800);
-    }
-  };
-  $$(".copy-personal-schedule").forEach(b=>b.onclick=()=>{
-    const s=sBy(b.dataset.id);
-    if(s) copyStudentScheduleLink(s);
-  });
-}
-
-const views={dashboard,students,projects,calendar,schedule,studentSchedules,industry};
+const views={dashboard,students,projects,calendar,schedule,industry};
 $$(".nav").forEach(b=>b.onclick=()=>switchView(b.dataset.view,b.querySelector("span")?.textContent||b.textContent.trim()));
 $("#quickAdd").onclick=()=>{
   if(!cloudReady){
@@ -3416,7 +3298,6 @@ $("#quickAdd").onclick=()=>{
     industryEditor();
     return;
   }
-  if(currentView==="studentSchedules") return;
   $("#projectDialog").showModal();
 };
 ensureNewProjectLogoField();
@@ -3446,18 +3327,59 @@ $("#saveProject").onclick=async e=>{
     btn.disabled=false; btn.textContent="Зберегти";
   }
 };
+const createEventFromForm=async(notify=false,sourceBtn=null)=>{
+  const projectId=$("#eventProjectId").value,date=$("#eventDate").value,type=$("#eventType").value.trim();
+  if(!date||!type) return;
+
+  const startTime=$("#eventStartTime")?.value||"";
+  const endTime=$("#eventEndTime")?.value||"";
+  const location=$("#eventLocation")?.value.trim()||"";
+  const event={projectId,date,type,startTime,endTime,location};
+
+  if(sourceBtn){
+    sourceBtn.disabled=true;
+    sourceBtn.dataset.originalText=sourceBtn.textContent;
+    sourceBtn.textContent=notify?"Збереження та надсилання…":"Збереження…";
+  }
+
+  try{
+    db.events.push(event);
+    const ok=await save();
+
+    if(!ok){
+      alert("Дата залишилась тільки на цьому пристрої. Перевірте з’єднання з Firebase.");
+      return;
+    }
+
+    if(notify){
+      try{
+        const pushResult=await notifyStudentsForEvent(event,"Нова подія");
+        if(pushResult?.sent===0){
+          alert("Подію збережено. У призначених студентів поки немає активних push-сповіщень.");
+        }
+      }catch(pushErr){
+        console.error("Schedule push failed:",pushErr);
+        alert("Подію збережено, але сповіщення не вдалося надіслати.");
+      }
+    }
+
+    $("#eventDialog").close();
+    $("#eventForm").reset();
+
+    if(document.querySelector("#projectCardDialog")?.open) openProjectCard(projectId);
+    else projects();
+  }finally{
+    if(sourceBtn){
+      sourceBtn.disabled=false;
+      sourceBtn.textContent=sourceBtn.dataset.originalText||"Зберегти";
+      delete sourceBtn.dataset.originalText;
+    }
+  }
+};
+
 $("#saveEvent").onclick=async e=>{
   e.preventDefault();
-  const projectId=$("#eventProjectId").value,date=$("#eventDate").value,type=$("#eventType").value.trim();
-  if(!date||!type)return;
-  const startTime=$("#eventStartTime")?.value||"",endTime=$("#eventEndTime")?.value||"",location=$("#eventLocation")?.value.trim()||"";
-  db.events.push({projectId,date,type,startTime,endTime,location});
-  const ok=await save();
-  $("#eventDialog").close(); $("#eventForm").reset();
-  const openProjectId=projectId;
-  if(document.querySelector("#projectCardDialog")?.open) openProjectCard(openProjectId);
-  else projects();
-  if(!ok) alert("Дата залишилась тільки на цьому пристрої. Перевірте з’єднання з Firebase.");
+  await createEventFromForm(false,e.currentTarget);
 };
 $("#backupBtn").onclick=()=>{
   const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
@@ -4008,15 +3930,16 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.1 · Firebase не налаштовано");
+    setStatus("v4.1.2 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v5.1 · завантаження хмари…");
+    setStatus("v4.1.2 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
+functions=getFunctions(firebaseApp,"europe-west1");
     cloudDb=getFirestore(firebaseApp);
     mediaStorage=getStorage(firebaseApp);
     const ref=doc(cloudDb,"rems_control",CLOUD_DOC);
@@ -4038,7 +3961,7 @@ async function initCloud(){
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v5.1 · хмара ✓");
+    setStatus("v4.1.2 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4138,19 +4061,19 @@ async function initCloud(){
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v5.1 · хмара ✓");
+      setStatus("v4.1.2 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v5.1 · хмара недоступна");
+      setStatus("v4.1.2 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v5.1 · хмара недоступна");
+    setStatus("v4.1.2 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -4161,7 +4084,7 @@ async function initCloud(){
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.1 · Firebase не налаштовано");
+    setStatus("v4.1.2 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -4177,19 +4100,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v5.1 · вхід ✓");
+        setStatus("v4.1.2 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v5.1 · потрібен вхід");
+        setStatus("v4.1.2 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v5.1 · помилка авторизації");
+    setStatus("v4.1.2 · помилка авторизації");
     showLogin();
   }
 }
