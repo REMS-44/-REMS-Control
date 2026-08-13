@@ -663,6 +663,15 @@ const scheduleKeysForStudentIds=async(studentIds=[])=>{
     })
     .map(docSnap=>docSnap.id);
 };
+
+const personalScheduleUrlForStudent=async(studentId)=>{
+  if(!cloudDb) return "";
+  const keys=await scheduleKeysForStudentIds([studentId]);
+  const key=String(keys[0]||"").trim();
+  return key
+    ? `https://rems-44.github.io/REMS-44/my.html?key=${encodeURIComponent(key)}`
+    : "";
+};
 const sendSchedulePush=async({scheduleKeys,title,body,url})=>{
   if(!functions) throw new Error("Cloud Functions ще не ініціалізовано");
   if(!currentUser) throw new Error("Потрібна авторизація");
@@ -1589,6 +1598,7 @@ function openStudent(id){
           <div class="profile-hero-context">Картка студента</div>
           <div class="hero-actions">
             ${publicProfileFor(s)?.published===true?`<a class="ghost public-profile-btn" href="${publicProfileUrlFor(s)}" target="_blank" rel="noopener">Публічна сторінка ↗</a>`:""}<button class="ghost" id="editPublicProfileBtn">${publicProfileFor(s)?.published===true?"Публічний профіль":"Створити публічний профіль"}</button>
+            <button class="ghost" id="personalScheduleBtn">Особистий розклад</button>
             <button class="ghost" id="editStudentBtn">Редагувати</button>
             <button class="ghost" id="closeStudentBtn">Закрити</button>
           </div>
@@ -1651,6 +1661,26 @@ function openStudent(id){
     $("#closeStudentBtn").onclick=()=>dialog.close();
     $("#editStudentBtn").onclick=()=>editStudent(id);
     $("#editPublicProfileBtn").onclick=()=>editPublicProfile(id);
+    $("#personalScheduleBtn").onclick=async()=>{
+      const btn=$("#personalScheduleBtn");
+      const oldText=btn.textContent;
+      btn.disabled=true;
+      btn.textContent="Відкриваю…";
+      try{
+        const url=await personalScheduleUrlForStudent(id);
+        if(!url){
+          alert("Для цього студента ще немає особистого розкладу.");
+          return;
+        }
+        window.open(url,"_blank","noopener");
+      }catch(err){
+        console.error("Personal schedule open failed:",err);
+        alert("Не вдалося відкрити особистий розклад.");
+      }finally{
+        btn.disabled=false;
+        btn.textContent=oldText;
+      }
+    };
 
     const monthNames={"01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень","07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"};
     const months=["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"];
@@ -3294,6 +3324,15 @@ async function industry(){
 }
 
 const views={dashboard,students,projects,calendar,schedule,industry};
+
+// Старий пункт "Особисті розклади" лишився в HTML, але окремий розділ більше не використовується.
+// Прибираємо тільки цей пункт із лівого меню; самі персональні сторінки студентів залишаються доступними.
+$$(".nav").forEach(b=>{
+  const label=(b.querySelector("span")?.textContent||b.textContent||"").trim().toLowerCase();
+  if(label.includes("особист") && label.includes("розклад")){
+    b.remove();
+  }
+});
 $$(".nav").forEach(b=>b.onclick=()=>switchView(b.dataset.view,b.querySelector("span")?.textContent||b.textContent.trim()));
 $("#quickAdd").onclick=()=>{
   if(!cloudReady){
