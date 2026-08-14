@@ -575,6 +575,106 @@
   document.head.appendChild(st);
 })();
 
+
+(function injectConflictNavigatorStylesV42(){
+  if(document.getElementById("remsConflictNavigatorStylesV42")) return;
+  const st=document.createElement("style");
+  st.id="remsConflictNavigatorStylesV42";
+  st.textContent=`
+    .conflict-link{
+      border:0;
+      background:transparent;
+      padding:0;
+      margin:0;
+      font:inherit;
+      color:inherit;
+      cursor:pointer;
+      text-decoration:underline;
+      text-decoration-style:dotted;
+      text-underline-offset:3px;
+    }
+    .conflict-link:hover{color:#b91c1c}
+    .profile-stat.conflict-stat{
+      cursor:pointer;
+      transition:.15s ease;
+    }
+    .profile-stat.conflict-stat:hover{
+      background:#fff7f7;
+      box-shadow:inset 0 0 0 1px #fecaca;
+    }
+    .conflict-list{
+      display:grid;
+      gap:12px;
+      margin-top:16px;
+    }
+    .conflict-card{
+      border:1px solid #fecaca;
+      background:#fffafa;
+      border-radius:14px;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+    .conflict-card-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+    }
+    .conflict-card-head h3{margin:0}
+    .conflict-overlap{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 8px;
+      border-radius:999px;
+      background:#fee2e2;
+      color:#991b1b;
+      font-size:11px;
+      font-weight:800;
+      white-space:nowrap;
+    }
+    .conflict-projects{
+      display:grid;
+      gap:7px;
+    }
+    .conflict-project{
+      display:grid;
+      grid-template-columns:10px 1fr;
+      gap:8px;
+      align-items:start;
+      padding:9px 10px;
+      border-radius:10px;
+      background:#fff;
+      border:1px solid #f3f4f6;
+    }
+    .conflict-project .dot{
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      margin-top:4px;
+    }
+    .conflict-project small{display:block;color:#6b7280;margin-top:2px}
+    .conflict-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .calendar-conflict-day{
+      outline:3px solid #ef4444!important;
+      outline-offset:-3px;
+      background:#fff1f2!important;
+      animation:remsConflictPulse 1.2s ease 2;
+    }
+    @keyframes remsConflictPulse{
+      0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.0)}
+      50%{box-shadow:0 0 0 5px rgba(239,68,68,.22)}
+    }
+  `;
+  document.head.appendChild(st);
+})();
+
+
 (function injectV21Styles(){
   if(document.getElementById("remsV21Styles")) return;
   const st=document.createElement("style");
@@ -981,7 +1081,7 @@ const save=async()=>{
     );
     cache();
     await syncExistingPersonalSchedules();
-    setStatus("v4.4.1 · хмара ✓");
+    setStatus("v4.4.2 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -1285,8 +1385,247 @@ const eventAssignments=()=>{
   });
   return map;
 }
+const eventMinutes=v=>{
+  const m=String(v||"").match(/^(\d{1,2}):(\d{2})$/);
+  return m ? Number(m[1])*60+Number(m[2]) : null;
+};
+
+const eventOverlapText=(a,b)=>{
+  const as=eventMinutes(a?.startTime), ae=eventMinutes(a?.endTime);
+  const bs=eventMinutes(b?.startTime), be=eventMinutes(b?.endTime);
+
+  if(as!=null && ae!=null && bs!=null && be!=null){
+    const start=Math.max(as,bs), end=Math.min(ae,be);
+    if(start<end){
+      const fmtMin=x=>`${String(Math.floor(x/60)).padStart(2,"0")}:${String(x%60).padStart(2,"0")}`;
+      return `${fmtMin(start)}–${fmtMin(end)}`;
+    }
+    return "";
+  }
+
+  // Preserve the old "same day = conflict" behavior when exact times are absent.
+  return "одна дата";
+};
+
+const conflictEventsForStudent=id=>{
+  const sid=String(id);
+  const byDate={};
+
+  (db.events||[]).forEach(e=>{
+    if(!e?.date) return;
+    if(!studentsForEvent(e).some(s=>String(s.id)===sid)) return;
+    (byDate[e.date] ||= []).push(e);
+  });
+
+  const out=[];
+  Object.entries(byDate).forEach(([date,events])=>{
+    if(events.length<2) return;
+
+    const conflicting=new Set();
+    const overlaps=[];
+
+    for(let i=0;i<events.length;i++){
+      for(let j=i+1;j<events.length;j++){
+        const overlap=eventOverlapText(events[i],events[j]);
+        if(overlap){
+          conflicting.add(events[i]);
+          conflicting.add(events[j]);
+          overlaps.push({a:events[i],b:events[j],overlap});
+        }
+      }
+    }
+
+    // Keep old semantics: multiple projects on the same day count as a conflict
+    // even when exact times prove no overlap only if time data is incomplete.
+    if(!conflicting.size){
+      const hasIncomplete=events.some(e=>
+        eventMinutes(e.startTime)==null || eventMinutes(e.endTime)==null
+      );
+      if(hasIncomplete){
+        events.forEach(e=>conflicting.add(e));
+        overlaps.push({a:events[0],b:events[1],overlap:"одна дата"});
+      }
+    }
+
+    if(conflicting.size){
+      out.push({
+        date,
+        events:[...conflicting].sort((a,b)=>(a.startTime||"").localeCompare(b.startTime||"")),
+        overlaps
+      });
+    }
+  });
+
+  return out.sort((a,b)=>a.date.localeCompare(b.date));
+};
+
+const studentConflicts=id=>conflictEventsForStudent(id).length;
+
 const countConflicts=()=>{
-  const map=eventAssignments(); return Object.values(map).filter(v=>v.length>1).length;
+  let total=0;
+  (db.students||[]).forEach(s=>{ total+=studentConflicts(s.id); });
+  return total;
+};
+
+function ensureConflictDialog(){
+  let dialog=document.querySelector("#conflictDialog");
+  if(dialog) return dialog;
+
+  dialog=document.createElement("dialog");
+  dialog.id="conflictDialog";
+  dialog.className="student-dialog";
+  dialog.innerHTML=`<div id="conflictDialogBody"></div>`;
+  document.body.appendChild(dialog);
+  return dialog;
+}
+
+
+function showAllConflicts(){
+  const rows=(db.students||[])
+    .map(s=>({student:s,conflicts:conflictEventsForStudent(s.id)}))
+    .filter(x=>x.conflicts.length)
+    .sort((a,b)=>a.student.name.localeCompare(b.student.name,"uk"));
+
+  const dialog=ensureConflictDialog();
+  const body=dialog.querySelector("#conflictDialogBody");
+
+  body.innerHTML=`<div class="project-body">
+    <div class="project-section-head">
+      <div>
+        <span class="eyebrow">Усі конфлікти</span>
+        <h2 style="margin:3px 0 0">Конфлікти зайнятості</h2>
+        <div class="muted">${rows.reduce((n,x)=>n+x.conflicts.length,0)} конфліктних дат · ${rows.length} студентів</div>
+      </div>
+      <button class="ghost" id="closeConflictDialog">Закрити</button>
+    </div>
+
+    <div class="conflict-list">
+      ${rows.map(x=>`<article class="conflict-card">
+        <div class="conflict-card-head">
+          <div>
+            <h3>${esc(x.student.name)}</h3>
+            <div class="muted">${esc(x.student.group||"")} · ${x.conflicts.length} конфліктів</div>
+          </div>
+          <button type="button" class="ghost" data-open-student-conflicts="${esc(String(x.student.id))}">Відкрити</button>
+        </div>
+        <div class="conflict-projects">
+          ${x.conflicts.slice(0,3).map(c=>`<div class="conflict-project">
+            <span class="dot" style="background:#ef4444"></span>
+            <div><b>${fullfmt(c.date)}</b><small>${c.events.map(e=>esc(pBy(e.projectId)?.name||"Проєкт")).join(" · ")}</small></div>
+          </div>`).join("")}
+          ${x.conflicts.length>3?`<div class="muted">+ ще ${x.conflicts.length-3}</div>`:""}
+        </div>
+      </article>`).join("")||'<div class="empty">Конфліктів немає.</div>'}
+    </div>
+  </div>`;
+
+  body.querySelector("#closeConflictDialog").onclick=()=>dialog.close();
+  body.querySelectorAll("[data-open-student-conflicts]").forEach(btn=>{
+    btn.onclick=()=>showStudentConflicts(btn.dataset.openStudentConflicts);
+  });
+
+  if(!dialog.open) dialog.showModal();
+}
+
+function showStudentConflicts(studentId){
+  const s=sBy(studentId); if(!s) return;
+  const conflicts=conflictEventsForStudent(studentId);
+  const dialog=ensureConflictDialog();
+  const body=dialog.querySelector("#conflictDialogBody");
+
+  body.innerHTML=`<div class="project-body">
+    <div class="project-section-head">
+      <div>
+        <span class="eyebrow">Конфлікти зайнятості</span>
+        <h2 style="margin:3px 0 0">${esc(s.name)}</h2>
+        <div class="muted">${conflicts.length?`${conflicts.length} конфліктних дат`:"Конфліктів немає"}</div>
+      </div>
+      <button class="ghost" id="closeConflictDialog">Закрити</button>
+    </div>
+
+    <div class="conflict-list">
+      ${conflicts.map((c,idx)=>{
+        const overlapLabels=[...new Set(c.overlaps.map(x=>x.overlap).filter(Boolean))];
+        return `<article class="conflict-card">
+          <div class="conflict-card-head">
+            <div>
+              <h3>${fullfmt(c.date)}</h3>
+              <div class="muted">${c.events.length} події накладаються</div>
+            </div>
+            <span class="conflict-overlap">⚠ ${esc(overlapLabels.join(", ")||"конфлікт")}</span>
+          </div>
+
+          <div class="conflict-projects">
+            ${c.events.map(e=>{
+              const p=pBy(e.projectId);
+              return `<div class="conflict-project">
+                <span class="dot" style="background:${p?.color||"#ef4444"}"></span>
+                <div>
+                  <b>${esc(p?.name||"Проєкт")} · ${esc(e.type||"Подія")}</b>
+                  <small>${esc(eventMetaText(e)||"Час не вказано")}${e.location?` · ${esc(e.location)}`:""}</small>
+                </div>
+              </div>`;
+            }).join("")}
+          </div>
+
+          <div class="conflict-actions">
+            <button type="button" class="ghost" data-conflict-date="${c.date}" data-conflict-student="${esc(String(s.id))}">
+              Показати в календарі
+            </button>
+          </div>
+        </article>`;
+      }).join("")||'<div class="empty">У цього студента конфліктів немає.</div>'}
+    </div>
+  </div>`;
+
+  body.querySelector("#closeConflictDialog").onclick=()=>dialog.close();
+  body.querySelectorAll("[data-conflict-date]").forEach(btn=>{
+    btn.onclick=()=>{
+      const date=btn.dataset.conflictDate;
+      const sid=btn.dataset.conflictStudent;
+      dialog.close();
+      openConflictInCalendar(sid,date);
+    };
+  });
+
+  if(!dialog.open) dialog.showModal();
+}
+
+function openConflictInCalendar(studentId,date){
+  switchView("calendar","Календар");
+
+  // Wait until the calendar has rendered, then set filters and re-render.
+  setTimeout(()=>{
+    const student=sBy(studentId);
+    const q=document.querySelector("#calStudent");
+    const period=document.querySelector("#calPeriod");
+    const gf=document.querySelector("#calGroup");
+
+    if(gf && student?.group) gf.value=student.group;
+    if(q) q.value=student?.name||"";
+
+    if(period){
+      const month=String(date||"").slice(0,7);
+      const option=[...period.options].find(o=>String(o.textContent||"").includes(
+        new Date(month+"-01T12:00:00").toLocaleDateString("uk-UA",{month:"long"})
+      ));
+      if(option) period.value=option.value;
+    }
+
+    // Trigger the same render chain already used by the page.
+    q?.dispatchEvent(new Event("input",{bubbles:true}));
+    gf?.dispatchEvent(new Event("change",{bubbles:true}));
+    period?.dispatchEvent(new Event("change",{bubbles:true}));
+
+    setTimeout(()=>{
+      const cell=document.querySelector(`[data-date="${CSS.escape(date)}"]`);
+      if(cell){
+        cell.classList.add("calendar-conflict-day");
+        cell.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});
+        setTimeout(()=>cell.classList.remove("calendar-conflict-day"),3500);
+      }
+    },120);
+  },80);
 }
 
 function nextStudentId(){
@@ -1561,6 +1900,7 @@ function dashboard(){
 
   $$(".week-day-card").forEach(x=>x.onclick=()=>showDay(x.dataset.date));
   $$(".dashboard-project-card").forEach(btn=>btn.onclick=()=>openProjectCard(btn.dataset.projectId));
+  document.querySelector("#openAllConflicts")?.addEventListener("click",showAllConflicts);
   updateAckIndicators().catch(console.error);
 }
 
@@ -2048,7 +2388,9 @@ function openStudent(id){
         <div class="profile-stats">
           <div class="profile-stat"><span class="muted">Проєктів</span><strong>${ps.length}</strong></div>
           <div class="profile-stat"><span class="muted">Зайнятих днів</span><strong>${countDays(id)}</strong></div>
-          <div class="profile-stat"><span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong></div>
+          <div class="profile-stat conflict-stat" id="studentConflictStat" role="button" tabindex="0" title="Показати конфлікти">
+  <span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong>
+</div>
         </div>
 
         <div class="profile-section">
@@ -3141,7 +3483,7 @@ function calendar(){
       <span class="summary-pill">Студентів у вибірці: <b>${students.length}</b></span>
       <span class="summary-pill">Зайнятих студентів: <b>${uniqueBusyStudents}</b></span>
       <span class="summary-pill">Заповнених клітинок: <b>${busyCells}</b></span>
-      <span class="summary-pill">Конфліктів: <b>${conflicts}</b></span>`;
+      <button type="button" class="summary-pill conflict-link" id="openAllConflicts">Конфліктів: <b>${conflicts}</b></button>`;
 
     const monthGroups={};
     dates.forEach(d=>{
@@ -3802,6 +4144,15 @@ async function industry(){
   });
   $$(".industry-edit").forEach(b=>b.onclick=()=>industryEditor(industryCache.find(x=>x.id===b.dataset.id)));
 }
+
+
+document.addEventListener("click",e=>{
+  const btn=e.target.closest("[data-student-conflicts]");
+  if(!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  showStudentConflicts(btn.dataset.studentConflicts);
+});
 
 const views={dashboard,students,projects,calendar,schedule,industry};
 
@@ -4512,7 +4863,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.4.1 · хмара ✓");
+    setStatus("v4.4.2 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4612,7 +4963,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.4.1 · хмара ✓");
+      setStatus("v4.4.2 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
