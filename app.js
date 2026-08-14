@@ -578,6 +578,63 @@
 
 
 
+
+(function injectTodayHighlightStylesV47(){
+  if(document.getElementById("remsTodayHighlightStylesV47")) return;
+  const st=document.createElement("style");
+  st.id="remsTodayHighlightStylesV47";
+  st.textContent=`
+    .rems-today{
+      position:relative!important;
+      outline:2px solid #111827!important;
+      outline-offset:-2px;
+      background:#fffbea!important;
+      box-shadow:0 0 0 4px rgba(17,24,39,.06)!important;
+    }
+    .rems-today::after{
+      content:"СЬОГОДНІ";
+      position:absolute;
+      top:6px;
+      right:6px;
+      z-index:3;
+      padding:3px 6px;
+      border-radius:999px;
+      background:#111827;
+      color:#fff;
+      font-size:8px;
+      line-height:1;
+      font-weight:900;
+      letter-spacing:.06em;
+      pointer-events:none;
+    }
+    .week-day-card.rems-today{
+      outline:2px solid #111827!important;
+      background:#fffbea!important;
+    }
+    .week-day-card.rems-today::after{top:5px;right:5px}
+  `;
+  document.head.appendChild(st);
+})();
+
+const localIsoDate=(d=new Date())=>{
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+};
+
+function markTodayInCurrentView(){
+  const today=localIsoDate();
+  document.querySelectorAll(".rems-today").forEach(el=>el.classList.remove("rems-today"));
+
+  // Preferred: any calendar element carrying the exact date.
+  document.querySelectorAll(`[data-date="${today}"]`).forEach(el=>el.classList.add("rems-today"));
+
+  // Calendar/schedule cells in this app also commonly expose date through data-day/date attributes.
+  document.querySelectorAll(`[data-day="${today}"],[data-calendar-date="${today}"]`)
+    .forEach(el=>el.classList.add("rems-today"));
+}
+
 (function injectConflictKpiStylesV46(){
   if(document.getElementById("remsConflictKpiStylesV46")) return;
   const st=document.createElement("style");
@@ -1163,7 +1220,7 @@ const save=async()=>{
     );
     cache();
     await syncExistingPersonalSchedules();
-    setStatus("v4.4.6 · хмара ✓");
+    setStatus("v4.4.7 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -1885,6 +1942,7 @@ function switchView(v,label){
   updateQuickAddForView(v);
   try{
     views[v]();
+    requestAnimationFrame(markTodayInCurrentView);
   }catch(err){
     console.error(`View "${v}" failed:`,err);
     app.innerHTML=`<div class="empty">Не вдалося відкрити розділ. Онови сторінку або перевір консоль.</div>`;
@@ -1896,6 +1954,7 @@ function refreshCurrentView(){
   updateQuickAddForView(v);
   try{
     views[v]();
+    requestAnimationFrame(markTodayInCurrentView);
   }catch(err){
     console.error(`Refresh view "${v}" failed:`,err);
   }
@@ -1904,7 +1963,7 @@ function dashboard(){
   const assigned=new Set(db.assignments.map(a=>String(a.studentId))).size;
   const conflicts=countConflicts();
   const todayDate=new Date(); todayDate.setHours(12,0,0,0);
-  const iso=d=>d.toISOString().slice(0,10);
+  const iso=d=>localIsoDate(d);
   const today=iso(todayDate);
   const weekDates=Array.from({length:7},(_,i)=>{const d=new Date(todayDate);d.setDate(d.getDate()+i);return iso(d);});
   const eventsOn=date=>db.events.filter(e=>e.date===date).map(e=>({event:e,project:pBy(e.projectId),students:studentsForEvent(e)})).filter(x=>x.project);
@@ -1934,7 +1993,7 @@ function dashboard(){
           ${weekDates.map(date=>{
             const dt=new Date(date+"T12:00:00"),evs=eventsOn(date);
             const busyIds=new Set(evs.flatMap(x=>x.students.map(s=>String(s.id))));
-            return `<button type="button" class="week-day-card ${date===today?"today":""}" data-date="${date}">
+            return `<button type="button" class="week-day-card ${date===today?"today rems-today":""}" data-date="${date}">
               <div class="week-day-head"><div><div class="week-day-name">${ukShort.format(dt)}</div><div class="week-day-num">${dt.getDate()}</div></div><div class="week-day-count">${evs.length} подій</div></div>
               <div class="week-event-list">${evs.slice(0,3).map(x=>`<div class="week-event-pill project-watermark" style="${projectWatermarkStyle(x.project)}">${projectWatermarkInner(x.project,`${eventTimeText(x.event)?`${esc(eventTimeText(x.event))} · `:""}${esc(x.project.name)} · ${esc(shortType(x.event.type))}`)}</div>`).join("")}${evs.length>3?`<div class="week-day-count">+ ще ${evs.length-3}</div>`:""}</div>
               <div class="week-free">${Math.max(0,db.students.length-busyIds.size)} вільних</div>
@@ -4972,7 +5031,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.4.6 · хмара ✓");
+    setStatus("v4.4.7 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -5072,7 +5131,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.4.6 · хмара ✓");
+      setStatus("v4.4.7 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
