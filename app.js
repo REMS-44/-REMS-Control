@@ -1112,7 +1112,7 @@ const save=async()=>{
     );
     cache();
     await syncExistingPersonalSchedules();
-    setStatus("v4.4.4 · хмара ✓");
+    setStatus("v4.4.5 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -2507,7 +2507,7 @@ function openStudent(id){
     };
 
     const monthNames={"01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень","07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"};
-    const months=["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"];
+    const months=["2026-08","2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"];
 
     const renderMonth=month=>{
       $$(".student-month-tab").forEach(b=>b.classList.toggle("active",b.dataset.month===month));
@@ -3462,7 +3462,8 @@ function calendar(){
   app.innerHTML=`
     <div class="calendar-toolbar">
       <select id="calPeriod">
-        <option value="year" selected>Увесь навчальний рік · вересень–травень</option>
+        <option value="year" selected>Увесь період · серпень–травень</option>
+        <option value="august" selected>Серпень 2026</option>
         <option value="autumn">Вересень–листопад</option>
         <option value="winter">Грудень–лютий</option>
         <option value="spring">Березень–травень</option>
@@ -3485,7 +3486,7 @@ function calendar(){
 
   const render=()=>{
     const period=$("#calPeriod").value;
-    const ranges={autumn:["2026-09-01","2026-11-30"],winter:["2026-12-01","2027-02-28"],spring:["2027-03-01","2027-05-31"],year:["2026-09-01","2027-05-31"]};
+    const ranges={august:["2026-08-01","2026-08-31"],autumn:["2026-09-01","2026-11-30"],winter:["2026-12-01","2027-02-28"],spring:["2027-03-01","2027-05-31"],year:["2026-08-01","2027-05-31"]};
     const [start,end]=ranges[period];
     const dates=datesBetween(start,end);
     const gf=$("#calGroup").value;
@@ -3538,7 +3539,7 @@ function calendar(){
     });
 
     const monthNames={
-      "2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
+      "2026-08":"Серпень 2026","2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
       "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027",
       "2027-03":"Березень 2027","2027-04":"Квітень 2027","2027-05":"Травень 2027"
     };
@@ -3594,10 +3595,11 @@ function schedule(){
     <div class="schedule-controls">
       <select id="schGroup">${groupOptionsHtml()}</select>
       <select id="schPeriod">
+        <option value="august">Серпень 2026</option>
         <option value="autumn">Вересень–листопад</option>
         <option value="winter">Грудень–лютий</option>
         <option value="spring">Березень–травень</option>
-        <option value="year">Вересень–травень</option>
+        <option value="year">Серпень–травень</option>
       </select>
       <select id="schWeekday">
         <option value="">Усі дні тижня</option>
@@ -3621,10 +3623,11 @@ function schedule(){
 
   const render=()=>{
     const ranges={
+      august:["2026-08-01","2026-08-31"],
       autumn:["2026-09-01","2026-11-30"],
       winter:["2026-12-01","2027-02-28"],
       spring:["2027-03-01","2027-05-31"],
-      year:["2026-09-01","2027-05-31"]
+      year:["2026-08-01","2027-05-31"]
     };
     const [start,end]=ranges[$("#schPeriod").value];
     const groupFilter=$("#schGroup").value;
@@ -3696,7 +3699,7 @@ function schedule(){
     });
 
     const monthNames={
-      "2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
+      "2026-08":"Серпень 2026","2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
       "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027",
       "2027-03":"Березень 2027","2027-04":"Квітень 2027","2027-05":"Травень 2027"
     };
@@ -4909,7 +4912,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.4.4 · хмара ✓");
+    setStatus("v4.4.5 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -5009,7 +5012,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.4.4 · хмара ✓");
+      setStatus("v4.4.5 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
