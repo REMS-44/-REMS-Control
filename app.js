@@ -1081,7 +1081,7 @@ const save=async()=>{
     );
     cache();
     await syncExistingPersonalSchedules();
-    setStatus("v4.4.2 · хмара ✓");
+    setStatus("v4.4.3 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -1459,11 +1459,11 @@ const conflictEventsForStudent=id=>{
   return out.sort((a,b)=>a.date.localeCompare(b.date));
 };
 
-const studentConflicts=id=>conflictEventsForStudent(id).length;
+const conflictDayCount=id=>conflictEventsForStudent(id).length;
 
 const countConflicts=()=>{
   let total=0;
-  (db.students||[]).forEach(s=>{ total+=studentConflicts(s.id); });
+  (db.students||[]).forEach(s=>{ total+=conflictDayCount(s.id); });
   return total;
 };
 
@@ -2389,7 +2389,7 @@ function openStudent(id){
           <div class="profile-stat"><span class="muted">Проєктів</span><strong>${ps.length}</strong></div>
           <div class="profile-stat"><span class="muted">Зайнятих днів</span><strong>${countDays(id)}</strong></div>
           <div class="profile-stat conflict-stat" id="studentConflictStat" role="button" tabindex="0" title="Показати конфлікти">
-  <span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong>
+  <span class="muted">Конфліктів</span><strong>${conflictDayCount(id)}</strong>
 </div>
         </div>
 
@@ -4863,7 +4863,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.4.2 · хмара ✓");
+    setStatus("v4.4.3 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4963,7 +4963,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.4.2 · хмара ✓");
+      setStatus("v4.4.3 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
