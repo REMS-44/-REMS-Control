@@ -638,68 +638,6 @@ let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null, functions=
 const projectUiState={};
 let currentView="dashboard";
 
-const CANONICAL_GROUP_BY_NAME = new Map([
-  ["вінцюк андрій олександрович", "РЕМС-44"],
-  ["власенко дар'я андріївна", "РЕМС-44"],
-  ["гострик катерина юріївна", "РЕМС-44"],
-  ["жолуденко поліна ігорівна", "РЕМС-44"],
-  ["заярна валерія сергіївна", "РЕМС-44"],
-  ["касєєв данило павлович", "РЕМС-44"],
-  ["колишкін андрій юрійович", "РЕМС-44"],
-  ["кохан ольга сергіївна", "РЕМС-44"],
-  ["кошелєва мирослава сергіївна", "РЕМС-44"],
-  ["краснянський ростислав віталійович", "РЕМС-44"],
-  ["міленіна марія олегівна", "РЕМС-44"],
-  ["мойсієнко віталіна денисівна", "РЕМС-44"],
-  ["неня анастасія миколаївна", "РЕМС-44"],
-  ["олейников данііл денисович", "РЕМС-44"],
-  ["позняк артур русланович", "РЕМС-44"],
-  ["рожанківська іванна орестівна", "РЕМС-44"],
-  ["чиньонова дар'я олексіївна", "РЕМС-44"],
-  ["баленко ілля вікторович", "РЕМС-34"],
-  ["вознюк олександра миколаївна", "РЕМС-34"],
-  ["волошина дар'я олександрівна", "РЕМС-34"],
-  ["давидова світлана олександрівна", "РЕМС-34"],
-  ["данільчук катерина павлівна", "РЕМС-34"],
-  ["дубина віолетта володимирівна", "РЕМС-34"],
-  ["карпенко рімма романівна", "РЕМС-34"],
-  ["кириленко михайло володимирович", "РЕМС-34"],
-  ["коткова анастасія андріївна", "РЕМС-34"],
-  ["кропивка маргарита анатоліївна", "РЕМС-34"],
-  ["лещинський денис віталійович", "РЕМС-34"],
-  ["максімова саміра вадимівна", "РЕМС-34"],
-  ["мороз марія геннадіївна", "РЕМС-34"],
-  ["мостова яна олегівна", "РЕМС-34"],
-  ["павлова катерина володимирівна", "РЕМС-34"],
-  ["піддубна марія анатоліївна", "РЕМС-34"],
-  ["ташута артем анатолійович", "РЕМС-34"]
-]);
-
-const normalizeGroupStudentName=v=>String(v||"")
-  .toLowerCase()
-  .replace(/[’`]/g,"'")
-  .replace(/\s+/g," ")
-  .trim();
-
-const availableGroups=()=>[...new Set(
-  (db.students||[]).map(s=>String(s.group||"").trim()).filter(Boolean)
-)];
-
-const groupOptionsHtml=(selected="",allLabel="Усі групи")=>
-  `<option value="">${allLabel}</option>`+
-  availableGroups().map(g=>`<option value="${esc(g)}" ${String(selected)===String(g)?"selected":""}>${esc(g)}</option>`).join("");
-
-const applyCanonicalStudentGroups=()=>{
-  let changed=false;
-  db.students=(db.students||[]).map(s=>{
-    const expected=CANONICAL_GROUP_BY_NAME.get(normalizeGroupStudentName(s.name));
-    if(!expected || String(s.group||"")===expected) return s;
-    changed=true;
-    return {...s,group:expected};
-  });
-  return changed;
-};
-
 const ACK_COLLECTION="rems_student_acknowledgements";
 const ackNameNorm=v=>String(v||"")
   .toLowerCase()
@@ -1030,7 +968,7 @@ const save=async()=>{
     );
     cache();
     await syncExistingPersonalSchedules();
-    setStatus("v4.2 · хмара ✓");
+    setStatus("v4.4 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -1337,14 +1275,171 @@ const eventAssignments=()=>{
 const countConflicts=()=>{
   const map=eventAssignments(); return Object.values(map).filter(v=>v.length>1).length;
 }
+
+function nextStudentId(){
+  const nums=(db.students||[])
+    .map(s=>Number(s.id))
+    .filter(Number.isFinite);
+  if(nums.length && nums.length===(db.students||[]).length){
+    return Math.max(0,...nums)+1;
+  }
+  return "s_"+Date.now();
+}
+
+function ensureNewStudentDialog(){
+  let dialog=document.querySelector("#newStudentDialog");
+  if(dialog) return dialog;
+
+  dialog=document.createElement("dialog");
+  dialog.id="newStudentDialog";
+  dialog.className="student-dialog";
+  dialog.innerHTML=`
+    <form id="newStudentForm" class="profile-edit-form" style="padding:22px;min-width:min(560px,88vw)">
+      <div class="profile-head">
+        <div>
+          <h2 style="margin:0">Новий студент</h2>
+          <div class="muted">Після збереження студент автоматично з’явиться на публічному сайті.</div>
+        </div>
+      </div>
+
+      <label class="full">ПІБ
+        <input id="newStudentName" required placeholder="Прізвище Ім’я По батькові">
+      </label>
+
+      <label>Група
+        <input id="newStudentGroup" required list="newStudentGroupOptions" placeholder="Напр. РЕМС-24">
+        <datalist id="newStudentGroupOptions">
+          ${availableGroups().map(g=>`<option value="${esc(g)}"></option>`).join("")}
+        </datalist>
+      </label>
+
+      <label>Дата народження
+        <input id="newStudentBirthDate" type="date">
+      </label>
+
+      <label>Телефон
+        <input id="newStudentPhone" placeholder="+380...">
+      </label>
+
+      <label>Email
+        <input id="newStudentEmail" type="email">
+      </label>
+
+      <label class="full">Фото
+        <input id="newStudentPhoto" type="file" accept="image/*">
+      </label>
+
+      <div class="full profile-actions">
+        <button type="button" class="ghost" id="cancelNewStudent">Скасувати</button>
+        <button type="submit" class="primary">Додати студента</button>
+      </div>
+    </form>`;
+
+  document.body.appendChild(dialog);
+
+  dialog.querySelector("#cancelNewStudent").onclick=()=>{
+    dialog.close();
+    dialog.querySelector("#newStudentForm").reset();
+  };
+
+  dialog.addEventListener("cancel",()=>{
+    dialog.querySelector("#newStudentForm").reset();
+  });
+
+  dialog.querySelector("#newStudentForm").onsubmit=async e=>{
+    e.preventDefault();
+
+    const name=dialog.querySelector("#newStudentName").value.trim();
+    const group=dialog.querySelector("#newStudentGroup").value.trim();
+    if(!name || !group) return;
+
+    const norm=v=>String(v||"").toLowerCase().replace(/[’'`]/g,"").replace(/\s+/g," ").trim();
+    if((db.students||[]).some(s=>norm(s.name)===norm(name))){
+      alert("Студент із таким ПІБ уже є.");
+      return;
+    }
+
+    const submit=e.submitter;
+    if(submit){submit.disabled=true;submit.textContent="Додавання…";}
+
+    const student={
+      id:nextStudentId(),
+      name,
+      group,
+      birthDate:dialog.querySelector("#newStudentBirthDate").value||"",
+      phone:dialog.querySelector("#newStudentPhone").value.trim(),
+      email:dialog.querySelector("#newStudentEmail").value.trim(),
+      publicProfile:{
+        role:"Режисер/ка естради і шоу",
+        photo:"",
+        bio:[],
+        skills:[],
+        achievements:[],
+        socials:{instagram:"",tiktok:"",youtube:"",telegram:"",facebook:"",email:""},
+        videos:[],
+        gallery:[],
+        published:true
+      }
+    };
+
+    db.students.push(student);
+
+    try{
+      const ok=await save();
+      if(!ok) throw new Error("Не вдалося зберегти студента у хмарі.");
+
+      const photoFile=dialog.querySelector("#newStudentPhoto")?.files?.[0];
+      if(photoFile){
+        const photoData=await compressStudentPhoto(photoFile);
+        await saveStudentMedia(student,photoData);
+      }
+
+      // New students are public by default so the site picks them up automatically.
+      await publishOnePublicProfile(student);
+
+      dialog.close();
+      dialog.querySelector("#newStudentForm").reset();
+      switchView("students","Студенти");
+    }catch(err){
+      db.students=db.students.filter(s=>String(s.id)!==String(student.id));
+      cache();
+      console.error(err);
+      alert(err.message||"Не вдалося додати студента.");
+    }finally{
+      if(submit){submit.disabled=false;submit.textContent="Додати студента";}
+    }
+  };
+
+  return dialog;
+}
+
+function openNewStudentDialog(){
+  const dialog=ensureNewStudentDialog();
+  const groupInput=dialog.querySelector("#newStudentGroup");
+  if(groupInput && !groupInput.value && availableGroups().length===1){
+    groupInput.value=availableGroups()[0];
+  }
+  dialog.showModal();
+}
+
 function updateQuickAddForView(v){
   const btn=$("#quickAdd");
   if(!btn) return;
-  if(v==="industry"){
+
+  btn.hidden=false;
+  btn.disabled=!cloudReady;
+
+  if(v==="students"){
+    btn.textContent="+ Новий студент";
+    btn.title="Додати нового студента";
+  }else if(v==="projects"){
+    btn.textContent="+ Новий проєкт";
+    btn.title="Створити новий проєкт";
+  }else if(v==="industry"){
     btn.textContent="+ Нова зустріч";
     btn.title="Створити новий матеріал «Зустріч із індустрією»";
   }else{
-    btn.textContent="+ Новий проєкт";
+    btn.hidden=true;
     btn.title="";
   }
 }
@@ -2153,12 +2248,12 @@ function editPublicProfile(id){
       const updated=sBy(id);
       if(updated && sharedPhotoData!==null) await saveStudentMedia(updated,sharedPhotoData);
       if(updated) await publishOnePublicProfile(updated);
-      alert(next.published?"Профіль опубліковано на REMS-44.":"Профіль збережено, але він прихований з REMS-44.");
+      alert(next.published?"Профіль опубліковано на сайті.":"Профіль збережено, але він прихований із сайту.");
       openStudent(id);
     }catch(err){
       console.error(err);
       if(submit){submit.disabled=false;submit.textContent="Зберегти й опублікувати";}
-      alert("У Control зміни збережені, але публікація на REMS-44 заблокована правилами Firestore. Встанови правила з пакета v3.0.");
+      alert("У Control зміни збережені, але публікація на сайт заблокована правилами Firestore. Встанови правила з пакета v3.0.");
     }
   };
 }
@@ -2182,7 +2277,7 @@ function editStudent(id){
         <div class="shared-photo-controls">
           <b>Спільне фото студента</b>
           <input id="studentPhotoFile" type="file" accept="image/*">
-          <span class="muted">Одне фото для REMS Control і REMS-44.</span>
+          <span class="muted">Одне фото для REMS Control і публічного сайту.</span>
           <input id="stPhoto" value="${esc(s.photoUrl||"")}" placeholder="Або старе посилання https://...">
           <button type="button" class="ghost" id="removeStudentPhoto">Прибрати фото</button>
         </div>
@@ -2269,6 +2364,18 @@ function editStudent(id){
     if(!updated){
       alert("Картку збережено, але не вдалося відкрити студента.");
       return;
+    }
+
+    // If a student already exists in the public gallery, preserve publication.
+    // For a student without a public profile, ordinary card edits make the profile public
+    // so group/name changes propagate automatically to the site.
+    const existingPublic=publicProfileFor(updated);
+    if(existingPublic && existingPublic.published!==true){
+      updated.publicProfile={...existingPublic,published:true};
+      db.students=db.students.map(student =>
+        String(student.id)===String(id) ? updated : student
+      );
+      await save();
     }
 
     if(pendingPhotoData!==null){
@@ -3689,17 +3796,37 @@ $("#quickAdd").onclick=()=>{
     alert("Зачекайте кілька секунд: REMS Control ще завантажує хмарну базу.");
     return;
   }
+
+  if(currentView==="students"){
+    openNewStudentDialog();
+    return;
+  }
+
+  if(currentView==="projects"){
+    $("#projectForm")?.reset();
+    $("#projectDialog").showModal();
+    return;
+  }
+
   if(currentView==="industry"){
     industryEditor();
     return;
   }
-  $("#projectDialog").showModal();
 };
 ensureNewProjectLogoField();
 
+$("#cancelProjectCreate").onclick=()=>{
+  $("#projectDialog").close();
+  $("#projectForm").reset();
+};
+
+$("#projectDialog").addEventListener("cancel",()=>{
+  $("#projectForm").reset();
+});
+
 $("#saveProject").onclick=async e=>{
   e.preventDefault();
-  const name=$("#projectName").value.trim(); if(!name)return;
+  const name=$("#projectName").value.trim(); if(!name){alert("Вкажи назву проєкту.");return;}
   const btn=e.currentTarget;
   btn.disabled=true; btn.textContent="Збереження…";
   try{
@@ -4360,23 +4487,9 @@ functions=getFunctions(firebaseApp,"europe-west1");
       await setDoc(ref,{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});
     }
 
-    const groupsChanged=applyCanonicalStudentGroups();
-    if(groupsChanged){
-      cache();
-      await setDoc(ref,{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});
-    }
-
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.1.2 · хмара ✓");
-
-    if(groupsChanged){
-      try{
-        for(const s of db.students){
-          if(publicProfileFor(s)?.published===true) await publishOnePublicProfile(s);
-        }
-      }catch(err){ console.error("Group republish failed:",err); }
-    }
+    setStatus("v4.4 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4476,7 +4589,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.1.2 · хмара ✓");
+      setStatus("v4.4 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
