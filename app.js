@@ -576,6 +576,25 @@
 })();
 
 
+
+(function injectConflictButtonFixV44(){
+  if(document.getElementById("remsConflictButtonFixV44")) return;
+  const st=document.createElement("style");
+  st.id="remsConflictButtonFixV44";
+  st.textContent=`
+    button.notice.conflict-link{
+      width:100%;
+      display:block;
+      text-align:left;
+      font:inherit;
+      cursor:pointer;
+      border:1px solid #fecaca;
+    }
+    button.notice.conflict-link:hover{filter:brightness(.98)}
+  `;
+  document.head.appendChild(st);
+})();
+
 (function injectConflictNavigatorStylesV42(){
   if(document.getElementById("remsConflictNavigatorStylesV42")) return;
   const st=document.createElement("style");
@@ -597,6 +616,18 @@
     .profile-stat.conflict-stat{
       cursor:pointer;
       transition:.15s ease;
+      position:relative;
+      box-shadow:inset 0 0 0 1px #fecaca;
+      background:#fffafa;
+    }
+    .profile-stat.conflict-stat::after{
+      content:"Відкрити →";
+      display:block;
+      margin-top:5px;
+      font-size:9px;
+      font-weight:800;
+      color:#b91c1c;
+      letter-spacing:.02em;
     }
     .profile-stat.conflict-stat:hover{
       background:#fff7f7;
@@ -1081,7 +1112,7 @@ const save=async()=>{
     );
     cache();
     await syncExistingPersonalSchedules();
-    setStatus("v4.4.3 · хмара ✓");
+    setStatus("v4.4.4 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -1862,7 +1893,7 @@ function dashboard(){
       </div>
     </div>
 
-    ${conflicts?`<div class="notice warn">⚠️ Знайдено конфліктів: <b>${conflicts}</b>.</div>`:`<div class="notice ok">✓ Конфліктів у поточних призначеннях не знайдено.</div>`}
+    ${conflicts?`<button type="button" class="notice warn conflict-link" id="openAllConflicts">⚠️ Знайдено конфліктів: <b>${conflicts}</b>. Натисни, щоб переглянути</button>`:`<div class="notice ok">✓ Конфліктів у поточних призначеннях не знайдено.</div>`}
 
     <div class="grid kpis">
       <div class="card kpi"><span>Студентів</span><strong>${db.students.length}</strong></div>
@@ -2425,6 +2456,19 @@ function openStudent(id){
 
     $("#closeStudentBtn").onclick=()=>dialog.close();
     $("#editStudentBtn").onclick=()=>editStudent(id);
+    $("#editPublicProfileBtn").onclick=()=>editPublicProfile(id);
+
+    const conflictStat=$("#studentConflictStat");
+    if(conflictStat){
+      conflictStat.onclick=()=>showStudentConflicts(id);
+      conflictStat.onkeydown=e=>{
+        if(e.key==="Enter"||e.key===" "){
+          e.preventDefault();
+          showStudentConflicts(id);
+        }
+      };
+    }
+
     $("#editPublicProfileBtn").onclick=()=>editPublicProfile(id);
     $("#personalScheduleBtn").onclick=async()=>{
       const btn=$("#personalScheduleBtn");
@@ -3484,6 +3528,8 @@ function calendar(){
       <span class="summary-pill">Зайнятих студентів: <b>${uniqueBusyStudents}</b></span>
       <span class="summary-pill">Заповнених клітинок: <b>${busyCells}</b></span>
       <button type="button" class="summary-pill conflict-link" id="openAllConflicts">Конфліктів: <b>${conflicts}</b></button>`;
+
+    document.querySelector("#openAllConflicts")?.addEventListener("click",showAllConflicts);
 
     const monthGroups={};
     dates.forEach(d=>{
@@ -4863,7 +4909,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.4.3 · хмара ✓");
+    setStatus("v4.4.4 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4963,7 +5009,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.4.3 · хмара ✓");
+      setStatus("v4.4.4 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
