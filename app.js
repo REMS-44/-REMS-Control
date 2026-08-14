@@ -577,6 +577,57 @@
 
 
 
+
+(function injectConflictKpiStylesV46(){
+  if(document.getElementById("remsConflictKpiStylesV46")) return;
+  const st=document.createElement("style");
+  st.id="remsConflictKpiStylesV46";
+  st.textContent=`
+    button.kpi.conflict-kpi{
+      appearance:none;
+      width:100%;
+      text-align:left;
+      font:inherit;
+      cursor:pointer;
+      color:inherit;
+      border:1px solid #fecaca;
+      background:linear-gradient(145deg,#fffafa,#fff5f5);
+      position:relative;
+      overflow:hidden;
+      transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+    }
+    button.kpi.conflict-kpi::before{
+      content:"";
+      position:absolute;
+      top:0;left:0;bottom:0;
+      width:4px;
+      background:#ef4444;
+    }
+    button.kpi.conflict-kpi:hover{
+      transform:translateY(-2px);
+      box-shadow:0 10px 26px rgba(127,29,29,.10);
+      border-color:#fca5a5;
+    }
+    .conflict-kpi small{
+      display:block;
+      margin-top:7px;
+      font-size:10px;
+      font-weight:800;
+      color:#b91c1c;
+      letter-spacing:.02em;
+    }
+    .conflict-kpi.is-clear{
+      border-color:#d1fae5;
+      background:linear-gradient(145deg,#fbfffd,#f0fdf4);
+    }
+    .conflict-kpi.is-clear small{color:#047857}
+    @media (min-width:1100px){
+      .grid.kpis{grid-template-columns:repeat(5,minmax(0,1fr));}
+    }
+  `;
+  document.head.appendChild(st);
+})();
+
 (function injectConflictButtonFixV44(){
   if(document.getElementById("remsConflictButtonFixV44")) return;
   const st=document.createElement("style");
@@ -1112,7 +1163,7 @@ const save=async()=>{
     );
     cache();
     await syncExistingPersonalSchedules();
-    setStatus("v4.4.5 · хмара ✓");
+    setStatus("v4.4.6 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -1893,13 +1944,22 @@ function dashboard(){
       </div>
     </div>
 
-    ${conflicts?`<button type="button" class="notice warn conflict-link" id="openAllConflicts">⚠️ Знайдено конфліктів: <b>${conflicts}</b>. Натисни, щоб переглянути</button>`:`<div class="notice ok">✓ Конфліктів у поточних призначеннях не знайдено.</div>`}
-
     <div class="grid kpis">
       <div class="card kpi"><span>Студентів</span><strong>${db.students.length}</strong></div>
       <div class="card kpi"><span>Проєктів</span><strong>${db.projects.length}</strong></div>
       <div class="card kpi"><span>Задіяно студентів</span><strong>${assigned}</strong></div>
       <div class="card kpi"><span>Подій у базі</span><strong>${db.events.length}</strong></div>
+      ${conflicts
+        ? `<button type="button" class="card kpi conflict-kpi" id="openAllConflicts" title="Переглянути конфлікти">
+             <span>Конфліктів</span>
+             <strong>${conflicts}</strong>
+             <small>Переглянути →</small>
+           </button>`
+        : `<div class="card kpi conflict-kpi is-clear">
+             <span>Конфліктів</span>
+             <strong>0</strong>
+             <small>Усе чисто</small>
+           </div>`}
     </div>
 
     <div class="ack-dashboard card">
@@ -4912,7 +4972,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.4.5 · хмара ✓");
+    setStatus("v4.4.6 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -5012,7 +5072,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.4.5 · хмара ✓");
+      setStatus("v4.4.6 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
