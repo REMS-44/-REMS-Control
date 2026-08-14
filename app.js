@@ -638,6 +638,68 @@ let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null, functions=
 const projectUiState={};
 let currentView="dashboard";
 
+const CANONICAL_GROUP_BY_NAME = new Map([
+  ["вінцюк андрій олександрович", "РЕМС-44"],
+  ["власенко дар'я андріївна", "РЕМС-44"],
+  ["гострик катерина юріївна", "РЕМС-44"],
+  ["жолуденко поліна ігорівна", "РЕМС-44"],
+  ["заярна валерія сергіївна", "РЕМС-44"],
+  ["касєєв данило павлович", "РЕМС-44"],
+  ["колишкін андрій юрійович", "РЕМС-44"],
+  ["кохан ольга сергіївна", "РЕМС-44"],
+  ["кошелєва мирослава сергіївна", "РЕМС-44"],
+  ["краснянський ростислав віталійович", "РЕМС-44"],
+  ["міленіна марія олегівна", "РЕМС-44"],
+  ["мойсієнко віталіна денисівна", "РЕМС-44"],
+  ["неня анастасія миколаївна", "РЕМС-44"],
+  ["олейников данііл денисович", "РЕМС-44"],
+  ["позняк артур русланович", "РЕМС-44"],
+  ["рожанківська іванна орестівна", "РЕМС-44"],
+  ["чиньонова дар'я олексіївна", "РЕМС-44"],
+  ["баленко ілля вікторович", "РЕМС-34"],
+  ["вознюк олександра миколаївна", "РЕМС-34"],
+  ["волошина дар'я олександрівна", "РЕМС-34"],
+  ["давидова світлана олександрівна", "РЕМС-34"],
+  ["данільчук катерина павлівна", "РЕМС-34"],
+  ["дубина віолетта володимирівна", "РЕМС-34"],
+  ["карпенко рімма романівна", "РЕМС-34"],
+  ["кириленко михайло володимирович", "РЕМС-34"],
+  ["коткова анастасія андріївна", "РЕМС-34"],
+  ["кропивка маргарита анатоліївна", "РЕМС-34"],
+  ["лещинський денис віталійович", "РЕМС-34"],
+  ["максімова саміра вадимівна", "РЕМС-34"],
+  ["мороз марія геннадіївна", "РЕМС-34"],
+  ["мостова яна олегівна", "РЕМС-34"],
+  ["павлова катерина володимирівна", "РЕМС-34"],
+  ["піддубна марія анатоліївна", "РЕМС-34"],
+  ["ташута артем анатолійович", "РЕМС-34"]
+]);
+
+const normalizeGroupStudentName=v=>String(v||"")
+  .toLowerCase()
+  .replace(/[’`]/g,"'")
+  .replace(/\s+/g," ")
+  .trim();
+
+const availableGroups=()=>[...new Set(
+  (db.students||[]).map(s=>String(s.group||"").trim()).filter(Boolean)
+)];
+
+const groupOptionsHtml=(selected="",allLabel="Усі групи")=>
+  `<option value="">${allLabel}</option>`+
+  availableGroups().map(g=>`<option value="${esc(g)}" ${String(selected)===String(g)?"selected":""}>${esc(g)}</option>`).join("");
+
+const applyCanonicalStudentGroups=()=>{
+  let changed=false;
+  db.students=(db.students||[]).map(s=>{
+    const expected=CANONICAL_GROUP_BY_NAME.get(normalizeGroupStudentName(s.name));
+    if(!expected || String(s.group||"")===expected) return s;
+    changed=true;
+    return {...s,group:expected};
+  });
+  return changed;
+};
+
 const ACK_COLLECTION="rems_student_acknowledgements";
 const ackNameNorm=v=>String(v||"")
   .toLowerCase()
@@ -1212,7 +1274,7 @@ const sanitizePublicProfile=(s,profile)=>{
   const pid=publicProfileIdFor(s)||profile?.id;
   if(!pid) return null;
   return {
-    id:pid,name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),published:profile?.published===true,
+    id:pid,name:String(profile?.name||s?.name||"").trim(),group:String(s?.group||profile?.group||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),published:profile?.published===true,
     bio:Array.isArray(profile?.bio)?profile.bio.map(x=>String(x).trim()).filter(Boolean):[],
     skills:Array.isArray(profile?.skills)?profile.skills.map(x=>String(x).trim()).filter(Boolean):[],
     achievements:Array.isArray(profile?.achievements)?profile.achievements.map(x=>String(x).trim()).filter(Boolean):[],
@@ -1706,6 +1768,7 @@ function students(){
   app.innerHTML=`
     <div class="toolbar">
       <input id="studentSearch" placeholder="Пошук студента...">
+      <select id="studentGroupFilter">${groupOptionsHtml()}</select>
       <select id="studentProjectFilter">
         <option value="">Усі проєкти</option>
         ${db.projects.map(p=>`<option value="${esc(String(p.id))}">${esc(p.name)}</option>`).join("")}
@@ -1717,10 +1780,12 @@ function students(){
 
   const render=()=>{
     const q=($("#studentSearch").value||"").toLowerCase().trim();
+    const gf=$("#studentGroupFilter").value;
     const pf=$("#studentProjectFilter").value;
 
     const rows=db.students.filter(s=>{
       if(!String(s.name||"").toLowerCase().includes(q)) return false;
+      if(gf && String(s.group||"")!==gf) return false;
       if(!pf) return true;
       return studentProjects(s.id).some(p=>String(p.id)===String(pf));
     });
@@ -1758,6 +1823,7 @@ function students(){
   };
 
   $("#studentSearch").oninput=render;
+  $("#studentGroupFilter").onchange=render;
   $("#studentProjectFilter").onchange=render;
   $("#recoverStudentsBtn").onclick=recoverStudentsFromFirebase;
   $("#cleanupStudentsBtn").onclick=cleanupStudentDuplicates;
@@ -2102,6 +2168,10 @@ function editStudent(id){
   $("#studentDialogBody").innerHTML=`<div class="student-profile">
     <div class="profile-head"><div><h2>Редагувати картку</h2><div class="muted">${esc(s.name)}</div></div></div>
     <form id="studentEditForm" class="profile-edit-form" style="margin-top:18px">
+      <label>Група
+        <input id="stGroup" list="studentGroupOptions" value="${esc(s.group||"")}" placeholder="Напр. РЕМС-24">
+        <datalist id="studentGroupOptions">${availableGroups().map(g=>`<option value="${esc(g)}"></option>`).join("")}</datalist>
+      </label>
       <label>Телефон<input id="stPhone" value="${esc(s.phone||"")}" placeholder="+380..."></label>
       <label>Email<input id="stEmail" type="email" value="${esc(s.email||"")}"></label>
       <label>Дата народження<input id="stBirthDate" type="date" value="${esc(s.birthDate||"")}"></label>
@@ -2156,6 +2226,7 @@ function editStudent(id){
     }
 
     const patch={
+      group:$("#stGroup").value.trim(),
       phone:$("#stPhone").value.trim(),
       email:$("#stEmail").value.trim(),
       birthDate:$("#stBirthDate").value,
@@ -2880,6 +2951,7 @@ function calendar(){
         <option value="winter">Грудень–лютий</option>
         <option value="spring">Березень–травень</option>
       </select>
+      <select id="calGroup">${groupOptionsHtml()}</select>
       <select id="calProject"><option value="">Усі проєкти</option>${db.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
       <input id="calStudent" placeholder="Пошук студента...">
       <select id="calType">
@@ -2900,11 +2972,13 @@ function calendar(){
     const ranges={autumn:["2026-09-01","2026-11-30"],winter:["2026-12-01","2027-02-28"],spring:["2027-03-01","2027-05-31"],year:["2026-09-01","2027-05-31"]};
     const [start,end]=ranges[period];
     const dates=datesBetween(start,end);
+    const gf=$("#calGroup").value;
     const pf=$("#calProject").value;
     const q=$("#calStudent").value.toLowerCase().trim();
     const tf=$("#calType").value.toLowerCase();
 
     const students=db.students.filter(s=>{
+      if(gf && String(s.group||"")!==gf) return false;
       if(!s.name.toLowerCase().includes(q)) return false;
       if(!pf) return true;
       return db.events.some(e=>e.projectId===pf && studentsForEvent(e).some(x=>x.id===s.id));
@@ -2990,6 +3064,7 @@ function calendar(){
   };
 
   $("#calPeriod").onchange=render;
+  $("#calGroup").onchange=render;
   $("#calProject").onchange=render;
   $("#calStudent").oninput=render;
   $("#calType").onchange=render;
@@ -2999,6 +3074,7 @@ function calendar(){
 function schedule(){
   app.innerHTML=`
     <div class="schedule-controls">
+      <select id="schGroup">${groupOptionsHtml()}</select>
       <select id="schPeriod">
         <option value="autumn">Вересень–листопад</option>
         <option value="winter">Грудень–лютий</option>
@@ -3033,6 +3109,9 @@ function schedule(){
       year:["2026-09-01","2027-05-31"]
     };
     const [start,end]=ranges[$("#schPeriod").value];
+    const groupFilter=$("#schGroup").value;
+    const cohort=(db.students||[]).filter(s=>!groupFilter||String(s.group||"")===groupFilter);
+    const cohortIds=new Set(cohort.map(s=>String(s.id)));
     const weekday=$("#schWeekday").value;
     const minFree=+$("#schMinFree").value;
 
@@ -3046,13 +3125,13 @@ function schedule(){
       db.events.filter(e=>e.date===date).forEach(e=>{
         const p=pBy(e.projectId);
         if(!p) return;
-        const assigned=studentsForEvent(e);
+        const assigned=studentsForEvent(e).filter(s=>cohortIds.has(String(s.id)));
         assigned.forEach(s=>busyIds.add(s.id));
         if(assigned.length) reasons[p.name]=(reasons[p.name]||0)+assigned.length;
       });
 
       const busy=busyIds.size;
-      const free=Math.max(0,db.students.length-busy);
+      const free=Math.max(0,cohort.length-busy);
       let cls="schedule-score-best",label="ІДЕАЛЬНО",dayClass="best";
       if(busy>=10){cls="schedule-score-hard";label="СКЛАДНО";dayClass="hard";}
       else if(busy>=5){cls="schedule-score-good";label="МОЖНА";dayClass="";}
@@ -3086,7 +3165,7 @@ function schedule(){
             const wd=new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long"});
             return `<button class="recommended-item schedule-open-day" data-date="${d}">
               <b>${fullfmt(d)}</b><br>
-              <span class="schedule-note">${wd} · ${stats[d].free} вільних із ${db.students.length}</span>
+              <span class="schedule-note">${wd} · ${stats[d].free} вільних із ${cohort.length}</span>
             </button>`;
           }).join("")}
         </div>
@@ -4281,9 +4360,23 @@ functions=getFunctions(firebaseApp,"europe-west1");
       await setDoc(ref,{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});
     }
 
+    const groupsChanged=applyCanonicalStudentGroups();
+    if(groupsChanged){
+      cache();
+      await setDoc(ref,{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});
+    }
+
     cloudReady=true;
     setWriteUiReady(true);
     setStatus("v4.1.2 · хмара ✓");
+
+    if(groupsChanged){
+      try{
+        for(const s of db.students){
+          if(publicProfileFor(s)?.published===true) await publishOnePublicProfile(s);
+        }
+      }catch(err){ console.error("Group republish failed:",err); }
+    }
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
