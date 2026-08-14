@@ -638,6 +638,19 @@ let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null, functions=
 const projectUiState={};
 let currentView="dashboard";
 
+const availableGroups=()=>[...new Set(
+  (db.students||[])
+    .map(s=>String(s.group||"").trim())
+    .filter(Boolean)
+)].sort((a,b)=>a.localeCompare(b,"uk"));
+
+const groupOptionsHtml=(selected="",allLabel="Усі групи")=>
+  `<option value="">${allLabel}</option>`+
+  availableGroups()
+    .map(g=>`<option value="${esc(g)}" ${String(selected)===String(g)?"selected":""}>${esc(g)}</option>`)
+    .join("");
+
+
 const ACK_COLLECTION="rems_student_acknowledgements";
 const ackNameNorm=v=>String(v||"")
   .toLowerCase()
@@ -968,7 +981,7 @@ const save=async()=>{
     );
     cache();
     await syncExistingPersonalSchedules();
-    setStatus("v4.4 · хмара ✓");
+    setStatus("v4.4.1 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -1444,17 +1457,27 @@ function updateQuickAddForView(v){
   }
 }
 function switchView(v,label){
+  if(!views[v]) return;
   currentView=v;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
   $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад",industry:"Зустріч із індустрією"}[v]);
   updateQuickAddForView(v);
-  views[v]();
+  try{
+    views[v]();
+  }catch(err){
+    console.error(`View "${v}" failed:`,err);
+    app.innerHTML=`<div class="empty">Не вдалося відкрити розділ. Онови сторінку або перевір консоль.</div>`;
+  }
 }
 function refreshCurrentView(){
   const v=currentView && views[currentView] ? currentView : (document.querySelector(".nav.active")?.dataset.view||"dashboard");
   currentView=v;
   updateQuickAddForView(v);
-  views[v]();
+  try{
+    views[v]();
+  }catch(err){
+    console.error(`Refresh view "${v}" failed:`,err);
+  }
 }
 function dashboard(){
   const assigned=new Set(db.assignments.map(a=>String(a.studentId))).size;
@@ -4489,7 +4512,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.4 · хмара ✓");
+    setStatus("v4.4.1 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4558,9 +4581,9 @@ functions=getFunctions(firebaseApp,"europe-west1");
       if(seededJesc) localStorage.setItem("rems_jesc_seed_v2","1");
     }
 
-    currentView="dashboard";
+    currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
     try{
-      dashboard();
+      refreshCurrentView();
     }catch(renderErr){
       console.error("Dashboard render error:",renderErr);
       // UI rendering errors must not disable a healthy Firebase connection.
@@ -4589,7 +4612,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.4 · хмара ✓");
+      setStatus("v4.4.1 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
