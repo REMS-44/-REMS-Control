@@ -2,100 +2,6 @@
 .industry-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}.industry-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px;display:grid;gap:9px}.industry-card img,.industry-card-empty{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:11px;background:#111318;color:#fff;display:grid;place-items:center;font-size:32px}.industry-card-meta{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em}.industry-card h3,.industry-card p{margin:0}.industry-card p{color:#6b7280;font-size:12px}.industry-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-top:16px}.industry-form-grid label,.industry-block label{display:grid;gap:6px;font-size:12px;color:#374151}.industry-form-grid input,.industry-form-grid textarea,.industry-block input,.industry-block textarea{width:100%;border:1px solid #dfe3e8;border-radius:10px;padding:10px;font:inherit}.industry-form-grid textarea,.industry-block textarea{min-height:110px;resize:vertical}.industry-form-grid .full{grid-column:1/-1}.industry-publish{display:flex!important;grid-template-columns:auto 1fr!important;align-items:center;gap:10px;padding:12px;background:#f8fafc;border-radius:12px}.industry-publish input{width:20px!important;height:20px}.industry-publish span{display:grid}.industry-publish small{color:#6b7280}.industry-builder{margin-top:18px}.industry-addbar{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 14px}.industry-block{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:13px;margin-bottom:10px;display:grid;gap:9px}.industry-block-head{display:flex;justify-content:space-between;align-items:center}.industry-block-head>div{display:flex;gap:5px}.industry-file{background:#f8fafc;padding:9px;border-radius:9px}.ib-progress{font-size:11px;color:#4b5563}.industry-media-preview{margin-top:7px;width:160px;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:#eef1f4;display:none}.industry-media-preview.has-image{display:block}.industry-media-preview img{width:100%;height:100%;object-fit:cover;display:block}.industry-file input[type=file]{margin-top:4px}.industry-savebar{position:sticky;bottom:12px;background:#fffffff2;border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-top:16px;display:flex;justify-content:space-between;z-index:5}.danger{border:0;background:#fee2e2;color:#991b1b;border-radius:10px;padding:9px 12px;font-weight:700}.loading{padding:30px;color:#6b7280}@media(max-width:700px){.industry-form-grid{grid-template-columns:1fr}.industry-form-grid .full{grid-column:auto}}
 `;document.head.appendChild(s)})();
 
-
-(function injectAcknowledgementStylesV52(){
-  if(document.getElementById("remsAcknowledgementStylesV52")) return;
-  const st=document.createElement("style");
-  st.id="remsAcknowledgementStylesV52";
-  st.textContent=`
-    .project-ack-line{
-      margin-top:6px;
-      font-size:11px;
-      color:#4b5563;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      gap:5px;
-      padding:4px 7px;
-      border-radius:8px;
-      background:#f3f4f6;
-    }
-    .project-ack-line:hover{background:#e5e7eb}
-    [data-project-ack-count].complete{color:#15803d}
-    .ack-dashboard{margin-top:18px;padding:16px}
-    #ackDashboardList{display:grid;gap:8px}
-    .ack-dashboard-item{
-      width:100%;
-      border:1px solid #e5e7eb;
-      background:#fff;
-      border-radius:12px;
-      padding:10px 12px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      text-align:left;
-      font:inherit;
-      cursor:pointer;
-    }
-    .ack-dashboard-item:hover{background:#f8fafc}
-    .ack-dashboard-item span{display:grid;gap:3px}
-    .ack-dashboard-item small{color:#6b7280}
-    .ack-dashboard-item strong{
-      flex:0 0 auto;
-      font-size:15px;
-      padding:5px 8px;
-      border-radius:999px;
-      background:#f3f4f6;
-    }
-    .ack-summary-list{display:grid;gap:10px;margin-top:16px}
-    .ack-summary-row{
-      border:1px solid #e5e7eb;
-      border-radius:13px;
-      overflow:hidden;
-      background:#fff;
-    }
-    .ack-summary-main{
-      width:100%;
-      border:0;
-      background:#fff;
-      padding:12px 14px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      text-align:left;
-      font:inherit;
-      cursor:pointer;
-    }
-    .ack-summary-main:hover{background:#f8fafc}
-    .ack-summary-main span{display:grid;gap:3px}
-    .ack-summary-main small{color:#6b7280}
-    .ack-summary-main strong{
-      font-size:16px;
-      padding:5px 9px;
-      border-radius:999px;
-      background:#f3f4f6;
-    }
-    .ack-summary-main strong.complete{background:#dcfce7;color:#166534}
-    .ack-summary-detail{
-      border-top:1px solid #e5e7eb;
-      padding:12px 14px;
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:14px;
-      background:#f8fafc;
-    }
-    .ack-summary-detail[hidden]{display:none}
-    .ack-summary-detail p{margin:6px 0 0;line-height:1.65;color:#4b5563}
-    @media(max-width:650px){
-      .ack-summary-detail{grid-template-columns:1fr}
-    }
-  `;
-  document.head.appendChild(st);
-})();
-
-
 (function injectPublicPublishToggleV37(){
   if(document.getElementById("remsPublicPublishToggleV37")) return;
   const st=document.createElement("style");
@@ -575,245 +481,6 @@
   document.head.appendChild(st);
 })();
 
-
-
-
-
-(function injectTodayHighlightStylesV47(){
-  if(document.getElementById("remsTodayHighlightStylesV47")) return;
-  const st=document.createElement("style");
-  st.id="remsTodayHighlightStylesV47";
-  st.textContent=`
-    .rems-today{
-      position:relative!important;
-      outline:2px solid #111827!important;
-      outline-offset:-2px;
-      background:#fffbea!important;
-      box-shadow:0 0 0 4px rgba(17,24,39,.06)!important;
-    }
-    .rems-today::after{
-      content:"СЬОГОДНІ";
-      position:absolute;
-      top:6px;
-      right:6px;
-      z-index:3;
-      padding:3px 6px;
-      border-radius:999px;
-      background:#111827;
-      color:#fff;
-      font-size:8px;
-      line-height:1;
-      font-weight:900;
-      letter-spacing:.06em;
-      pointer-events:none;
-    }
-    .week-day-card.rems-today{
-      outline:2px solid #111827!important;
-      background:#fffbea!important;
-    }
-    .week-day-card.rems-today::after{top:5px;right:5px}
-  `;
-  document.head.appendChild(st);
-})();
-
-const localIsoDate=(d=new Date())=>{
-  const y=d.getFullYear();
-  const m=String(d.getMonth()+1).padStart(2,"0");
-  const day=String(d.getDate()).padStart(2,"0");
-  return `${y}-${m}-${day}`;
-};
-
-function markTodayInCurrentView(){
-  const today=localIsoDate();
-  document.querySelectorAll(".rems-today").forEach(el=>el.classList.remove("rems-today"));
-
-  // Preferred: any calendar element carrying the exact date.
-  document.querySelectorAll(`[data-date="${today}"]`).forEach(el=>el.classList.add("rems-today"));
-
-  // Calendar/schedule cells in this app also commonly expose date through data-day/date attributes.
-  document.querySelectorAll(`[data-day="${today}"],[data-calendar-date="${today}"]`)
-    .forEach(el=>el.classList.add("rems-today"));
-}
-
-(function injectConflictKpiStylesV46(){
-  if(document.getElementById("remsConflictKpiStylesV46")) return;
-  const st=document.createElement("style");
-  st.id="remsConflictKpiStylesV46";
-  st.textContent=`
-    button.kpi.conflict-kpi{
-      appearance:none;
-      width:100%;
-      text-align:left;
-      font:inherit;
-      cursor:pointer;
-      color:inherit;
-      border:1px solid #fecaca;
-      background:linear-gradient(145deg,#fffafa,#fff5f5);
-      position:relative;
-      overflow:hidden;
-      transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
-    }
-    button.kpi.conflict-kpi::before{
-      content:"";
-      position:absolute;
-      top:0;left:0;bottom:0;
-      width:4px;
-      background:#ef4444;
-    }
-    button.kpi.conflict-kpi:hover{
-      transform:translateY(-2px);
-      box-shadow:0 10px 26px rgba(127,29,29,.10);
-      border-color:#fca5a5;
-    }
-    .conflict-kpi small{
-      display:block;
-      margin-top:7px;
-      font-size:10px;
-      font-weight:800;
-      color:#b91c1c;
-      letter-spacing:.02em;
-    }
-    .conflict-kpi.is-clear{
-      border-color:#d1fae5;
-      background:linear-gradient(145deg,#fbfffd,#f0fdf4);
-    }
-    .conflict-kpi.is-clear small{color:#047857}
-    @media (min-width:1100px){
-      .grid.kpis{grid-template-columns:repeat(5,minmax(0,1fr));}
-    }
-  `;
-  document.head.appendChild(st);
-})();
-
-(function injectConflictButtonFixV44(){
-  if(document.getElementById("remsConflictButtonFixV44")) return;
-  const st=document.createElement("style");
-  st.id="remsConflictButtonFixV44";
-  st.textContent=`
-    button.notice.conflict-link{
-      width:100%;
-      display:block;
-      text-align:left;
-      font:inherit;
-      cursor:pointer;
-      border:1px solid #fecaca;
-    }
-    button.notice.conflict-link:hover{filter:brightness(.98)}
-  `;
-  document.head.appendChild(st);
-})();
-
-(function injectConflictNavigatorStylesV42(){
-  if(document.getElementById("remsConflictNavigatorStylesV42")) return;
-  const st=document.createElement("style");
-  st.id="remsConflictNavigatorStylesV42";
-  st.textContent=`
-    .conflict-link{
-      border:0;
-      background:transparent;
-      padding:0;
-      margin:0;
-      font:inherit;
-      color:inherit;
-      cursor:pointer;
-      text-decoration:underline;
-      text-decoration-style:dotted;
-      text-underline-offset:3px;
-    }
-    .conflict-link:hover{color:#b91c1c}
-    .profile-stat.conflict-stat{
-      cursor:pointer;
-      transition:.15s ease;
-      position:relative;
-      box-shadow:inset 0 0 0 1px #fecaca;
-      background:#fffafa;
-    }
-    .profile-stat.conflict-stat::after{
-      content:"Відкрити →";
-      display:block;
-      margin-top:5px;
-      font-size:9px;
-      font-weight:800;
-      color:#b91c1c;
-      letter-spacing:.02em;
-    }
-    .profile-stat.conflict-stat:hover{
-      background:#fff7f7;
-      box-shadow:inset 0 0 0 1px #fecaca;
-    }
-    .conflict-list{
-      display:grid;
-      gap:12px;
-      margin-top:16px;
-    }
-    .conflict-card{
-      border:1px solid #fecaca;
-      background:#fffafa;
-      border-radius:14px;
-      padding:14px;
-      display:grid;
-      gap:10px;
-    }
-    .conflict-card-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:12px;
-    }
-    .conflict-card-head h3{margin:0}
-    .conflict-overlap{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:5px 8px;
-      border-radius:999px;
-      background:#fee2e2;
-      color:#991b1b;
-      font-size:11px;
-      font-weight:800;
-      white-space:nowrap;
-    }
-    .conflict-projects{
-      display:grid;
-      gap:7px;
-    }
-    .conflict-project{
-      display:grid;
-      grid-template-columns:10px 1fr;
-      gap:8px;
-      align-items:start;
-      padding:9px 10px;
-      border-radius:10px;
-      background:#fff;
-      border:1px solid #f3f4f6;
-    }
-    .conflict-project .dot{
-      width:10px;
-      height:10px;
-      border-radius:999px;
-      margin-top:4px;
-    }
-    .conflict-project small{display:block;color:#6b7280;margin-top:2px}
-    .conflict-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-    .calendar-conflict-day{
-      outline:3px solid #ef4444!important;
-      outline-offset:-3px;
-      background:#fff1f2!important;
-      animation:remsConflictPulse 1.2s ease 2;
-    }
-    @keyframes remsConflictPulse{
-      0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.0)}
-      50%{box-shadow:0 0 0 5px rgba(239,68,68,.22)}
-    }
-  `;
-  document.head.appendChild(st);
-})();
-
-
 (function injectV21Styles(){
   if(document.getElementById("remsV21Styles")) return;
   const st=document.createElement("style");
@@ -876,158 +543,6 @@ let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=fals
 let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null, functions=null;
 const projectUiState={};
 let currentView="dashboard";
-
-const availableGroups=()=>[...new Set(
-  (db.students||[])
-    .map(s=>String(s.group||"").trim())
-    .filter(Boolean)
-)].sort((a,b)=>a.localeCompare(b,"uk"));
-
-const groupOptionsHtml=(selected="",allLabel="Усі групи")=>
-  `<option value="">${allLabel}</option>`+
-  availableGroups()
-    .map(g=>`<option value="${esc(g)}" ${String(selected)===String(g)?"selected":""}>${esc(g)}</option>`)
-    .join("");
-
-
-const ACK_COLLECTION="rems_student_acknowledgements";
-const ackNameNorm=v=>String(v||"")
-  .toLowerCase()
-  .replace(/[’'`]/g,"")
-  .replace(/\s+/g," ")
-  .trim();
-
-const acknowledgementMatchesEvent=(ack,e)=>
-  String(ack?.projectId||"")===String(e?.projectId||"") &&
-  String(ack?.date||"")===String(e?.date||"") &&
-  String(ack?.type||"")===String(e?.type||"");
-
-const loadAcknowledgementsForEvent=async e=>{
-  if(!cloudDb) return [];
-  try{
-    const snap=await getDocs(collection(cloudDb,ACK_COLLECTION));
-    return snap.docs
-      .map(d=>({id:d.id,...(d.data()||{})}))
-      .filter(x=>acknowledgementMatchesEvent(x,e));
-  }catch(err){
-    console.error("Acknowledgements:",err);
-    return [];
-  }
-};
-
-const loadAllAcknowledgements=async()=>{
-  if(!cloudDb) return [];
-  try{
-    const snap=await getDocs(collection(cloudDb,ACK_COLLECTION));
-    return snap.docs.map(d=>({id:d.id,...(d.data()||{})}));
-  }catch(err){
-    console.error("Acknowledgements:",err);
-    return [];
-  }
-};
-
-const acknowledgementStats=(e,all)=>{
-  const assigned=studentsForEvent(e);
-  const ackNames=new Set(
-    (all||[])
-      .filter(x=>acknowledgementMatchesEvent(x,e))
-      .map(x=>ackNameNorm(x.studentName))
-      .filter(Boolean)
-  );
-  const yes=assigned.filter(s=>ackNames.has(ackNameNorm(s.name)));
-  const no=assigned.filter(s=>!ackNames.has(ackNameNorm(s.name)));
-  return {assigned,yes,no};
-};
-
-async function openProjectAcknowledgements(projectId){
-  const p=pBy(projectId); if(!p) return;
-  const dialog=ensureProjectCardDialog();
-  const holder=dialog.querySelector("#projectCardBody");
-  holder.innerHTML=`<div class="project-body"><h2>${esc(p.name)}</h2><div class="profile-empty">Завантаження ознайомлень…</div></div>`;
-  if(!dialog.open) dialog.showModal();
-
-  const all=await loadAllAcknowledgements();
-  const evs=eventsFor(projectId);
-  const rows=evs.map(e=>({e,...acknowledgementStats(e,all)}));
-
-  holder.innerHTML=`<div class="project-body">
-    <div class="project-section-head">
-      <div><span class="eyebrow">Ознайомлення</span><h2 style="margin:3px 0 0">${esc(p.name)}</h2></div>
-      <button class="ghost" id="ackBackToProject">Назад до проєкту</button>
-    </div>
-    <div class="ack-summary-list">
-      ${rows.map((r,i)=>`<div class="ack-summary-row">
-        <button type="button" class="ack-summary-main" data-ack-detail="${i}">
-          <span>
-            <b>${fmt(r.e.date)} · ${esc(r.e.type||"Подія")}</b>
-            <small>${eventMetaText(r.e)?esc(eventMetaText(r.e)):""}</small>
-          </span>
-          <strong class="${r.yes.length===r.assigned.length&&r.assigned.length?"complete":""}">${r.yes.length}/${r.assigned.length}</strong>
-        </button>
-        <div class="ack-summary-detail" data-ack-panel="${i}" hidden>
-          <div><b>✓ Ознайомилися (${r.yes.length})</b><p>${r.yes.map(s=>esc(s.name)).join("<br>")||"—"}</p></div>
-          <div><b>Не ознайомилися (${r.no.length})</b><p>${r.no.map(s=>esc(s.name)).join("<br>")||"—"}</p></div>
-        </div>
-      </div>`).join("")||'<div class="empty">У проєкті ще немає подій.</div>'}
-    </div>
-  </div>`;
-
-  holder.querySelector("#ackBackToProject").onclick=()=>openProjectCard(projectId);
-  holder.querySelectorAll("[data-ack-detail]").forEach(b=>b.onclick=()=>{
-    const panel=holder.querySelector(`[data-ack-panel="${b.dataset.ackDetail}"]`);
-    if(panel) panel.hidden=!panel.hidden;
-  });
-}
-
-async function showEventAcknowledgements(ev){
-  const all=await loadAllAcknowledgements();
-  const s=acknowledgementStats(ev,all);
-  alert(
-    `Ознайомилися: ${s.yes.length}/${s.assigned.length}\n\n`+
-    `✓ ${s.yes.map(x=>x.name).join("\n✓ ")||"—"}\n\n`+
-    `Не ознайомилися (${s.no.length}):\n${s.no.map(x=>x.name).join("\n")||"—"}`
-  );
-}
-
-async function updateAckIndicators(){
-  if(!cloudDb) return;
-  const all=await loadAllAcknowledgements();
-
-  document.querySelectorAll("[data-project-ack-count]").forEach(el=>{
-    const pid=el.dataset.projectAckCount;
-    const evs=eventsFor(pid);
-    let yes=0,total=0;
-    evs.forEach(e=>{
-      const s=acknowledgementStats(e,all);
-      yes+=s.yes.length;
-      total+=s.assigned.length;
-    });
-    el.textContent=`${yes}/${total}`;
-    el.classList.toggle("complete",total>0&&yes===total);
-  });
-
-  const dash=document.querySelector("#ackDashboardList");
-  if(dash){
-    const today=new Date().toISOString().slice(0,10);
-    const rows=(db.events||[])
-      .filter(e=>String(e.date||"")>=today)
-      .map(e=>{
-        const s=acknowledgementStats(e,all);
-        return {e,p:pBy(e.projectId),...s};
-      })
-      .filter(x=>x.p&&x.assigned.length&&x.no.length)
-      .sort((x,y)=>String(x.e.date).localeCompare(String(y.e.date)))
-      .slice(0,8);
-
-    dash.innerHTML=rows.map(x=>`<button type="button" class="ack-dashboard-item" data-ack-project="${esc(String(x.e.projectId))}">
-      <span><b>${esc(x.p.name)}</b><small>${fmt(x.e.date)} · ${esc(x.e.type||"Подія")}</small></span>
-      <strong>${x.yes.length}/${x.assigned.length}</strong>
-    </button>`).join("")||'<div class="muted">Усі найближчі події ознайомлені ✓</div>';
-
-    dash.querySelectorAll("[data-ack-project]").forEach(b=>b.onclick=()=>openProjectAcknowledgements(b.dataset.ackProject));
-  }
-}
-
 const statusEl=()=>document.querySelector("#cloudStatus");
 const setStatus=(text)=>{ if(statusEl()) statusEl().textContent=text; };
 const coreDbSnapshot=()=>{
@@ -1098,6 +613,7 @@ async function syncExistingPersonalSchedules(){
 
       const items=studentEvents.map(e=>{
         const p=pBy(e.projectId);
+        const role=studentRoleForEvent(e,s.id);
         return {
           projectId:String(e.projectId||""),
           projectName:String(p?.name||"Активність"),
@@ -1107,7 +623,8 @@ async function syncExistingPersonalSchedules(){
           startTime:String(e.startTime||""),
           endTime:String(e.endTime||""),
           location:String(e.location||""),
-          note:String(e.note||"")
+          role:String(role||""),
+          note:[role?`Обов'язки: ${role}`:"",String(e.note||"")].filter(Boolean).join(" · ")
         };
       });
 
@@ -1220,7 +737,7 @@ const save=async()=>{
     );
     cache();
     await syncExistingPersonalSchedules();
-    setStatus("v4.4.7 · хмара ✓");
+    setStatus("v4.2 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -1424,6 +941,95 @@ function ensureNewProjectLogoField(){
   else form.appendChild(wrap);
 }
 
+// v5.0: bulk project dates and work-block planning.
+const newProjectPlannedDates=new Set();
+
+(function injectProjectPlannerStyles(){
+  if(document.getElementById("remsProjectPlannerStyles")) return;
+  const st=document.createElement("style");
+  st.id="remsProjectPlannerStyles";
+  st.textContent=`
+    .project-planned-date-wrap{display:grid;gap:10px;padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:#fafafa}
+    .project-planned-date-row{display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:8px;align-items:end}
+    .project-planned-range{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+    .project-date-pills,.planner-date-grid{display:flex;flex-wrap:wrap;gap:7px}
+    .project-date-pill,.planner-date{border:1px solid #d1d5db;background:#fff;border-radius:999px;padding:7px 10px;cursor:pointer;font:inherit}
+    .project-date-pill{display:inline-flex;gap:7px;align-items:center}
+    .project-date-pill .x{font-weight:800;opacity:.55}
+    .planner-date.active{background:#111827;color:#fff;border-color:#111827}
+    .project-cal-day.planned:not(.has-event){outline:1px dashed #9ca3af;outline-offset:-3px}
+    .project-cal-planned{font-size:9px;line-height:1.1;color:#6b7280}
+    .planner-shell{display:grid;gap:18px}
+    .planner-card{border:1px solid #e5e7eb;border-radius:14px;padding:14px;background:#fff;display:grid;gap:12px}
+    .planner-card h3{margin:0}
+    .planner-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .planner-form-grid .full{grid-column:1/-1}
+    .planner-person-list{display:grid;gap:7px;max-height:360px;overflow:auto;padding-right:4px}
+    .planner-person-row{display:grid;grid-template-columns:minmax(160px,1fr) minmax(180px,1.35fr);gap:8px;align-items:center}
+    .planner-person-toggle{border:1px solid #d1d5db;background:#fff;border-radius:10px;padding:9px 10px;text-align:left;cursor:pointer;font:inherit}
+    .planner-person-toggle.active{background:#111827;color:#fff;border-color:#111827}
+    .planner-role-input{width:100%;box-sizing:border-box}
+    .planner-role-input:disabled{opacity:.45}
+    .planner-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .planner-block-list{display:grid;gap:8px}
+    .planner-block-row{display:grid;grid-template-columns:92px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #e5e7eb;border-radius:11px;padding:10px}
+    .planner-block-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .event-person-role-list{display:grid;gap:8px;margin-top:10px}
+    .event-person-role-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,1.2fr);gap:8px;align-items:center}
+    @media(max-width:760px){
+      .project-planned-range,.planner-form-grid,.planner-person-row,.event-person-role-row,.planner-block-row{grid-template-columns:1fr}
+      .planner-block-actions{justify-content:flex-start}
+    }
+  `;
+  document.head.appendChild(st);
+})();
+
+function renderNewProjectDates(){
+  const box=document.querySelector("#newProjectDatesList");
+  if(!box) return;
+  const dates=[...newProjectPlannedDates].sort();
+  box.innerHTML=dates.length?dates.map(d=>`<button type="button" class="project-date-pill" data-new-project-date="${d}"><span>${fmt(d)}</span><span class="x">×</span></button>`).join(""):'<span class="muted">Дати ще не вибрані.</span>';
+  box.querySelectorAll("[data-new-project-date]").forEach(b=>b.onclick=()=>{
+    newProjectPlannedDates.delete(b.dataset.newProjectDate);
+    renderNewProjectDates();
+  });
+}
+
+function ensureNewProjectPlanningFields(){
+  const form=document.querySelector("#projectForm");
+  if(!form || form.querySelector("#newProjectDatesPlanner")) return;
+  const saveBtn=form.querySelector("#saveProject");
+  const wrap=document.createElement("div");
+  wrap.id="newProjectDatesPlanner";
+  wrap.className="full project-planned-date-wrap";
+  wrap.innerHTML=`
+    <div><b>Дати проєкту</b><div class="muted">Можна одразу додати кілька окремих дат або цілий діапазон. Робочі блоки й людей розподілимо вже всередині проєкту.</div></div>
+    <div class="project-planned-date-row">
+      <label>Окрема дата<input id="newProjectSingleDate" type="date"></label>
+      <button type="button" class="ghost" id="addNewProjectSingleDate">+ Додати</button>
+    </div>
+    <div class="project-planned-range">
+      <label>Від<input id="newProjectRangeStart" type="date"></label>
+      <label>До<input id="newProjectRangeEnd" type="date"></label>
+      <button type="button" class="ghost" id="addNewProjectRange">+ Діапазон</button>
+    </div>
+    <div id="newProjectDatesList" class="project-date-pills"></div>`;
+  if(saveBtn?.parentElement) saveBtn.parentElement.before(wrap); else form.appendChild(wrap);
+  wrap.querySelector("#addNewProjectSingleDate").onclick=()=>{
+    const v=wrap.querySelector("#newProjectSingleDate").value;
+    if(v){newProjectPlannedDates.add(v);wrap.querySelector("#newProjectSingleDate").value="";renderNewProjectDates();}
+  };
+  wrap.querySelector("#addNewProjectRange").onclick=()=>{
+    const a=wrap.querySelector("#newProjectRangeStart").value;
+    const b=wrap.querySelector("#newProjectRangeEnd").value;
+    if(!a||!b){alert("Вкажіть початок і кінець діапазону.");return;}
+    const [start,end]=a<=b?[a,b]:[b,a];
+    datesBetween(start,end).forEach(d=>newProjectPlannedDates.add(d));
+    renderNewProjectDates();
+  };
+  renderNewProjectDates();
+}
+
 const sBy=id=>db.students.find(s=>String(s.id)===String(id));
 const resolveStudentId=raw=>db.students.find(s=>String(s.id)===String(raw))?.id;
 
@@ -1464,7 +1070,7 @@ const sanitizePublicProfile=(s,profile)=>{
   const pid=publicProfileIdFor(s)||profile?.id;
   if(!pid) return null;
   return {
-    id:pid,name:String(profile?.name||s?.name||"").trim(),group:String(s?.group||profile?.group||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),published:profile?.published===true,
+    id:pid,name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),published:profile?.published===true,
     bio:Array.isArray(profile?.bio)?profile.bio.map(x=>String(x).trim()).filter(Boolean):[],
     skills:Array.isArray(profile?.skills)?profile.skills.map(x=>String(x).trim()).filter(Boolean):[],
     achievements:Array.isArray(profile?.achievements)?profile.achievements.map(x=>String(x).trim()).filter(Boolean):[],
@@ -1524,446 +1130,38 @@ const eventAssignments=()=>{
   });
   return map;
 }
-const eventMinutes=v=>{
-  const m=String(v||"").match(/^(\d{1,2}):(\d{2})$/);
-  return m ? Number(m[1])*60+Number(m[2]) : null;
-};
-
-const eventOverlapText=(a,b)=>{
-  const as=eventMinutes(a?.startTime), ae=eventMinutes(a?.endTime);
-  const bs=eventMinutes(b?.startTime), be=eventMinutes(b?.endTime);
-
-  if(as!=null && ae!=null && bs!=null && be!=null){
-    const start=Math.max(as,bs), end=Math.min(ae,be);
-    if(start<end){
-      const fmtMin=x=>`${String(Math.floor(x/60)).padStart(2,"0")}:${String(x%60).padStart(2,"0")}`;
-      return `${fmtMin(start)}–${fmtMin(end)}`;
-    }
-    return "";
-  }
-
-  // Preserve the old "same day = conflict" behavior when exact times are absent.
-  return "одна дата";
-};
-
-const conflictEventsForStudent=id=>{
-  const sid=String(id);
-  const byDate={};
-
-  (db.events||[]).forEach(e=>{
-    if(!e?.date) return;
-    if(!studentsForEvent(e).some(s=>String(s.id)===sid)) return;
-    (byDate[e.date] ||= []).push(e);
-  });
-
-  const out=[];
-  Object.entries(byDate).forEach(([date,events])=>{
-    if(events.length<2) return;
-
-    const conflicting=new Set();
-    const overlaps=[];
-
-    for(let i=0;i<events.length;i++){
-      for(let j=i+1;j<events.length;j++){
-        const overlap=eventOverlapText(events[i],events[j]);
-        if(overlap){
-          conflicting.add(events[i]);
-          conflicting.add(events[j]);
-          overlaps.push({a:events[i],b:events[j],overlap});
-        }
-      }
-    }
-
-    // Keep old semantics: multiple projects on the same day count as a conflict
-    // even when exact times prove no overlap only if time data is incomplete.
-    if(!conflicting.size){
-      const hasIncomplete=events.some(e=>
-        eventMinutes(e.startTime)==null || eventMinutes(e.endTime)==null
-      );
-      if(hasIncomplete){
-        events.forEach(e=>conflicting.add(e));
-        overlaps.push({a:events[0],b:events[1],overlap:"одна дата"});
-      }
-    }
-
-    if(conflicting.size){
-      out.push({
-        date,
-        events:[...conflicting].sort((a,b)=>(a.startTime||"").localeCompare(b.startTime||"")),
-        overlaps
-      });
-    }
-  });
-
-  return out.sort((a,b)=>a.date.localeCompare(b.date));
-};
-
-const conflictDayCount=id=>conflictEventsForStudent(id).length;
-
 const countConflicts=()=>{
-  let total=0;
-  (db.students||[]).forEach(s=>{ total+=conflictDayCount(s.id); });
-  return total;
-};
-
-function ensureConflictDialog(){
-  let dialog=document.querySelector("#conflictDialog");
-  if(dialog) return dialog;
-
-  dialog=document.createElement("dialog");
-  dialog.id="conflictDialog";
-  dialog.className="student-dialog";
-  dialog.innerHTML=`<div id="conflictDialogBody"></div>`;
-  document.body.appendChild(dialog);
-  return dialog;
+  const map=eventAssignments(); return Object.values(map).filter(v=>v.length>1).length;
 }
-
-
-function showAllConflicts(){
-  const rows=(db.students||[])
-    .map(s=>({student:s,conflicts:conflictEventsForStudent(s.id)}))
-    .filter(x=>x.conflicts.length)
-    .sort((a,b)=>a.student.name.localeCompare(b.student.name,"uk"));
-
-  const dialog=ensureConflictDialog();
-  const body=dialog.querySelector("#conflictDialogBody");
-
-  body.innerHTML=`<div class="project-body">
-    <div class="project-section-head">
-      <div>
-        <span class="eyebrow">Усі конфлікти</span>
-        <h2 style="margin:3px 0 0">Конфлікти зайнятості</h2>
-        <div class="muted">${rows.reduce((n,x)=>n+x.conflicts.length,0)} конфліктних дат · ${rows.length} студентів</div>
-      </div>
-      <button class="ghost" id="closeConflictDialog">Закрити</button>
-    </div>
-
-    <div class="conflict-list">
-      ${rows.map(x=>`<article class="conflict-card">
-        <div class="conflict-card-head">
-          <div>
-            <h3>${esc(x.student.name)}</h3>
-            <div class="muted">${esc(x.student.group||"")} · ${x.conflicts.length} конфліктів</div>
-          </div>
-          <button type="button" class="ghost" data-open-student-conflicts="${esc(String(x.student.id))}">Відкрити</button>
-        </div>
-        <div class="conflict-projects">
-          ${x.conflicts.slice(0,3).map(c=>`<div class="conflict-project">
-            <span class="dot" style="background:#ef4444"></span>
-            <div><b>${fullfmt(c.date)}</b><small>${c.events.map(e=>esc(pBy(e.projectId)?.name||"Проєкт")).join(" · ")}</small></div>
-          </div>`).join("")}
-          ${x.conflicts.length>3?`<div class="muted">+ ще ${x.conflicts.length-3}</div>`:""}
-        </div>
-      </article>`).join("")||'<div class="empty">Конфліктів немає.</div>'}
-    </div>
-  </div>`;
-
-  body.querySelector("#closeConflictDialog").onclick=()=>dialog.close();
-  body.querySelectorAll("[data-open-student-conflicts]").forEach(btn=>{
-    btn.onclick=()=>showStudentConflicts(btn.dataset.openStudentConflicts);
-  });
-
-  if(!dialog.open) dialog.showModal();
-}
-
-function showStudentConflicts(studentId){
-  const s=sBy(studentId); if(!s) return;
-  const conflicts=conflictEventsForStudent(studentId);
-  const dialog=ensureConflictDialog();
-  const body=dialog.querySelector("#conflictDialogBody");
-
-  body.innerHTML=`<div class="project-body">
-    <div class="project-section-head">
-      <div>
-        <span class="eyebrow">Конфлікти зайнятості</span>
-        <h2 style="margin:3px 0 0">${esc(s.name)}</h2>
-        <div class="muted">${conflicts.length?`${conflicts.length} конфліктних дат`:"Конфліктів немає"}</div>
-      </div>
-      <button class="ghost" id="closeConflictDialog">Закрити</button>
-    </div>
-
-    <div class="conflict-list">
-      ${conflicts.map((c,idx)=>{
-        const overlapLabels=[...new Set(c.overlaps.map(x=>x.overlap).filter(Boolean))];
-        return `<article class="conflict-card">
-          <div class="conflict-card-head">
-            <div>
-              <h3>${fullfmt(c.date)}</h3>
-              <div class="muted">${c.events.length} події накладаються</div>
-            </div>
-            <span class="conflict-overlap">⚠ ${esc(overlapLabels.join(", ")||"конфлікт")}</span>
-          </div>
-
-          <div class="conflict-projects">
-            ${c.events.map(e=>{
-              const p=pBy(e.projectId);
-              return `<div class="conflict-project">
-                <span class="dot" style="background:${p?.color||"#ef4444"}"></span>
-                <div>
-                  <b>${esc(p?.name||"Проєкт")} · ${esc(e.type||"Подія")}</b>
-                  <small>${esc(eventMetaText(e)||"Час не вказано")}${e.location?` · ${esc(e.location)}`:""}</small>
-                </div>
-              </div>`;
-            }).join("")}
-          </div>
-
-          <div class="conflict-actions">
-            <button type="button" class="ghost" data-conflict-date="${c.date}" data-conflict-student="${esc(String(s.id))}">
-              Показати в календарі
-            </button>
-          </div>
-        </article>`;
-      }).join("")||'<div class="empty">У цього студента конфліктів немає.</div>'}
-    </div>
-  </div>`;
-
-  body.querySelector("#closeConflictDialog").onclick=()=>dialog.close();
-  body.querySelectorAll("[data-conflict-date]").forEach(btn=>{
-    btn.onclick=()=>{
-      const date=btn.dataset.conflictDate;
-      const sid=btn.dataset.conflictStudent;
-      dialog.close();
-      openConflictInCalendar(sid,date);
-    };
-  });
-
-  if(!dialog.open) dialog.showModal();
-}
-
-function openConflictInCalendar(studentId,date){
-  switchView("calendar","Календар");
-
-  // Wait until the calendar has rendered, then set filters and re-render.
-  setTimeout(()=>{
-    const student=sBy(studentId);
-    const q=document.querySelector("#calStudent");
-    const period=document.querySelector("#calPeriod");
-    const gf=document.querySelector("#calGroup");
-
-    if(gf && student?.group) gf.value=student.group;
-    if(q) q.value=student?.name||"";
-
-    if(period){
-      const month=String(date||"").slice(0,7);
-      const option=[...period.options].find(o=>String(o.textContent||"").includes(
-        new Date(month+"-01T12:00:00").toLocaleDateString("uk-UA",{month:"long"})
-      ));
-      if(option) period.value=option.value;
-    }
-
-    // Trigger the same render chain already used by the page.
-    q?.dispatchEvent(new Event("input",{bubbles:true}));
-    gf?.dispatchEvent(new Event("change",{bubbles:true}));
-    period?.dispatchEvent(new Event("change",{bubbles:true}));
-
-    setTimeout(()=>{
-      const cell=document.querySelector(`[data-date="${CSS.escape(date)}"]`);
-      if(cell){
-        cell.classList.add("calendar-conflict-day");
-        cell.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});
-        setTimeout(()=>cell.classList.remove("calendar-conflict-day"),3500);
-      }
-    },120);
-  },80);
-}
-
-function nextStudentId(){
-  const nums=(db.students||[])
-    .map(s=>Number(s.id))
-    .filter(Number.isFinite);
-  if(nums.length && nums.length===(db.students||[]).length){
-    return Math.max(0,...nums)+1;
-  }
-  return "s_"+Date.now();
-}
-
-function ensureNewStudentDialog(){
-  let dialog=document.querySelector("#newStudentDialog");
-  if(dialog) return dialog;
-
-  dialog=document.createElement("dialog");
-  dialog.id="newStudentDialog";
-  dialog.className="student-dialog";
-  dialog.innerHTML=`
-    <form id="newStudentForm" class="profile-edit-form" style="padding:22px;min-width:min(560px,88vw)">
-      <div class="profile-head">
-        <div>
-          <h2 style="margin:0">Новий студент</h2>
-          <div class="muted">Після збереження студент автоматично з’явиться на публічному сайті.</div>
-        </div>
-      </div>
-
-      <label class="full">ПІБ
-        <input id="newStudentName" required placeholder="Прізвище Ім’я По батькові">
-      </label>
-
-      <label>Група
-        <input id="newStudentGroup" required list="newStudentGroupOptions" placeholder="Напр. РЕМС-24">
-        <datalist id="newStudentGroupOptions">
-          ${availableGroups().map(g=>`<option value="${esc(g)}"></option>`).join("")}
-        </datalist>
-      </label>
-
-      <label>Дата народження
-        <input id="newStudentBirthDate" type="date">
-      </label>
-
-      <label>Телефон
-        <input id="newStudentPhone" placeholder="+380...">
-      </label>
-
-      <label>Email
-        <input id="newStudentEmail" type="email">
-      </label>
-
-      <label class="full">Фото
-        <input id="newStudentPhoto" type="file" accept="image/*">
-      </label>
-
-      <div class="full profile-actions">
-        <button type="button" class="ghost" id="cancelNewStudent">Скасувати</button>
-        <button type="submit" class="primary">Додати студента</button>
-      </div>
-    </form>`;
-
-  document.body.appendChild(dialog);
-
-  dialog.querySelector("#cancelNewStudent").onclick=()=>{
-    dialog.close();
-    dialog.querySelector("#newStudentForm").reset();
-  };
-
-  dialog.addEventListener("cancel",()=>{
-    dialog.querySelector("#newStudentForm").reset();
-  });
-
-  dialog.querySelector("#newStudentForm").onsubmit=async e=>{
-    e.preventDefault();
-
-    const name=dialog.querySelector("#newStudentName").value.trim();
-    const group=dialog.querySelector("#newStudentGroup").value.trim();
-    if(!name || !group) return;
-
-    const norm=v=>String(v||"").toLowerCase().replace(/[’'`]/g,"").replace(/\s+/g," ").trim();
-    if((db.students||[]).some(s=>norm(s.name)===norm(name))){
-      alert("Студент із таким ПІБ уже є.");
-      return;
-    }
-
-    const submit=e.submitter;
-    if(submit){submit.disabled=true;submit.textContent="Додавання…";}
-
-    const student={
-      id:nextStudentId(),
-      name,
-      group,
-      birthDate:dialog.querySelector("#newStudentBirthDate").value||"",
-      phone:dialog.querySelector("#newStudentPhone").value.trim(),
-      email:dialog.querySelector("#newStudentEmail").value.trim(),
-      publicProfile:{
-        role:"Режисер/ка естради і шоу",
-        photo:"",
-        bio:[],
-        skills:[],
-        achievements:[],
-        socials:{instagram:"",tiktok:"",youtube:"",telegram:"",facebook:"",email:""},
-        videos:[],
-        gallery:[],
-        published:true
-      }
-    };
-
-    db.students.push(student);
-
-    try{
-      const ok=await save();
-      if(!ok) throw new Error("Не вдалося зберегти студента у хмарі.");
-
-      const photoFile=dialog.querySelector("#newStudentPhoto")?.files?.[0];
-      if(photoFile){
-        const photoData=await compressStudentPhoto(photoFile);
-        await saveStudentMedia(student,photoData);
-      }
-
-      // New students are public by default so the site picks them up automatically.
-      await publishOnePublicProfile(student);
-
-      dialog.close();
-      dialog.querySelector("#newStudentForm").reset();
-      switchView("students","Студенти");
-    }catch(err){
-      db.students=db.students.filter(s=>String(s.id)!==String(student.id));
-      cache();
-      console.error(err);
-      alert(err.message||"Не вдалося додати студента.");
-    }finally{
-      if(submit){submit.disabled=false;submit.textContent="Додати студента";}
-    }
-  };
-
-  return dialog;
-}
-
-function openNewStudentDialog(){
-  const dialog=ensureNewStudentDialog();
-  const groupInput=dialog.querySelector("#newStudentGroup");
-  if(groupInput && !groupInput.value && availableGroups().length===1){
-    groupInput.value=availableGroups()[0];
-  }
-  dialog.showModal();
-}
-
 function updateQuickAddForView(v){
   const btn=$("#quickAdd");
   if(!btn) return;
-
-  btn.hidden=false;
-  btn.disabled=!cloudReady;
-
-  if(v==="students"){
-    btn.textContent="+ Новий студент";
-    btn.title="Додати нового студента";
-  }else if(v==="projects"){
-    btn.textContent="+ Новий проєкт";
-    btn.title="Створити новий проєкт";
-  }else if(v==="industry"){
+  if(v==="industry"){
     btn.textContent="+ Нова зустріч";
     btn.title="Створити новий матеріал «Зустріч із індустрією»";
   }else{
-    btn.hidden=true;
+    btn.textContent="+ Новий проєкт";
     btn.title="";
   }
 }
 function switchView(v,label){
-  if(!views[v]) return;
   currentView=v;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
   $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад",industry:"Зустріч із індустрією"}[v]);
   updateQuickAddForView(v);
-  try{
-    views[v]();
-    requestAnimationFrame(markTodayInCurrentView);
-  }catch(err){
-    console.error(`View "${v}" failed:`,err);
-    app.innerHTML=`<div class="empty">Не вдалося відкрити розділ. Онови сторінку або перевір консоль.</div>`;
-  }
+  views[v]();
 }
 function refreshCurrentView(){
   const v=currentView && views[currentView] ? currentView : (document.querySelector(".nav.active")?.dataset.view||"dashboard");
   currentView=v;
   updateQuickAddForView(v);
-  try{
-    views[v]();
-    requestAnimationFrame(markTodayInCurrentView);
-  }catch(err){
-    console.error(`Refresh view "${v}" failed:`,err);
-  }
+  views[v]();
 }
 function dashboard(){
   const assigned=new Set(db.assignments.map(a=>String(a.studentId))).size;
   const conflicts=countConflicts();
   const todayDate=new Date(); todayDate.setHours(12,0,0,0);
-  const iso=d=>localIsoDate(d);
+  const iso=d=>d.toISOString().slice(0,10);
   const today=iso(todayDate);
   const weekDates=Array.from({length:7},(_,i)=>{const d=new Date(todayDate);d.setDate(d.getDate()+i);return iso(d);});
   const eventsOn=date=>db.events.filter(e=>e.date===date).map(e=>({event:e,project:pBy(e.projectId),students:studentsForEvent(e)})).filter(x=>x.project);
@@ -1993,7 +1191,7 @@ function dashboard(){
           ${weekDates.map(date=>{
             const dt=new Date(date+"T12:00:00"),evs=eventsOn(date);
             const busyIds=new Set(evs.flatMap(x=>x.students.map(s=>String(s.id))));
-            return `<button type="button" class="week-day-card ${date===today?"today rems-today":""}" data-date="${date}">
+            return `<button type="button" class="week-day-card ${date===today?"today":""}" data-date="${date}">
               <div class="week-day-head"><div><div class="week-day-name">${ukShort.format(dt)}</div><div class="week-day-num">${dt.getDate()}</div></div><div class="week-day-count">${evs.length} подій</div></div>
               <div class="week-event-list">${evs.slice(0,3).map(x=>`<div class="week-event-pill project-watermark" style="${projectWatermarkStyle(x.project)}">${projectWatermarkInner(x.project,`${eventTimeText(x.event)?`${esc(eventTimeText(x.event))} · `:""}${esc(x.project.name)} · ${esc(shortType(x.event.type))}`)}</div>`).join("")}${evs.length>3?`<div class="week-day-count">+ ще ${evs.length-3}</div>`:""}</div>
               <div class="week-free">${Math.max(0,db.students.length-busyIds.size)} вільних</div>
@@ -2003,27 +1201,13 @@ function dashboard(){
       </div>
     </div>
 
+    ${conflicts?`<div class="notice warn">⚠️ Знайдено конфліктів: <b>${conflicts}</b>.</div>`:`<div class="notice ok">✓ Конфліктів у поточних призначеннях не знайдено.</div>`}
+
     <div class="grid kpis">
       <div class="card kpi"><span>Студентів</span><strong>${db.students.length}</strong></div>
       <div class="card kpi"><span>Проєктів</span><strong>${db.projects.length}</strong></div>
       <div class="card kpi"><span>Задіяно студентів</span><strong>${assigned}</strong></div>
       <div class="card kpi"><span>Подій у базі</span><strong>${db.events.length}</strong></div>
-      ${conflicts
-        ? `<button type="button" class="card kpi conflict-kpi" id="openAllConflicts" title="Переглянути конфлікти">
-             <span>Конфліктів</span>
-             <strong>${conflicts}</strong>
-             <small>Переглянути →</small>
-           </button>`
-        : `<div class="card kpi conflict-kpi is-clear">
-             <span>Конфліктів</span>
-             <strong>0</strong>
-             <small>Усе чисто</small>
-           </div>`}
-    </div>
-
-    <div class="ack-dashboard card">
-      <div class="dashboard-projects-head"><h2>Потребують ознайомлення</h2><span class="muted">Найближчі події, які ще підтвердили не всі</span></div>
-      <div id="ackDashboardList"><div class="muted">Завантаження…</div></div>
     </div>
 
     <div class="dashboard-projects-head"><h2>Проєкти</h2><span class="muted">Натисни на картку, щоб відкрити проєкт</span></div>
@@ -2038,7 +1222,7 @@ function dashboard(){
             ${projectLogoHtml(p,"dashboard-project-logo")}
             <div class="dashboard-project-copy">
               <h3>${esc(p.name)}</h3>
-              <div class="muted">${evs.length} подій · ${people.length} студентів · Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></div>
+              <div class="muted">${evs.length} подій · ${people.length} студентів</div>
             </div>
             <span class="dashboard-project-arrow">→</span>
           </div>
@@ -2050,8 +1234,6 @@ function dashboard(){
 
   $$(".week-day-card").forEach(x=>x.onclick=()=>showDay(x.dataset.date));
   $$(".dashboard-project-card").forEach(btn=>btn.onclick=()=>openProjectCard(btn.dataset.projectId));
-  document.querySelector("#openAllConflicts")?.addEventListener("click",showAllConflicts);
-  updateAckIndicators().catch(console.error);
 }
 
 
@@ -2376,7 +1558,6 @@ function students(){
   app.innerHTML=`
     <div class="toolbar">
       <input id="studentSearch" placeholder="Пошук студента...">
-      <select id="studentGroupFilter">${groupOptionsHtml()}</select>
       <select id="studentProjectFilter">
         <option value="">Усі проєкти</option>
         ${db.projects.map(p=>`<option value="${esc(String(p.id))}">${esc(p.name)}</option>`).join("")}
@@ -2388,12 +1569,10 @@ function students(){
 
   const render=()=>{
     const q=($("#studentSearch").value||"").toLowerCase().trim();
-    const gf=$("#studentGroupFilter").value;
     const pf=$("#studentProjectFilter").value;
 
     const rows=db.students.filter(s=>{
       if(!String(s.name||"").toLowerCase().includes(q)) return false;
-      if(gf && String(s.group||"")!==gf) return false;
       if(!pf) return true;
       return studentProjects(s.id).some(p=>String(p.id)===String(pf));
     });
@@ -2431,7 +1610,6 @@ function students(){
   };
 
   $("#studentSearch").oninput=render;
-  $("#studentGroupFilter").onchange=render;
   $("#studentProjectFilter").onchange=render;
   $("#recoverStudentsBtn").onclick=recoverStudentsFromFirebase;
   $("#cleanupStudentsBtn").onclick=cleanupStudentDuplicates;
@@ -2538,9 +1716,7 @@ function openStudent(id){
         <div class="profile-stats">
           <div class="profile-stat"><span class="muted">Проєктів</span><strong>${ps.length}</strong></div>
           <div class="profile-stat"><span class="muted">Зайнятих днів</span><strong>${countDays(id)}</strong></div>
-          <div class="profile-stat conflict-stat" id="studentConflictStat" role="button" tabindex="0" title="Показати конфлікти">
-  <span class="muted">Конфліктів</span><strong>${conflictDayCount(id)}</strong>
-</div>
+          <div class="profile-stat"><span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong></div>
         </div>
 
         <div class="profile-section">
@@ -2575,19 +1751,6 @@ function openStudent(id){
 
     $("#closeStudentBtn").onclick=()=>dialog.close();
     $("#editStudentBtn").onclick=()=>editStudent(id);
-    $("#editPublicProfileBtn").onclick=()=>editPublicProfile(id);
-
-    const conflictStat=$("#studentConflictStat");
-    if(conflictStat){
-      conflictStat.onclick=()=>showStudentConflicts(id);
-      conflictStat.onkeydown=e=>{
-        if(e.key==="Enter"||e.key===" "){
-          e.preventDefault();
-          showStudentConflicts(id);
-        }
-      };
-    }
-
     $("#editPublicProfileBtn").onclick=()=>editPublicProfile(id);
     $("#personalScheduleBtn").onclick=async()=>{
       const btn=$("#personalScheduleBtn");
@@ -2626,7 +1789,7 @@ function openStudent(id){
     };
 
     const monthNames={"01":"Січень","02":"Лютий","03":"Березень","04":"Квітень","05":"Травень","06":"Червень","07":"Липень","08":"Серпень","09":"Вересень","10":"Жовтень","11":"Листопад","12":"Грудень"};
-    const months=["2026-08","2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"];
+    const months=["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05"];
 
     const renderMonth=month=>{
       $$(".student-month-tab").forEach(b=>b.classList.toggle("active",b.dataset.month===month));
@@ -2776,12 +1939,12 @@ function editPublicProfile(id){
       const updated=sBy(id);
       if(updated && sharedPhotoData!==null) await saveStudentMedia(updated,sharedPhotoData);
       if(updated) await publishOnePublicProfile(updated);
-      alert(next.published?"Профіль опубліковано на сайті.":"Профіль збережено, але він прихований із сайту.");
+      alert(next.published?"Профіль опубліковано на REMS-44.":"Профіль збережено, але він прихований з REMS-44.");
       openStudent(id);
     }catch(err){
       console.error(err);
       if(submit){submit.disabled=false;submit.textContent="Зберегти й опублікувати";}
-      alert("У Control зміни збережені, але публікація на сайт заблокована правилами Firestore. Встанови правила з пакета v3.0.");
+      alert("У Control зміни збережені, але публікація на REMS-44 заблокована правилами Firestore. Встанови правила з пакета v3.0.");
     }
   };
 }
@@ -2791,10 +1954,6 @@ function editStudent(id){
   $("#studentDialogBody").innerHTML=`<div class="student-profile">
     <div class="profile-head"><div><h2>Редагувати картку</h2><div class="muted">${esc(s.name)}</div></div></div>
     <form id="studentEditForm" class="profile-edit-form" style="margin-top:18px">
-      <label>Група
-        <input id="stGroup" list="studentGroupOptions" value="${esc(s.group||"")}" placeholder="Напр. РЕМС-24">
-        <datalist id="studentGroupOptions">${availableGroups().map(g=>`<option value="${esc(g)}"></option>`).join("")}</datalist>
-      </label>
       <label>Телефон<input id="stPhone" value="${esc(s.phone||"")}" placeholder="+380..."></label>
       <label>Email<input id="stEmail" type="email" value="${esc(s.email||"")}"></label>
       <label>Дата народження<input id="stBirthDate" type="date" value="${esc(s.birthDate||"")}"></label>
@@ -2805,7 +1964,7 @@ function editStudent(id){
         <div class="shared-photo-controls">
           <b>Спільне фото студента</b>
           <input id="studentPhotoFile" type="file" accept="image/*">
-          <span class="muted">Одне фото для REMS Control і публічного сайту.</span>
+          <span class="muted">Одне фото для REMS Control і REMS-44.</span>
           <input id="stPhoto" value="${esc(s.photoUrl||"")}" placeholder="Або старе посилання https://...">
           <button type="button" class="ghost" id="removeStudentPhoto">Прибрати фото</button>
         </div>
@@ -2849,7 +2008,6 @@ function editStudent(id){
     }
 
     const patch={
-      group:$("#stGroup").value.trim(),
       phone:$("#stPhone").value.trim(),
       email:$("#stEmail").value.trim(),
       birthDate:$("#stBirthDate").value,
@@ -2894,18 +2052,6 @@ function editStudent(id){
       return;
     }
 
-    // If a student already exists in the public gallery, preserve publication.
-    // For a student without a public profile, ordinary card edits make the profile public
-    // so group/name changes propagate automatically to the site.
-    const existingPublic=publicProfileFor(updated);
-    if(existingPublic && existingPublic.published!==true){
-      updated.publicProfile={...existingPublic,published:true};
-      db.students=db.students.map(student =>
-        String(student.id)===String(id) ? updated : student
-      );
-      await save();
-    }
-
     if(pendingPhotoData!==null){
       try{
         await saveStudentMedia(updated,pendingPhotoData);
@@ -2942,7 +2088,6 @@ function projects(){
           <div style="text-align:left;min-width:0">
             <h3 style="margin:0">${esc(p.name)}</h3>
             <div class="muted">${evs.length} подій · ${assigned.length} студентів</div>
-            <div class="project-ack-line">Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></div>
           </div>
         </div>
         <span class="project-open-arrow">→</span>
@@ -2952,12 +2097,8 @@ function projects(){
   }).join("")||'<div class="empty">Проєктів ще немає.</div>'}</div>`;
 
   $$(".project-open-card").forEach(btn=>{
-    btn.onclick=e=>{
-      if(e.target.closest(".project-ack-line")) return openProjectAcknowledgements(btn.dataset.projectId);
-      openProjectCard(btn.dataset.projectId);
-    };
+    btn.onclick=()=>openProjectCard(btn.dataset.projectId);
   });
-  updateAckIndicators().catch(console.error);
 }
 
 function projectMonthLabel(month){
@@ -2971,6 +2112,7 @@ function projectCalendarMonthHtml(projectId,month){
   const daysInMonth=new Date(year,mon,0).getDate();
   const firstDay=(new Date(year,mon-1,1,12).getDay()+6)%7;
   const evs=eventsFor(projectId).filter(e=>e.date.startsWith(month));
+  const planned=new Set((p.plannedDates||[]).filter(d=>String(d).startsWith(month)));
   const byDate={};
   evs.forEach(e=>(byDate[e.date] ||= []).push(e));
   const blanks=Array.from({length:firstDay},()=>'<div class="project-cal-day empty"></div>').join("");
@@ -2978,10 +2120,12 @@ function projectCalendarMonthHtml(projectId,month){
     const day=i+1;
     const date=`${year}-${String(mon).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
     const items=byDate[date]||[];
+    const isPlanned=planned.has(date);
     const dow=new Date(date+"T12:00:00").getDay();
-    return `<button class="project-cal-day ${dow===0||dow===6?"weekend":""} ${items.length?"has-event":""}" data-project-day="${date}" type="button">
+    const canOpen=items.length||isPlanned;
+    return `<button class="project-cal-day ${dow===0||dow===6?"weekend":""} ${items.length?"has-event":""} ${isPlanned?"planned":""}" ${canOpen?`data-project-day="${date}"`:""} type="button">
       <span class="project-cal-number">${day}</span>
-      <span class="project-cal-events">${items.map(e=>`<span class="project-cal-event calendar-project-event">${calendarProjectCard(p,esc(shortType(e.type)))}</span>`).join("")}</span>
+      <span class="project-cal-events">${items.map(e=>`<span class="project-cal-event calendar-project-event">${calendarProjectCard(p,esc(shortType(e.type)))}</span>`).join("")}${!items.length&&isPlanned?'<span class="project-cal-planned">заплановано</span>':""}</span>
     </button>`;
   }).join("");
   return `<div class="project-cal-panel" data-project-month="${month}">
@@ -3002,13 +2146,13 @@ function showProjectDay(projectId,date){
   const people=db.students.filter(s=>peopleIds.has(s.id));
   dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
     <div class="project-section-head">
-      <div><h2 style="margin:0">${pretty}</h2><div class="muted">${esc(p.name)} · ${evs.length} подій · ${people.length} учасників</div></div>
-      <button class="ghost" id="backToProjectCalendar">Назад</button>
+      <div><h2 style="margin:0">${pretty}</h2><div class="muted">${esc(p.name)} · ${evs.length} робочих блоків · ${people.length} учасників</div></div>
+      <div class="planner-toolbar"><button class="ghost" id="addBlockThisDay">+ Блок на цей день</button><button class="ghost" id="openPlannerThisDay">Планування</button><button class="ghost" id="backToProjectCalendar">Назад</button></div>
     </div>
     <div class="day-event-list">
       ${evs.map((e,i)=>`<div class="day-event-row">
         <span class="dot" style="background:${p.color}"></span>
-        <div><b>${esc(e.type)}</b>${eventMetaText(e)?`<div class="day-event-meta">${esc(eventMetaText(e))}</div>`:""}${e.note?`<div class="day-event-meta">${esc(e.note)}</div>`:""}<div class="day-event-meta">${studentsForEvent(e).length} учасників</div></div>
+        <div><b>${esc(e.type)}</b>${eventMetaText(e)?`<div class="day-event-meta">${esc(eventMetaText(e))}</div>`:""}${e.note?`<div class="day-event-meta">${esc(e.note)}</div>`:""}<div class="day-event-meta">${studentsForEvent(e).length} учасників${Object.keys(e.studentRoles||{}).length?` · функції розподілено: ${Object.keys(e.studentRoles||{}).length}`:""}</div></div>
         <div style="display:flex;gap:6px;align-items:center">
           <button class="ghost project-day-edit-event" data-index="${i}">Редагувати</button>
           <button class="ghost project-day-people-event" data-index="${i}">Учасники</button>
@@ -3022,6 +2166,12 @@ function showProjectDay(projectId,date){
     </div></div>
   </div>`;
   dialog.querySelector("#backToProjectCalendar").onclick=()=>openProjectCard(projectId);
+  dialog.querySelector("#openPlannerThisDay").onclick=()=>openProjectPlanner(projectId,[date]);
+  dialog.querySelector("#addBlockThisDay").onclick=()=>{
+    $("#eventProjectId").value=projectId;
+    $("#eventDate").value=date;
+    $("#eventDialog").showModal();
+  };
   dialog.querySelectorAll(".project-day-edit-event").forEach(b=>b.onclick=()=>editProjectEvent(projectId,evs[+b.dataset.index]));
   dialog.querySelectorAll(".project-day-people-event").forEach(b=>b.onclick=()=>editEventPeople(projectId,evs[+b.dataset.index]));
   dialog.querySelectorAll(".project-day-delete-event").forEach(b=>{
@@ -3038,7 +2188,7 @@ function showProjectDay(projectId,date){
         },3500);
         return;
       }
-      const i=db.events.findIndex(x=>x.projectId===projectId&&x.date===ev.date&&x.type===ev.type);
+      const i=db.events.findIndex(x=>x===ev);
       if(i>=0) db.events.splice(i,1);
       const ok=await save();
       if(!ok) return;
@@ -3062,8 +2212,9 @@ function openProjectCard(id){
   try{
   const evs=eventsFor(id);
   const assigned=projectStudents(id);
+  const projectDates=[...new Set([...(p.plannedDates||[]).map(String),...evs.map(e=>e.date)])].filter(Boolean).sort();
   const ui=projectUiState[id]||{mode:"calendar",month:""};
-  const availableMonths=[...new Set(evs.map(e=>e.date.slice(0,7)))];
+  const availableMonths=[...new Set(projectDates.map(d=>d.slice(0,7)))];
   if(!availableMonths.includes(ui.month)) ui.month=availableMonths[0]||"";
   projectUiState[id]=ui;
   dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-detail">
@@ -3073,8 +2224,7 @@ function openProjectCard(id){
           <div class="project-logo">${projectLogoHtml(p,"project-hero-logo")}</div>
           <div><h2>${esc(p.name)}</h2><div class="muted">${esc(p.description||"")}</div></div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="ghost" id="projectAcknowledgementsBtn">Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></button>
+        <div style="display:flex;gap:8px">
           <button class="ghost" id="editProjectBtn">Редагувати</button>
           <button class="ghost" onclick="document.querySelector('#projectCardDialog').close()">Закрити</button>
         </div>
@@ -3084,7 +2234,7 @@ function openProjectCard(id){
       <div class="project-meta-grid">
         <div class="project-meta"><span>Подій</span><strong>${evs.length}</strong></div>
         <div class="project-meta"><span>Студентів</span><strong>${assigned.length}</strong></div>
-        <div class="project-meta"><span>Період</span><strong style="font-size:14px">${evs.length?`${fmt(evs[0].date)} — ${fmt(evs[evs.length-1].date)}`:"—"}</strong></div>
+        <div class="project-meta"><span>Період</span><strong style="font-size:14px">${projectDates.length?`${fmt(projectDates[0])} — ${fmt(projectDates[projectDates.length-1])}`:"—"}</strong></div>
       </div>
 
       <div class="project-section">
@@ -3097,10 +2247,10 @@ function openProjectCard(id){
       <div class="project-section">
         <div class="project-section-head">
           <b>Календар проєкту</b>
-          <div class="project-calendar-actions"><div class="project-view-switch"><button class="${ui.mode==="list"?"":"active"}" id="projectCalendarMode" type="button">Календар</button><button class="${ui.mode==="list"?"active":""}" id="projectListMode" type="button">Список</button></div><button class="ghost" id="addProjectEventBtn">+ Дата</button></div>
+          <div class="project-calendar-actions"><div class="project-view-switch"><button class="${ui.mode==="list"?"":"active"}" id="projectCalendarMode" type="button">Календар</button><button class="${ui.mode==="list"?"active":""}" id="projectListMode" type="button">Список</button></div><button class="ghost" id="projectPlannerBtn">Планування дат і команди</button><button class="ghost" id="addProjectEventBtn">+ Один блок</button></div>
         </div>
         ${(()=>{
-          const months=[...new Set(evs.map(e=>e.date.slice(0,7)))];
+          const months=[...new Set(projectDates.map(d=>d.slice(0,7)))];
           if(!months.length) return '<div class="empty">Дат ще немає.</div>';
           const activeMonth=months.includes(ui.month)?ui.month:months[0];
           return `<div id="projectCalendarView" style="${ui.mode==="list"?"display:none":""}">
@@ -3134,6 +2284,8 @@ function openProjectCard(id){
     await save(); openProjectCard(id);
   });
 
+  dialog.querySelector("#projectPlannerBtn").onclick=()=>openProjectPlanner(id);
+
   dialog.querySelector("#addProjectEventBtn").onclick=()=>{
     $("#eventProjectId").value=id;
     $("#eventDialog").showModal();
@@ -3151,7 +2303,7 @@ function openProjectCard(id){
 
   dialog.querySelectorAll(".delete-event").forEach(b=>b.onclick=async()=>{
     const ev=eventsFor(id)[+b.dataset.index];
-    const i=db.events.findIndex(x=>x.projectId===id&&x.date===ev.date&&x.type===ev.type);
+    const i=db.events.findIndex(x=>x===ev);
     if(i>=0) db.events.splice(i,1);
     await save(); openProjectCard(id);
   });
@@ -3169,10 +2321,8 @@ function openProjectCard(id){
     dialog.querySelectorAll(".project-month-tab").forEach(x=>x.classList.toggle("active",x===tab));
     dialog.querySelectorAll("[data-month-panel]").forEach(panel=>panel.style.display=panel.dataset.monthPanel===tab.dataset.month?"":"none");
   });
-  dialog.querySelectorAll(".project-cal-day.has-event").forEach(day=>day.onclick=()=>showProjectDay(id,day.dataset.projectDay));
+  dialog.querySelectorAll(".project-cal-day.has-event,.project-cal-day.planned").forEach(day=>day.onclick=()=>{if(day.dataset.projectDay) showProjectDay(id,day.dataset.projectDay);});
 
-  dialog.querySelector("#projectAcknowledgementsBtn").onclick=()=>openProjectAcknowledgements(id);
-  updateAckIndicators().catch(console.error);
   dialog.querySelector("#editProjectBtn").onclick=()=>editProjectCard(id);
   }catch(err){
     console.error("Project card error:",err);
@@ -3232,7 +2382,6 @@ function editProjectEvent(projectId,ev){
       </label>
 
       <div class="full profile-actions">
-        <button type="button" class="ghost" id="viewEventAcknowledgements">Ознайомлення</button>
         <button type="button" class="ghost" id="cancelProjectEventEditBottom">Скасувати</button>
         <button type="submit" class="ghost" data-notify="0">Зберегти</button>
         <button type="submit" class="primary" data-notify="1">Зберегти та повідомити</button>
@@ -3243,14 +2392,6 @@ function editProjectEvent(projectId,ev){
   const back=()=>openProjectCard(projectId);
   dialog.querySelector("#cancelProjectEventEdit").onclick=back;
   dialog.querySelector("#cancelProjectEventEditBottom").onclick=back;
-  dialog.querySelector("#viewEventAcknowledgements").onclick=async()=>{
-    const btn=dialog.querySelector("#viewEventAcknowledgements");
-    const old=btn.textContent;
-    btn.disabled=true;
-    btn.textContent="Завантаження…";
-    try{ await showEventAcknowledgements(ev); }
-    finally{ btn.disabled=false; btn.textContent=old; }
-  };
 
   dialog.querySelector("#projectEventEditForm").onsubmit=async e=>{
     e.preventDefault();
@@ -3314,18 +2455,21 @@ function editEventPeople(projectId,ev){
   projectUiState[projectId]={...(projectUiState[projectId]||{}),month:ev.date.slice(0,7)};
   const dialog=ensureProjectCardDialog();
   const projectPeople=projectStudents(projectId);
-  const current=studentsForEvent(ev).map(s=>s.id);
+  const currentIds=new Set(studentsForEvent(ev).map(s=>String(s.id)));
   dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
     <div class="project-section-head">
-      <div><h2 style="margin:0">Учасники події</h2><div class="muted">${esc(p.name)} · ${fmt(ev.date)} · ${esc(ev.type)}</div></div>
+      <div><h2 style="margin:0">Учасники й обов'язки</h2><div class="muted">${esc(p.name)} · ${fmt(ev.date)} · ${esc(ev.type)}</div></div>
       <button class="ghost" id="backToProject">Назад</button>
     </div>
     <div class="event-assignment-box">
-      <b>Хто працює саме цього дня</b>
-      <div class="event-assignment-grid">
-        ${projectPeople.map(s=>`<button class="event-person ${current.includes(s.id)?"active":""}" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Спочатку додайте студентів до проєкту.</span>'}
+      <b>Хто працює саме в цьому блоці</b>
+      <div class="event-person-role-list">
+        ${projectPeople.map(s=>`<div class="event-person-role-row">
+          <button class="event-person ${currentIds.has(String(s.id))?"active":""}" data-id="${s.id}">${esc(s.name)}</button>
+          <input class="event-person-role" data-id="${s.id}" value="${esc(studentRoleForEvent(ev,s.id))}" placeholder="Обов'язки / функція" ${currentIds.has(String(s.id))?"":"disabled"}>
+        </div>`).join("")||'<span class="muted">Спочатку додайте студентів до проєкту.</span>'}
       </div>
-      <div class="event-assignment-note">Темна кнопка = студент призначений на цю конкретну подію.</div>
+      <div class="event-assignment-note">Можна призначити не лише людей, а й окремі функції кожному.</div>
     </div>
     <div class="profile-actions">
       <button class="ghost" id="allEventPeople">Всі</button>
@@ -3334,27 +2478,207 @@ function editEventPeople(projectId,ev){
     </div>
   </div>`;
 
-  let selected=new Set(current);
+  let selected=new Set(currentIds);
   dialog.querySelectorAll(".event-person").forEach(btn=>btn.onclick=()=>{
-    const sid=+btn.dataset.id;
+    const sid=String(btn.dataset.id);
     if(selected.has(sid)) selected.delete(sid); else selected.add(sid);
     btn.classList.toggle("active",selected.has(sid));
+    const input=dialog.querySelector(`.event-person-role[data-id="${CSS.escape(sid)}"]`);
+    if(input) input.disabled=!selected.has(sid);
   });
   dialog.querySelector("#allEventPeople").onclick=()=>{
-    selected=new Set(projectPeople.map(s=>s.id));
+    selected=new Set(projectPeople.map(s=>String(s.id)));
     dialog.querySelectorAll(".event-person").forEach(x=>x.classList.add("active"));
+    dialog.querySelectorAll(".event-person-role").forEach(x=>x.disabled=false);
   };
   dialog.querySelector("#clearEventPeople").onclick=()=>{
     selected.clear();
     dialog.querySelectorAll(".event-person").forEach(x=>x.classList.remove("active"));
+    dialog.querySelectorAll(".event-person-role").forEach(x=>x.disabled=true);
   };
   dialog.querySelector("#backToProject").onclick=()=>openProjectCard(projectId);
   dialog.querySelector("#saveEventPeople").onclick=async()=>{
-    const target=db.events.find(x=>x.projectId===ev.projectId&&x.date===ev.date&&x.type===ev.type);
-    if(target) target.studentIds=[...selected];
+    const target=db.events.find(x=>x===ev)
+      || db.events.find(x=>x.projectId===ev.projectId&&x.date===ev.date&&x.type===ev.type&&String(x.startTime||"")===String(ev.startTime||""));
+    if(target){
+      target.studentIds=projectPeople.filter(s=>selected.has(String(s.id))).map(s=>s.id);
+      const roles={};
+      dialog.querySelectorAll(".event-person-role").forEach(input=>{
+        const sid=String(input.dataset.id);
+        const role=input.value.trim();
+        if(selected.has(sid)&&role) roles[sid]=role;
+      });
+      target.studentRoles=roles;
+    }
     await save();
     openProjectCard(projectId);
   };
+}
+
+function projectPlanningDates(p){
+  return [...new Set([...(p?.plannedDates||[]).map(String),...eventsFor(p?.id).map(e=>String(e.date||""))])].filter(Boolean).sort();
+}
+
+function openProjectPlanner(projectId,preselectedDates=[]){
+  const p=pBy(projectId); if(!p) return;
+  const dialog=ensureProjectCardDialog();
+  p.plannedDates=[...new Set((p.plannedDates||[]).map(String))].filter(Boolean).sort();
+  const projectPeople=projectStudents(projectId);
+  let selectedDates=new Set((preselectedDates||[]).map(String));
+  let selectedPeople=new Set();
+
+  const render=()=>{
+    const dates=projectPlanningDates(p);
+    const evs=eventsFor(projectId);
+    dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body planner-shell">
+      <div class="project-section-head">
+        <div><h2 style="margin:0">Планування дат і команди</h2><div class="muted">${esc(p.name)} · один робочий блок можна одразу поставити на кілька дат</div></div>
+        <button class="ghost" id="plannerBack">Назад до проєкту</button>
+      </div>
+
+      <section class="planner-card">
+        <h3>1. Дати проєкту</h3>
+        <div class="muted">Клацніть дати, на які треба поставити однаковий робочий блок. Можна вибрати кілька дат одразу.</div>
+        <div class="planner-toolbar">
+          <input id="plannerSingleDate" type="date">
+          <button type="button" class="ghost" id="plannerAddSingleDate">+ Додати дату</button>
+          <button type="button" class="ghost" id="plannerSelectAllDates">Вибрати всі</button>
+          <button type="button" class="ghost" id="plannerClearDates">Очистити вибір</button>
+        </div>
+        <div class="project-planned-range">
+          <label>Діапазон від<input id="plannerRangeStart" type="date"></label>
+          <label>до<input id="plannerRangeEnd" type="date"></label>
+          <button type="button" class="ghost" id="plannerAddRange">+ Додати діапазон</button>
+        </div>
+        <div class="planner-date-grid">
+          ${dates.map(d=>`<button type="button" class="planner-date ${selectedDates.has(d)?"active":""}" data-date="${d}">${fmt(d)}</button>`).join("")||'<span class="muted">Дат ще немає — додайте одну або діапазон.</span>'}
+        </div>
+        <div class="muted">Вибрано дат: <b id="plannerSelectedDatesCount">${selectedDates.size}</b></div>
+      </section>
+
+      <section class="planner-card">
+        <h3>2. Робочий блок</h3>
+        <div class="planner-form-grid">
+          <label class="full">Що відбувається<input id="plannerType" placeholder="Наприклад: Репетиція / Зйомка / Реєстрація / Монтаж"></label>
+          <label>Початок<input id="plannerStart" type="time"></label>
+          <label>Завершення<input id="plannerEnd" type="time"></label>
+          <label class="full">Локація<input id="plannerLocation" placeholder="Локація / павільйон / аудиторія"></label>
+          <label class="full">Примітка<textarea id="plannerNote" placeholder="Збір, форма, документи, додаткова інформація"></textarea></label>
+        </div>
+      </section>
+
+      <section class="planner-card">
+        <div class="project-section-head"><h3>3. Люди й обов'язки</h3><span class="muted">Команда проєкту: ${projectPeople.length}</span></div>
+        <div class="planner-toolbar">
+          <button type="button" class="ghost" id="plannerAllPeople">Всі</button>
+          <button type="button" class="ghost" id="plannerClearPeople">Ніхто</button>
+          <input id="plannerCommonRole" placeholder="Спільна функція для вибраних, напр. хостес">
+          <button type="button" class="ghost" id="plannerApplyRole">Застосувати</button>
+        </div>
+        <div class="planner-person-list">
+          ${projectPeople.map(s=>`<div class="planner-person-row">
+            <button type="button" class="planner-person-toggle ${selectedPeople.has(String(s.id))?"active":""}" data-id="${s.id}">${esc(s.name)}</button>
+            <input class="planner-role-input" data-id="${s.id}" placeholder="Його/її обов'язки в цьому блоці" ${selectedPeople.has(String(s.id))?"":"disabled"}>
+          </div>`).join("")||'<div class="notice warn">У проєкті ще немає студентів. Поверніться до картки проєкту й додайте команду.</div>'}
+        </div>
+        <div class="profile-actions">
+          <button type="button" class="primary" id="plannerCreateBlocks">Створити блок на вибрані дати</button>
+        </div>
+        <div class="muted">Масове створення не надсилає push автоматично — спочатку можна спокійно скласти графік.</div>
+      </section>
+
+      <section class="planner-card">
+        <div class="project-section-head"><h3>Поточні робочі блоки</h3><span class="muted">${evs.length}</span></div>
+        <div class="planner-block-list">
+          ${evs.map((e,i)=>{
+            const people=studentsForEvent(e);
+            return `<div class="planner-block-row">
+              <b>${fmt(e.date)}</b>
+              <div><b>${esc(e.type)}</b><div class="muted">${esc(eventMetaText(e)||"Час не вказано")} · ${people.length} ос.</div></div>
+              <div class="planner-block-actions"><button class="ghost planner-edit-block" data-index="${i}">Редагувати</button><button class="ghost planner-people-block" data-index="${i}">Люди / функції</button></div>
+            </div>`;
+          }).join("")||'<div class="empty">Робочих блоків ще немає.</div>'}
+        </div>
+      </section>
+    </div>`;
+
+    const root=dialog.querySelector("#projectCardBody");
+    root.querySelector("#plannerBack").onclick=()=>openProjectCard(projectId);
+    root.querySelectorAll(".planner-date").forEach(btn=>btn.onclick=()=>{
+      const d=btn.dataset.date;
+      if(selectedDates.has(d)) selectedDates.delete(d); else selectedDates.add(d);
+      btn.classList.toggle("active",selectedDates.has(d));
+      root.querySelector("#plannerSelectedDatesCount").textContent=selectedDates.size;
+    });
+    root.querySelector("#plannerSelectAllDates").onclick=()=>{projectPlanningDates(p).forEach(d=>selectedDates.add(d));render();};
+    root.querySelector("#plannerClearDates").onclick=()=>{selectedDates.clear();render();};
+    root.querySelector("#plannerAddSingleDate").onclick=async()=>{
+      const d=root.querySelector("#plannerSingleDate").value;
+      if(!d) return;
+      p.plannedDates=[...new Set([...(p.plannedDates||[]),d])].sort();
+      selectedDates.add(d);
+      await save();
+      render();
+    };
+    root.querySelector("#plannerAddRange").onclick=async()=>{
+      const a=root.querySelector("#plannerRangeStart").value;
+      const b=root.querySelector("#plannerRangeEnd").value;
+      if(!a||!b){alert("Вкажіть початок і кінець діапазону.");return;}
+      const [start,end]=a<=b?[a,b]:[b,a];
+      const list=datesBetween(start,end);
+      p.plannedDates=[...new Set([...(p.plannedDates||[]),...list])].sort();
+      list.forEach(d=>selectedDates.add(d));
+      await save();
+      render();
+    };
+
+    root.querySelectorAll(".planner-person-toggle").forEach(btn=>btn.onclick=()=>{
+      const sid=String(btn.dataset.id);
+      if(selectedPeople.has(sid)) selectedPeople.delete(sid); else selectedPeople.add(sid);
+      btn.classList.toggle("active",selectedPeople.has(sid));
+      const input=root.querySelector(`.planner-role-input[data-id="${CSS.escape(sid)}"]`);
+      if(input) input.disabled=!selectedPeople.has(sid);
+    });
+    root.querySelector("#plannerAllPeople").onclick=()=>{selectedPeople=new Set(projectPeople.map(s=>String(s.id)));render();};
+    root.querySelector("#plannerClearPeople").onclick=()=>{selectedPeople.clear();render();};
+    root.querySelector("#plannerApplyRole").onclick=()=>{
+      const role=root.querySelector("#plannerCommonRole").value.trim();
+      root.querySelectorAll(".planner-role-input").forEach(input=>{if(selectedPeople.has(String(input.dataset.id))) input.value=role;});
+    };
+    root.querySelector("#plannerCreateBlocks").onclick=async()=>{
+      const type=root.querySelector("#plannerType").value.trim();
+      if(!selectedDates.size){alert("Виберіть хоча б одну дату.");return;}
+      if(!type){alert("Вкажіть, що відбувається в цьому робочому блоці.");return;}
+      if(!selectedPeople.size){alert("Виберіть хоча б одного студента.");return;}
+      const startTime=root.querySelector("#plannerStart").value||"";
+      const endTime=root.querySelector("#plannerEnd").value||"";
+      const location=root.querySelector("#plannerLocation").value.trim();
+      const note=root.querySelector("#plannerNote").value.trim();
+      const studentIds=projectPeople.filter(s=>selectedPeople.has(String(s.id))).map(s=>s.id);
+      const roles={};
+      root.querySelectorAll(".planner-role-input").forEach(input=>{
+        const sid=String(input.dataset.id), role=input.value.trim();
+        if(selectedPeople.has(sid)&&role) roles[sid]=role;
+      });
+      let created=0, skipped=0;
+      for(const date of [...selectedDates].sort()){
+        const duplicate=db.events.some(e=>String(e.projectId)===String(projectId)&&e.date===date&&String(e.type||"")===type&&String(e.startTime||"")===startTime&&String(e.endTime||"")===endTime);
+        if(duplicate){skipped++;continue;}
+        db.events.push({projectId,date,type,startTime,endTime,location,note,studentIds:[...studentIds],studentRoles:{...roles}});
+        created++;
+      }
+      p.plannedDates=[...new Set([...(p.plannedDates||[]),...[...selectedDates]])].sort();
+      db.events.sort((a,b)=>a.date.localeCompare(b.date)||(a.startTime||"").localeCompare(b.startTime||""));
+      const ok=await save();
+      if(!ok){alert("Не вдалося зберегти зміни в хмарі.");return;}
+      alert(`Створено робочих блоків: ${created}.${skipped?` Пропущено дублікатів: ${skipped}.`:""}`);
+      openProjectPlanner(projectId,[...selectedDates]);
+    };
+
+    root.querySelectorAll(".planner-edit-block").forEach(b=>b.onclick=()=>editProjectEvent(projectId,eventsFor(projectId)[+b.dataset.index]));
+    root.querySelectorAll(".planner-people-block").forEach(b=>b.onclick=()=>editEventPeople(projectId,eventsFor(projectId)[+b.dataset.index]));
+  };
+  render();
 }
 
 function editProjectCard(id){
@@ -3459,7 +2783,7 @@ function ensureDayDialog(){
 
 
 function eventKey(e){
-  return `${e.projectId}|${e.date}|${e.type}`;
+  return `${e.projectId}|${e.date}|${e.startTime||""}|${e.endTime||""}|${e.type}`;
 }
 function studentsForEvent(e){
   if(Array.isArray(e.studentIds)){
@@ -3467,6 +2791,11 @@ function studentsForEvent(e){
     return db.students.filter(s=>ids.has(String(s.id)));
   }
   return projectStudents(e.projectId);
+}
+function studentRoleForEvent(e,studentId){
+  const roles=e?.studentRoles;
+  if(!roles || typeof roles!=="object") return "";
+  return String(roles[String(studentId)] ?? roles[studentId] ?? "").trim();
 }
 
 
@@ -3493,6 +2822,7 @@ function showStudentEventInfo(studentId,item){
     <div class="event-info-body">
       ${eventTimeText(item)?`<div class="event-info-row"><span>Час</span><b>${esc(eventTimeText(item))}</b></div>`:""}
       ${item.location?`<div class="event-info-row"><span>Локація</span><b>${esc(item.location)}</b></div>`:""}
+      ${studentRoleForEvent(item,studentId)?`<div class="event-info-row"><span>Обов'язки</span><b>${esc(studentRoleForEvent(item,studentId))}</b></div>`:""}
       ${item.note?`<div class="event-info-row"><span>Примітка</span><b>${esc(item.note)}</b></div>`:""}
       <div class="event-info-row"><span>Студент</span><b>${esc(s?.name||"")}</b></div>
     </div>
@@ -3581,13 +2911,11 @@ function calendar(){
   app.innerHTML=`
     <div class="calendar-toolbar">
       <select id="calPeriod">
-        <option value="year" selected>Увесь період · серпень–травень</option>
-        <option value="august" selected>Серпень 2026</option>
+        <option value="year" selected>Увесь навчальний рік · вересень–травень</option>
         <option value="autumn">Вересень–листопад</option>
         <option value="winter">Грудень–лютий</option>
         <option value="spring">Березень–травень</option>
       </select>
-      <select id="calGroup">${groupOptionsHtml()}</select>
       <select id="calProject"><option value="">Усі проєкти</option>${db.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
       <input id="calStudent" placeholder="Пошук студента...">
       <select id="calType">
@@ -3605,16 +2933,14 @@ function calendar(){
 
   const render=()=>{
     const period=$("#calPeriod").value;
-    const ranges={august:["2026-08-01","2026-08-31"],autumn:["2026-09-01","2026-11-30"],winter:["2026-12-01","2027-02-28"],spring:["2027-03-01","2027-05-31"],year:["2026-08-01","2027-05-31"]};
+    const ranges={autumn:["2026-09-01","2026-11-30"],winter:["2026-12-01","2027-02-28"],spring:["2027-03-01","2027-05-31"],year:["2026-09-01","2027-05-31"]};
     const [start,end]=ranges[period];
     const dates=datesBetween(start,end);
-    const gf=$("#calGroup").value;
     const pf=$("#calProject").value;
     const q=$("#calStudent").value.toLowerCase().trim();
     const tf=$("#calType").value.toLowerCase();
 
     const students=db.students.filter(s=>{
-      if(gf && String(s.group||"")!==gf) return false;
       if(!s.name.toLowerCase().includes(q)) return false;
       if(!pf) return true;
       return db.events.some(e=>e.projectId===pf && studentsForEvent(e).some(x=>x.id===s.id));
@@ -3647,9 +2973,7 @@ function calendar(){
       <span class="summary-pill">Студентів у вибірці: <b>${students.length}</b></span>
       <span class="summary-pill">Зайнятих студентів: <b>${uniqueBusyStudents}</b></span>
       <span class="summary-pill">Заповнених клітинок: <b>${busyCells}</b></span>
-      <button type="button" class="summary-pill conflict-link" id="openAllConflicts">Конфліктів: <b>${conflicts}</b></button>`;
-
-    document.querySelector("#openAllConflicts")?.addEventListener("click",showAllConflicts);
+      <span class="summary-pill">Конфліктів: <b>${conflicts}</b></span>`;
 
     const monthGroups={};
     dates.forEach(d=>{
@@ -3658,7 +2982,7 @@ function calendar(){
     });
 
     const monthNames={
-      "2026-08":"Серпень 2026","2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
+      "2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
       "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027",
       "2027-03":"Березень 2027","2027-04":"Квітень 2027","2027-05":"Травень 2027"
     };
@@ -3702,7 +3026,6 @@ function calendar(){
   };
 
   $("#calPeriod").onchange=render;
-  $("#calGroup").onchange=render;
   $("#calProject").onchange=render;
   $("#calStudent").oninput=render;
   $("#calType").onchange=render;
@@ -3712,13 +3035,11 @@ function calendar(){
 function schedule(){
   app.innerHTML=`
     <div class="schedule-controls">
-      <select id="schGroup">${groupOptionsHtml()}</select>
       <select id="schPeriod">
-        <option value="august">Серпень 2026</option>
         <option value="autumn">Вересень–листопад</option>
         <option value="winter">Грудень–лютий</option>
         <option value="spring">Березень–травень</option>
-        <option value="year">Серпень–травень</option>
+        <option value="year">Вересень–травень</option>
       </select>
       <select id="schWeekday">
         <option value="">Усі дні тижня</option>
@@ -3742,16 +3063,12 @@ function schedule(){
 
   const render=()=>{
     const ranges={
-      august:["2026-08-01","2026-08-31"],
       autumn:["2026-09-01","2026-11-30"],
       winter:["2026-12-01","2027-02-28"],
       spring:["2027-03-01","2027-05-31"],
-      year:["2026-08-01","2027-05-31"]
+      year:["2026-09-01","2027-05-31"]
     };
     const [start,end]=ranges[$("#schPeriod").value];
-    const groupFilter=$("#schGroup").value;
-    const cohort=(db.students||[]).filter(s=>!groupFilter||String(s.group||"")===groupFilter);
-    const cohortIds=new Set(cohort.map(s=>String(s.id)));
     const weekday=$("#schWeekday").value;
     const minFree=+$("#schMinFree").value;
 
@@ -3765,13 +3082,13 @@ function schedule(){
       db.events.filter(e=>e.date===date).forEach(e=>{
         const p=pBy(e.projectId);
         if(!p) return;
-        const assigned=studentsForEvent(e).filter(s=>cohortIds.has(String(s.id)));
+        const assigned=studentsForEvent(e);
         assigned.forEach(s=>busyIds.add(s.id));
         if(assigned.length) reasons[p.name]=(reasons[p.name]||0)+assigned.length;
       });
 
       const busy=busyIds.size;
-      const free=Math.max(0,cohort.length-busy);
+      const free=Math.max(0,db.students.length-busy);
       let cls="schedule-score-best",label="ІДЕАЛЬНО",dayClass="best";
       if(busy>=10){cls="schedule-score-hard";label="СКЛАДНО";dayClass="hard";}
       else if(busy>=5){cls="schedule-score-good";label="МОЖНА";dayClass="";}
@@ -3805,7 +3122,7 @@ function schedule(){
             const wd=new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long"});
             return `<button class="recommended-item schedule-open-day" data-date="${d}">
               <b>${fullfmt(d)}</b><br>
-              <span class="schedule-note">${wd} · ${stats[d].free} вільних із ${cohort.length}</span>
+              <span class="schedule-note">${wd} · ${stats[d].free} вільних із ${db.students.length}</span>
             </button>`;
           }).join("")}
         </div>
@@ -3818,7 +3135,7 @@ function schedule(){
     });
 
     const monthNames={
-      "2026-08":"Серпень 2026","2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
+      "2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
       "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027",
       "2027-03":"Березень 2027","2027-04":"Квітень 2027","2027-05":"Травень 2027"
     };
@@ -4313,15 +3630,6 @@ async function industry(){
   $$(".industry-edit").forEach(b=>b.onclick=()=>industryEditor(industryCache.find(x=>x.id===b.dataset.id)));
 }
 
-
-document.addEventListener("click",e=>{
-  const btn=e.target.closest("[data-student-conflicts]");
-  if(!btn) return;
-  e.preventDefault();
-  e.stopPropagation();
-  showStudentConflicts(btn.dataset.studentConflicts);
-});
-
 const views={dashboard,students,projects,calendar,schedule,industry};
 
 // Старий пункт "Особисті розклади" лишився в HTML, але окремий розділ більше не використовується.
@@ -4338,41 +3646,22 @@ $("#quickAdd").onclick=()=>{
     alert("Зачекайте кілька секунд: REMS Control ще завантажує хмарну базу.");
     return;
   }
-
-  if(currentView==="students"){
-    openNewStudentDialog();
-    return;
-  }
-
-  if(currentView==="projects"){
-    $("#projectForm")?.reset();
-    $("#projectDialog").showModal();
-    return;
-  }
-
   if(currentView==="industry"){
     industryEditor();
     return;
   }
+  $("#projectDialog").showModal();
 };
 ensureNewProjectLogoField();
-
-$("#cancelProjectCreate").onclick=()=>{
-  $("#projectDialog").close();
-  $("#projectForm").reset();
-};
-
-$("#projectDialog").addEventListener("cancel",()=>{
-  $("#projectForm").reset();
-});
+ensureNewProjectPlanningFields();
 
 $("#saveProject").onclick=async e=>{
   e.preventDefault();
-  const name=$("#projectName").value.trim(); if(!name){alert("Вкажи назву проєкту.");return;}
+  const name=$("#projectName").value.trim(); if(!name)return;
   const btn=e.currentTarget;
   btn.disabled=true; btn.textContent="Збереження…";
   try{
-    const project={id:"p_"+Date.now(),name,color:$("#projectColor").value,emoji:$("#projectEmoji").value||"◆"};
+    const project={id:"p_"+Date.now(),name,color:$("#projectColor").value,emoji:$("#projectEmoji").value||"◆",plannedDates:[...newProjectPlannedDates].sort()};
     const logoFile=$("#projectLogoFile")?.files?.[0];
     if(logoFile) project.logoData=await compressProjectLogo(logoFile);
     db.projects.push(project);
@@ -4384,6 +3673,8 @@ $("#saveProject").onclick=async e=>{
     }
     $("#projectDialog").close();
     $("#projectForm").reset();
+    newProjectPlannedDates.clear();
+    renderNewProjectDates();
     switchView("projects","Проєкти");
   }catch(err){
     alert(err.message||"Не вдалося створити проєкт.");
@@ -4398,7 +3689,7 @@ const createEventFromForm=async(notify=false,sourceBtn=null)=>{
   const startTime=$("#eventStartTime")?.value||"";
   const endTime=$("#eventEndTime")?.value||"";
   const location=$("#eventLocation")?.value.trim()||"";
-  const event={projectId,date,type,startTime,endTime,location};
+  const event={projectId,date,type,startTime,endTime,location,studentIds:[],studentRoles:{}};
 
   if(sourceBtn){
     sourceBtn.disabled=true;
@@ -5031,7 +4322,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.4.7 · хмара ✓");
+    setStatus("v4.1.2 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -5100,9 +4391,9 @@ functions=getFunctions(firebaseApp,"europe-west1");
       if(seededJesc) localStorage.setItem("rems_jesc_seed_v2","1");
     }
 
-    currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
+    currentView="dashboard";
     try{
-      refreshCurrentView();
+      dashboard();
     }catch(renderErr){
       console.error("Dashboard render error:",renderErr);
       // UI rendering errors must not disable a healthy Firebase connection.
@@ -5131,7 +4422,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.4.7 · хмара ✓");
+      setStatus("v4.1.2 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
