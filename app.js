@@ -539,6 +539,7 @@ const CLOUD_DOC="main";
 const clone=x=>JSON.parse(JSON.stringify(x));
 const studentMediaCache=new Map();
 let db=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLDKEY)||localStorage.getItem(OLDERKEY)||"null")||clone(window.REMS_SEED);
+db.lessons=Array.isArray(db.lessons)?db.lessons:[];
 let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false, cloudWriting=false;
 let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null, functions=null;
 const projectUiState={};
@@ -723,12 +724,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v4.1.2 · немає з’єднання");
+    setStatus("v5.2 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v4.1.2 · збереження…");
+    setStatus("v5.2 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -738,7 +739,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v5.1 · хмара ✓");
+    setStatus("v5.2 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -749,7 +750,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v4.1.2 · помилка хмари");
+    setStatus("v5.2 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1139,6 +1140,124 @@ const eventAssignments=()=>{
   return map;
 };
 
+
+// ===== Розклад занять · REMS Control v5.2 =====
+const ACADEMIC_COLOR="#2563EB";
+const academicLessons=()=>Array.isArray(db.lessons)?db.lessons:[];
+const academicLessonId=()=>`lesson-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+const academicWeekdays=[
+  {value:"1",label:"Понеділок",short:"Пн"},
+  {value:"2",label:"Вівторок",short:"Вт"},
+  {value:"3",label:"Середа",short:"Ср"},
+  {value:"4",label:"Четвер",short:"Чт"},
+  {value:"5",label:"П’ятниця",short:"Пт"},
+  {value:"6",label:"Субота",short:"Сб"}
+];
+const mondayIso=date=>{
+  const d=new Date(String(date)+"T12:00:00");
+  const day=(d.getDay()+6)%7;
+  d.setDate(d.getDate()-day);
+  return localIsoDate(d);
+};
+const academicLessonOccursOnDate=(lesson,date)=>{
+  if(!lesson||!date) return false;
+  if(lesson.mode==="once") return String(lesson.date||"")===String(date);
+  const start=String(lesson.startDate||"2026-09-01");
+  const end=String(lesson.endDate||"2027-05-31");
+  if(date<start||date>end) return false;
+  const weekday=String(new Date(date+"T12:00:00").getDay());
+  if(weekday!==String(lesson.weekday||"")) return false;
+  const pattern=String(lesson.weekPattern||"all");
+  if(pattern==="all") return true;
+  const base=new Date(mondayIso(start)+"T12:00:00");
+  const cur=new Date(mondayIso(date)+"T12:00:00");
+  const weekIndex=Math.floor((cur-base)/(7*86400000))+1;
+  return pattern==="odd" ? weekIndex%2===1 : weekIndex%2===0;
+};
+const academicLessonDates=lesson=>{
+  if(!lesson) return [];
+  if(lesson.mode==="once") return lesson.date?[String(lesson.date)]:[];
+  const start=String(lesson.startDate||"2026-09-01");
+  const end=String(lesson.endDate||"2027-05-31");
+  return datesBetween(start,end).filter(d=>academicLessonOccursOnDate(lesson,d));
+};
+const lessonStudents=lesson=>{
+  const ids=Array.isArray(lesson?.studentIds)?lesson.studentIds.map(String).filter(Boolean):[];
+  if(ids.length){
+    const set=new Set(ids);
+    return (db.students||[]).filter(st=>set.has(String(st.id)));
+  }
+  const group=String(lesson?.group||"").trim();
+  return (db.students||[]).filter(st=>!group||String(st.group||"")===group);
+};
+const lessonAppliesToStudent=(lesson,studentId)=>lessonStudents(lesson).some(st=>String(st.id)===String(studentId));
+const lessonActivity=(lesson,date)=>({
+  source:"lesson",
+  lessonId:String(lesson.id||""),
+  date:String(date||""),
+  startTime:String(lesson.startTime||""),
+  endTime:String(lesson.endTime||""),
+  title:String(lesson.subject||"Заняття"),
+  type:"Заняття",
+  location:String(lesson.room||""),
+  teacher:String(lesson.teacher||""),
+  group:String(lesson.group||""),
+  color:ACADEMIC_COLOR,
+  raw:lesson
+});
+const projectActivity=e=>{
+  const p=pBy(e?.projectId);
+  return {
+    ...e,
+    source:"project",
+    title:String(p?.name||"Проєкт"),
+    color:String(p?.color||"#6b7280"),
+    raw:e
+  };
+};
+const lessonActivitiesOnDate=date=>academicLessons()
+  .filter(l=>academicLessonOccursOnDate(l,date))
+  .map(l=>lessonActivity(l,date));
+const studentLessonActivitiesOnDate=(studentId,date)=>academicLessons()
+  .filter(l=>academicLessonOccursOnDate(l,date)&&lessonAppliesToStudent(l,studentId))
+  .map(l=>lessonActivity(l,date));
+const studentProjectActivitiesOnDate=(studentId,date)=>(db.events||[])
+  .filter(e=>e.date===date&&studentsForEvent(e).some(st=>String(st.id)===String(studentId)))
+  .map(projectActivity);
+const studentActivitiesOnDate=(studentId,date)=>[
+  ...studentProjectActivitiesOnDate(studentId,date),
+  ...studentLessonActivitiesOnDate(studentId,date)
+].sort((a,b)=>String(a.startTime||"").localeCompare(String(b.startTime||"")));
+const activityTitle=a=>String(a?.source==="lesson"?a.title:(pBy(a?.projectId)?.name||a?.title||"Проєкт"));
+const activityColor=a=>String(a?.source==="lesson"?ACADEMIC_COLOR:(pBy(a?.projectId)?.color||a?.color||"#6b7280"));
+const activityMeta=a=>{
+  if(a?.source==="lesson"){
+    return ["Заняття",eventTimeText(a),a.location,a.teacher].filter(Boolean).join(" · ");
+  }
+  return [a?.type||"Подія",eventTimeText(a),a?.location].filter(Boolean).join(" · ");
+};
+const combinedAssignments=()=>{
+  const map={};
+  (db.events||[]).forEach(e=>{
+    const act=projectActivity(e);
+    studentsForEvent(e).forEach(st=>{
+      const k=`${st.id}|${e.date}`;
+      (map[k] ||= []).push(act);
+    });
+  });
+  academicLessons().forEach(l=>{
+    const students=lessonStudents(l);
+    academicLessonDates(l).forEach(date=>{
+      const act=lessonActivity(l,date);
+      students.forEach(st=>{
+        const k=`${st.id}|${date}`;
+        (map[k] ||= []).push(act);
+      });
+    });
+  });
+  return map;
+};
+
 const timeMinutes=value=>{
   const m=String(value||"").match(/^(\d{1,2}):(\d{2})$/);
   if(!m) return null;
@@ -1158,9 +1277,12 @@ const studentEventsOnDate=(studentId,date)=>db.events.filter(e=>
 );
 const conflictGroupsForStudent=studentId=>{
   const byDate={};
-  db.events.forEach(e=>{
+  (db.events||[]).forEach(e=>{
     if(!e?.date || !studentsForEvent(e).some(st=>String(st.id)===String(studentId))) return;
-    (byDate[e.date] ||= []).push(e);
+    (byDate[e.date] ||= []).push(projectActivity(e));
+  });
+  academicLessons().filter(l=>lessonAppliesToStudent(l,studentId)).forEach(l=>{
+    academicLessonDates(l).forEach(date=>(byDate[date] ||= []).push(lessonActivity(l,date)));
   });
   return Object.entries(byDate).sort(([a],[b])=>a.localeCompare(b)).flatMap(([date,events])=>{
     const pairs=[];
@@ -1195,7 +1317,7 @@ function openConflictInCalendar(studentId,date){
   conflictCalendarFocus={studentId:String(studentId),date:String(date)};
   document.querySelector("#studentDialog")?.close();
   document.querySelector("#conflictDialog")?.close();
-  switchView("calendar","Календар");
+  switchView("calendar","Зведений календар");
 }
 function showStudentConflicts(studentId){
   const st=sBy(studentId); if(!st) return;
@@ -1206,8 +1328,8 @@ function showStudentConflicts(studentId){
     <div class="project-section-head"><div><h2 style="margin:0">Конфлікти · ${esc(st.name)}</h2><div class="muted">${groups.length?`${groups.length} конфліктних дат`:"Конфліктів немає"}</div></div><button class="ghost" id="closeConflictDialog">Закрити</button></div>
     <div class="conflict-list">${groups.map(g=>`<article class="conflict-card">
       <div class="conflict-card-head"><div><b>${fullfmt(g.date)}</b><div class="muted">${g.events.length} подій цього дня</div></div><button class="ghost conflict-open-calendar" data-date="${g.date}">Показати в календарі</button></div>
-      <div class="conflict-events">${g.events.map(e=>{const pr=pBy(e.projectId);return `<div class="conflict-event"><span class="dot" style="background:${pr?.color||"#6b7280"}"></span><div><b>${esc(pr?.name||"Проєкт")}</b><div class="muted">${esc(e.type||"Подія")}${eventTimeText(e)?` · ${esc(eventTimeText(e))}`:" · час не вказано"}${e.location?` · ${esc(e.location)}`:""}</div></div></div>`;}).join("")}</div>
-      <div class="conflict-overlaps">${g.pairs.map(([a,b])=>{const ap=pBy(a.projectId),bp=pBy(b.projectId);return `<div>⚠ ${esc(ap?.name||"Проєкт")} ↔ ${esc(bp?.name||"Проєкт")} · <b>${esc(exactOverlapText(a,b))}</b></div>`;}).join("")}</div>
+      <div class="conflict-events">${g.events.map(e=>`<div class="conflict-event"><span class="dot" style="background:${activityColor(e)}"></span><div><b>${e.source==="lesson"?"🎓 ":""}${esc(activityTitle(e))}</b><div class="muted">${esc(activityMeta(e)||"Час не вказано")}</div></div></div>`).join("")}</div>
+      <div class="conflict-overlaps">${g.pairs.map(([a,b])=>`<div>⚠ ${esc(activityTitle(a))} ↔ ${esc(activityTitle(b))} · <b>${esc(exactOverlapText(a,b))}</b></div>`).join("")}</div>
     </article>`).join("")||'<div class="notice ok">✓ У цього студента конфліктів немає.</div>'}</div>
   </div>`;
   d.querySelector("#closeConflictDialog").onclick=()=>d.close();
@@ -1237,6 +1359,9 @@ function updateQuickAddForView(v){
   }else if(v==="projects"){
     btn.textContent="+ Новий проєкт";
     btn.title="Створити новий проєкт";
+  }else if(v==="academic"){
+    btn.textContent="+ Додати заняття";
+    btn.title="Додати заняття до студентського розкладу";
   }else if(v==="industry"){
     btn.textContent="+ Нова зустріч";
     btn.title="Створити новий матеріал «Зустріч із індустрією»";
@@ -1249,7 +1374,7 @@ function updateQuickAddForView(v){
 function switchView(v,label){
   currentView=v;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
-  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",calendar:"Календар",schedule:"Розклад",industry:"Зустріч із індустрією"}[v]);
+  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",academic:"Розклад занять",calendar:"Зведений календар",schedule:"Зайнятість",industry:"Зустріч із індустрією"}[v]);
   updateQuickAddForView(v);
   views[v]();
 }
@@ -1528,7 +1653,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v4.1.2 · аналіз відновлення…");
+  setStatus("v5.2 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1637,7 +1762,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v4.1.2 · відновлено ✓");
+    setStatus("v5.2 · відновлено ✓");
     students();
 
     alert(
@@ -1651,7 +1776,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v4.1.2 · помилка відновлення");
+    setStatus("v5.2 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -2982,44 +3107,68 @@ function shortType(type=""){
 
 function showDay(date){
   const dialog=ensureDayDialog();
-  const assignedMap=eventAssignments();
-  const dayEvents=[];
-  db.events.filter(e=>e.date===date).forEach(e=>{
+  const dayItems=[];
+
+  (db.events||[]).filter(e=>e.date===date).forEach(e=>{
     const p=pBy(e.projectId);
     if(!p) return;
-    const students=studentsForEvent(e);
-    dayEvents.push({event:e,project:p,students});
+    dayItems.push({
+      activity:projectActivity(e),
+      students:studentsForEvent(e)
+    });
   });
+  academicLessons().filter(l=>academicLessonOccursOnDate(l,date)).forEach(l=>{
+    dayItems.push({
+      activity:lessonActivity(l,date),
+      students:lessonStudents(l)
+    });
+  });
+  dayItems.sort((a,b)=>String(a.activity.startTime||"").localeCompare(String(b.activity.startTime||"")));
 
   const occupiedIds=new Set();
-  dayEvents.forEach(x=>x.students.forEach(s=>occupiedIds.add(s.id)));
-  const freeStudents=db.students.filter(s=>!occupiedIds.has(s.id));
+  dayItems.forEach(x=>x.students.forEach(st=>occupiedIds.add(String(st.id))));
+  const freeStudents=(db.students||[]).filter(st=>!occupiedIds.has(String(st.id)));
   const pretty=new Date(date+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const projectCount=dayItems.filter(x=>x.activity.source==="project").length;
+  const lessonCount=dayItems.filter(x=>x.activity.source==="lesson").length;
 
-  $("#dayDialogBody",dialog);
   dialog.querySelector("#dayDialogBody").innerHTML=`<div class="day-panel">
     <div class="day-panel-head">
-      <div><h2>${pretty}</h2><div class="muted">${dayEvents.length} подій · ${occupiedIds.size} зайнятих студентів · ${freeStudents.length} вільних</div></div>
+      <div>
+        <h2>${pretty}</h2>
+        <div class="muted">${projectCount} проєктних подій · ${lessonCount} занять · ${occupiedIds.size} зайнятих · ${freeStudents.length} вільних</div>
+      </div>
       <button class="ghost" onclick="document.querySelector('#dayDialog').close()">Закрити</button>
     </div>
     <div class="day-event-list">
-      ${dayEvents.map(x=>`<div class="day-event-row">
-        <span class="dot" style="background:${x.project.color}"></span>
-        <div><b>${esc(x.project.name)}</b><div class="day-event-meta">${esc(x.event.type)} · ${x.students.length} студентів</div></div>
-        <span class="chip project-watermark" style="${projectWatermarkStyle(x.project)}">${projectWatermarkInner(x.project,esc(shortType(x.event.type)))}</span>
-      </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
+      ${dayItems.map(x=>{
+        const a=x.activity;
+        if(a.source==="lesson"){
+          return `<div class="day-event-row">
+            <span class="dot" style="background:${ACADEMIC_COLOR}"></span>
+            <div><b>🎓 ${esc(a.title)}</b><div class="day-event-meta">${esc(eventTimeText(a)||"Час не вказано")}${a.location?` · ауд. ${esc(a.location)}`:""} · ${x.students.length} студентів</div></div>
+            <span class="chip" style="background:#eff6ff;color:#1d4ed8">Заняття</span>
+          </div>`;
+        }
+        const pr=pBy(a.projectId);
+        return `<div class="day-event-row">
+          <span class="dot" style="background:${pr?.color||"#6b7280"}"></span>
+          <div><b>${esc(pr?.name||"Проєкт")}</b><div class="day-event-meta">${esc(a.type||"Подія")}${eventTimeText(a)?` · ${esc(eventTimeText(a))}`:""} · ${x.students.length} студентів</div></div>
+          <span class="chip project-watermark" style="${pr?projectWatermarkStyle(pr):""}">${pr?projectWatermarkInner(pr,esc(shortType(a.type))):esc(shortType(a.type))}</span>
+        </div>`;
+      }).join("")||'<div class="empty">На цю дату немає занять або проєктних подій.</div>'}
     </div>
     <div class="availability-grid-two">
       <div class="availability-card">
         <b>ЗАЙНЯТІ · ${occupiedIds.size}</b>
         <div class="availability-list">
-          ${db.students.filter(s=>occupiedIds.has(s.id)||occupiedIds.has(String(s.id))).map(s=>`<button class="availability-chip day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Зайнятих студентів немає.</span>'}
+          ${(db.students||[]).filter(st=>occupiedIds.has(String(st.id))).map(st=>`<button class="availability-chip day-student" data-id="${esc(String(st.id))}">${esc(st.name)}</button>`).join("")||'<span class="muted">Зайнятих студентів немає.</span>'}
         </div>
       </div>
       <div class="availability-card">
         <b>ВІЛЬНІ · ${freeStudents.length}</b>
         <div class="availability-list">
-          ${freeStudents.map(s=>`<button class="availability-chip day-student" data-id="${s.id}">${esc(s.name)}</button>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
+          ${freeStudents.map(st=>`<button class="availability-chip day-student" data-id="${esc(String(st.id))}">${esc(st.name)}</button>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
         </div>
       </div>
     </div>
@@ -3030,24 +3179,307 @@ function showDay(date){
     dialog.close();
     if(sid!==undefined) openStudent(sid);
   });
-  dialog.showModal();
+  if(!dialog.open) dialog.showModal();
 }
+
+function ensureAcademicDialog(){
+  let d=document.querySelector("#academicDialog");
+  if(d) return d;
+  d=document.createElement("dialog");
+  d.id="academicDialog";
+  d.className="student-dialog academic-dialog";
+  d.innerHTML='<div id="academicDialogBody"></div>';
+  document.body.appendChild(d);
+  return d;
+}
+const academicPatternLabel=l=>{
+  if(l.mode==="once") return l.date?fullfmt(l.date):"Разове заняття";
+  const w=academicWeekdays.find(x=>x.value===String(l.weekday))?.label||"День";
+  const pattern={all:"щотижня",odd:"непарні тижні",even:"парні тижні"}[l.weekPattern||"all"]||"щотижня";
+  return `${w} · ${pattern}`;
+};
+const academicAudienceLabel=l=>{
+  const ids=Array.isArray(l.studentIds)?l.studentIds.filter(Boolean):[];
+  return ids.length?`${ids.length} окремих студентів`:(l.group||"Уся група");
+};
+function openAcademicEditor(lessonId=null){
+  const d=ensureAcademicDialog();
+  const lesson=lessonId?academicLessons().find(x=>String(x.id)===String(lessonId)):null;
+  const base=lesson?clone(lesson):{
+    id:academicLessonId(),
+    subject:"",
+    group:availableGroups()[0]||"",
+    mode:"weekly",
+    weekday:"1",
+    startTime:"09:00",
+    endTime:"10:20",
+    startDate:"2026-09-01",
+    endDate:"2026-12-31",
+    weekPattern:"all",
+    date:localIsoDate(),
+    room:"",
+    teacher:"",
+    note:"",
+    studentIds:[]
+  };
+  const body=d.querySelector("#academicDialogBody");
+  body.innerHTML=`<div class="academic-editor">
+    <div class="project-section-head">
+      <div><h2 style="margin:0">${lesson?"Редагувати заняття":"Нове заняття"}</h2><div class="muted">Розклад занять студентів</div></div>
+      <button type="button" class="ghost" id="academicClose">Закрити</button>
+    </div>
+    <form id="academicForm" class="academic-form">
+      <label class="full">Дисципліна<input id="academicSubject" required value="${esc(base.subject||"")}" placeholder="Наприклад: Режисура естради і шоу"></label>
+      <label>Група<select id="academicGroup" required>${groupOptionsHtml(base.group,"Оберіть групу")}</select></label>
+      <label>Формат<select id="academicMode">
+        <option value="weekly" ${base.mode!=="once"?"selected":""}>Регулярне заняття</option>
+        <option value="once" ${base.mode==="once"?"selected":""}>Разове заняття</option>
+      </select></label>
+      <label>Початок<input id="academicStartTime" type="time" value="${esc(base.startTime||"")}"></label>
+      <label>Кінець<input id="academicEndTime" type="time" value="${esc(base.endTime||"")}"></label>
+
+      <div class="academic-weekly-fields full">
+        <div class="academic-form-grid">
+          <label>День тижня<select id="academicWeekday">${academicWeekdays.map(w=>`<option value="${w.value}" ${String(base.weekday)===w.value?"selected":""}>${w.label}</option>`).join("")}</select></label>
+          <label>Тижні<select id="academicWeekPattern">
+            <option value="all" ${base.weekPattern==="all"?"selected":""}>Кожного тижня</option>
+            <option value="odd" ${base.weekPattern==="odd"?"selected":""}>Непарні навчальні тижні</option>
+            <option value="even" ${base.weekPattern==="even"?"selected":""}>Парні навчальні тижні</option>
+          </select></label>
+          <label>Від<input id="academicStartDate" type="date" value="${esc(base.startDate||"2026-09-01")}"></label>
+          <label>До<input id="academicEndDate" type="date" value="${esc(base.endDate||"2026-12-31")}"></label>
+        </div>
+      </div>
+
+      <div class="academic-once-fields full">
+        <label>Дата<input id="academicDate" type="date" value="${esc(base.date||localIsoDate())}"></label>
+      </div>
+
+      <label>Аудиторія<input id="academicRoom" value="${esc(base.room||"")}" placeholder="Наприклад: 324"></label>
+      <label>Викладач<input id="academicTeacher" value="${esc(base.teacher||"")}" placeholder="Необов’язково"></label>
+
+      <label class="full">Для кого<select id="academicScope">
+        <option value="group" ${!Array.isArray(base.studentIds)||!base.studentIds.length?"selected":""}>Уся група</option>
+        <option value="selected" ${Array.isArray(base.studentIds)&&base.studentIds.length?"selected":""}>Окремі студенти</option>
+      </select></label>
+      <div class="academic-student-pick full" id="academicStudentPick"></div>
+      <label class="full">Примітка<textarea id="academicNote" rows="3" placeholder="Необов’язково">${esc(base.note||"")}</textarea></label>
+
+      <div class="dialog-actions academic-actions">
+        ${lesson?'<button type="button" class="danger ghost" id="academicDelete">Видалити</button>':""}
+        <button type="button" class="ghost" id="academicCancel">Скасувати</button>
+        <button type="submit" class="primary">${lesson?"Зберегти":"Додати заняття"}</button>
+      </div>
+    </form>
+  </div>`;
+
+  const form=body.querySelector("#academicForm");
+  const mode=body.querySelector("#academicMode");
+  const group=body.querySelector("#academicGroup");
+  const scope=body.querySelector("#academicScope");
+  const studentPick=body.querySelector("#academicStudentPick");
+
+  const updateMode=()=>{
+    const once=mode.value==="once";
+    body.querySelector(".academic-weekly-fields").style.display=once?"none":"";
+    body.querySelector(".academic-once-fields").style.display=once?"":"none";
+  };
+  const updateStudents=()=>{
+    if(scope.value!=="selected"){
+      studentPick.style.display="none";
+      studentPick.innerHTML="";
+      return;
+    }
+    studentPick.style.display="";
+    const selected=new Set((base.studentIds||[]).map(String));
+    const rows=(db.students||[]).filter(st=>!group.value||String(st.group||"")===group.value);
+    studentPick.innerHTML=`<div class="academic-student-pick-head"><b>Оберіть студентів</b><span>${rows.length} у групі</span></div>
+      <div class="academic-student-grid">${rows.map(st=>`<label class="academic-student-check"><input type="checkbox" value="${esc(String(st.id))}" ${selected.has(String(st.id))?"checked":""}><span>${esc(st.name)}</span></label>`).join("")||'<span class="muted">У цій групі студентів немає.</span>'}</div>`;
+  };
+  mode.onchange=updateMode;
+  group.onchange=updateStudents;
+  scope.onchange=updateStudents;
+  updateMode();
+  updateStudents();
+
+  body.querySelector("#academicClose").onclick=()=>d.close();
+  body.querySelector("#academicCancel").onclick=()=>d.close();
+  if(body.querySelector("#academicDelete")) body.querySelector("#academicDelete").onclick=async()=>{
+    if(!confirm(`Видалити заняття «${base.subject||"Без назви"}»?`)) return;
+    db.lessons=academicLessons().filter(x=>String(x.id)!==String(base.id));
+    const ok=await save();
+    if(!ok){alert("Не вдалося зберегти зміни в хмару.");return;}
+    d.close();
+    if(currentView==="academic") academic();
+  };
+
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    const subject=body.querySelector("#academicSubject").value.trim();
+    const groupValue=group.value;
+    if(!subject||!groupValue){alert("Вкажіть дисципліну та групу.");return;}
+    const startTime=body.querySelector("#academicStartTime").value;
+    const endTime=body.querySelector("#academicEndTime").value;
+    if(startTime&&endTime&&timeMinutes(startTime)>=timeMinutes(endTime)){alert("Час завершення має бути пізніше за час початку.");return;}
+    const studentIds=scope.value==="selected"
+      ? [...studentPick.querySelectorAll('input[type="checkbox"]:checked')].map(x=>String(x.value))
+      : [];
+    if(scope.value==="selected"&&!studentIds.length){alert("Оберіть хоча б одного студента.");return;}
+    const record={
+      ...base,
+      id:String(base.id||academicLessonId()),
+      subject,
+      group:groupValue,
+      mode:mode.value,
+      startTime,
+      endTime,
+      weekday:body.querySelector("#academicWeekday").value,
+      weekPattern:body.querySelector("#academicWeekPattern").value,
+      startDate:body.querySelector("#academicStartDate").value,
+      endDate:body.querySelector("#academicEndDate").value,
+      date:body.querySelector("#academicDate").value,
+      room:body.querySelector("#academicRoom").value.trim(),
+      teacher:body.querySelector("#academicTeacher").value.trim(),
+      note:body.querySelector("#academicNote").value.trim(),
+      studentIds
+    };
+    if(record.mode!=="once"&&(!record.startDate||!record.endDate||record.startDate>record.endDate)){
+      alert("Перевірте період регулярного заняття."); return;
+    }
+    if(record.mode==="once"&&!record.date){alert("Оберіть дату.");return;}
+    const idx=academicLessons().findIndex(x=>String(x.id)===String(record.id));
+    if(idx>=0) db.lessons[idx]=record; else db.lessons.push(record);
+    const submit=e.submitter; if(submit){submit.disabled=true;submit.textContent="Збереження…";}
+    const ok=await save();
+    if(!ok){if(submit){submit.disabled=false;submit.textContent=lesson?"Зберегти":"Додати заняття";}alert("Не вдалося зберегти заняття в хмару.");return;}
+    d.close();
+    if(currentView==="academic") academic();
+  };
+  if(!d.open) d.showModal();
+}
+
+function academic(){
+  const groups=availableGroups();
+  app.innerHTML=`<div class="academic-page">
+    <div class="academic-topbar">
+      <div>
+        <h2>Розклад занять</h2>
+        <p>Навчальні пари зберігаються окремо від проєктів, але автоматично враховуються у зведеній зайнятості та конфліктах.</p>
+      </div>
+      <div class="academic-filter">
+        <select id="academicGroupFilter">${groupOptionsHtml("","Усі групи")}</select>
+      </div>
+    </div>
+    <div id="academicSummary" class="academic-summary"></div>
+    <div id="academicWeekly"></div>
+    <div id="academicOnce"></div>
+  </div>`;
+
+  const render=()=>{
+    const gf=$("#academicGroupFilter").value;
+    const rows=academicLessons().filter(l=>!gf||String(l.group||"")===gf);
+    const recurring=rows.filter(l=>l.mode!=="once").sort((a,b)=>String(a.weekday).localeCompare(String(b.weekday))||String(a.startTime||"").localeCompare(String(b.startTime||"")));
+    const once=rows.filter(l=>l.mode==="once").sort((a,b)=>String(a.date||"").localeCompare(String(b.date||""))||String(a.startTime||"").localeCompare(String(b.startTime||"")));
+    const subjects=new Set(rows.map(l=>l.subject).filter(Boolean)).size;
+    $("#academicSummary").innerHTML=`
+      <div class="schedule-kpi"><span>Занять у шаблоні</span><strong>${rows.length}</strong></div>
+      <div class="schedule-kpi"><span>Дисциплін</span><strong>${subjects}</strong></div>
+      <div class="schedule-kpi"><span>Регулярних</span><strong>${recurring.length}</strong></div>
+      <div class="schedule-kpi"><span>Разових</span><strong>${once.length}</strong></div>`;
+
+    $("#academicWeekly").innerHTML=`<section class="academic-section">
+      <div class="project-section-head"><div><h2>Тижневий розклад</h2><div class="muted">Натисни на заняття, щоб редагувати</div></div></div>
+      <div class="academic-week-grid">
+        ${academicWeekdays.map(w=>{
+          const dayRows=recurring.filter(l=>String(l.weekday)===w.value);
+          return `<div class="academic-day-column">
+            <div class="academic-day-head">${w.label}</div>
+            <div class="academic-day-list">${dayRows.map(l=>`<button type="button" class="academic-lesson-card" data-id="${esc(String(l.id))}">
+              <div class="academic-time">${esc(eventTimeText(l)||"Час не вказано")}</div>
+              <b>${esc(l.subject||"Заняття")}</b>
+              <span>${esc(l.group||"")}${l.room?` · ауд. ${esc(l.room)}`:""}</span>
+              <small>${esc(({all:"Щотижня",odd:"Непарні тижні",even:"Парні тижні"}[l.weekPattern||"all"]))} · ${esc(academicAudienceLabel(l))}</small>
+            </button>`).join("")||'<div class="academic-empty">—</div>'}</div>
+          </div>`;
+        }).join("")}
+      </div>
+    </section>`;
+
+    $("#academicOnce").innerHTML=`<section class="academic-section">
+      <div class="project-section-head"><div><h2>Разові заняття</h2><div class="muted">${once.length} записів</div></div></div>
+      <div class="academic-once-list">${once.map(l=>`<button type="button" class="academic-once-card" data-id="${esc(String(l.id))}">
+        <div><b>${l.date?fullfmt(l.date):"Без дати"} · ${esc(eventTimeText(l)||"час не вказано")}</b><span>${esc(l.subject||"Заняття")}</span></div>
+        <small>${esc(l.group||"")}${l.room?` · ауд. ${esc(l.room)}`:""} · ${esc(academicAudienceLabel(l))}</small>
+        <em>Редагувати →</em>
+      </button>`).join("")||'<div class="empty">Разових занять поки немає.</div>'}</div>
+    </section>`;
+
+    $$(".academic-lesson-card,.academic-once-card").forEach(b=>b.onclick=()=>openAcademicEditor(b.dataset.id));
+  };
+  $("#academicGroupFilter").onchange=render;
+  render();
+}
+
+(function injectAcademicStyles(){
+  if(document.getElementById("remsAcademicStyles")) return;
+  const st=document.createElement("style");
+  st.id="remsAcademicStyles";
+  st.textContent=`
+    .academic-page{display:grid;gap:18px}
+    .academic-topbar{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px}
+    .academic-topbar h2{margin:0 0 5px}.academic-topbar p{margin:0;color:#6b7280;font-size:12px;max-width:760px;line-height:1.5}
+    .academic-filter select{min-width:180px}
+    .academic-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .academic-section{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;overflow:hidden}
+    .academic-week-grid{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px}
+    .academic-day-column{min-width:150px;background:#f8fafc;border-radius:13px;padding:9px}
+    .academic-day-head{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#475569;margin-bottom:8px}
+    .academic-day-list{display:grid;gap:7px}
+    .academic-lesson-card{width:100%;text-align:left;border:1px solid #dbeafe;background:#fff;border-radius:11px;padding:10px;display:grid;gap:4px;cursor:pointer;box-shadow:none}
+    .academic-lesson-card:hover{border-color:#93c5fd;background:#eff6ff}
+    .academic-lesson-card b{font-size:12px;color:#111827}.academic-lesson-card span{font-size:10px;color:#475569}.academic-lesson-card small{font-size:9px;color:#64748b}
+    .academic-time{font-size:10px;font-weight:800;color:#1d4ed8}
+    .academic-empty{color:#cbd5e1;text-align:center;padding:20px 0}
+    .academic-once-list{display:grid;gap:8px}
+    .academic-once-card{display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:center;width:100%;text-align:left;border:1px solid #e5e7eb;border-radius:11px;background:#fff;padding:11px 13px;cursor:pointer}
+    .academic-once-card:hover{background:#f8fafc}.academic-once-card div{display:grid;gap:3px}.academic-once-card span,.academic-once-card small{font-size:10px;color:#64748b}.academic-once-card em{font-size:10px;font-style:normal;color:#2563eb}
+    .academic-editor{padding:22px;min-width:min(760px,92vw)}
+    .academic-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.academic-form .full{grid-column:1/-1}
+    .academic-form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .academic-student-pick{border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#f8fafc}
+    .academic-student-pick-head{display:flex;justify-content:space-between;margin-bottom:8px;font-size:11px}.academic-student-pick-head span{color:#64748b}
+    .academic-student-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-height:240px;overflow:auto}
+    .academic-student-check{display:flex!important;flex-direction:row!important;gap:7px!important;align-items:center!important;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:7px!important;font-size:10px!important}
+    .academic-student-check input{width:auto!important;margin:0!important}.academic-student-check span{font-size:10px}
+    .academic-actions{grid-column:1/-1}
+    .academic-calendar-card{border-left:3px solid ${ACADEMIC_COLOR};background:#eff6ff;border-radius:6px;padding:4px 5px;font-size:10px;color:#1e3a8a;margin:1px auto;max-width:104px;overflow:hidden}
+    .academic-calendar-card b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.academic-calendar-card small{font-size:8px;color:#475569}
+    @media(max-width:900px){.academic-summary{grid-template-columns:repeat(2,1fr)}.academic-form-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:650px){.academic-topbar{flex-direction:column}.academic-summary{grid-template-columns:1fr 1fr}.academic-form{grid-template-columns:1fr}.academic-form .full{grid-column:1}.academic-form-grid{grid-template-columns:1fr}.academic-student-grid{grid-template-columns:1fr}.academic-once-card{grid-template-columns:1fr}.academic-editor{padding:14px;min-width:0}}
+  `;
+  document.head.appendChild(st);
+})();
 
 function calendar(){
   app.innerHTML=`
     <div class="calendar-toolbar">
       <select id="calPeriod">
-        <option value="year" selected>Увесь навчальний рік · серпень–травень</option>
+        <option value="year">Серпень–травень</option>
         <option value="august">Серпень 2026</option>
-        <option value="autumn">Вересень–листопад</option>
+        <option value="autumn" selected>Вересень–листопад</option>
         <option value="winter">Грудень–лютий</option>
         <option value="spring">Березень–травень</option>
+      </select>
+      <select id="calSource">
+        <option value="">Заняття + проєкти</option>
+        <option value="lesson">Тільки заняття</option>
+        <option value="project">Тільки проєкти</option>
       </select>
       <select id="calProject"><option value="">Усі проєкти</option>${db.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
       <select id="calGroup">${groupOptionsHtml()}</select>
       <input id="calStudent" placeholder="Пошук студента...">
       <select id="calType">
-        <option value="">Усі типи подій</option>
+        <option value="">Усі типи проєктних подій</option>
         <option value="Репетиція">Репетиція</option>
         <option value="Зйомка">Зйомка</option>
         <option value="Кастинг">Кастинг</option>
@@ -3055,7 +3487,10 @@ function calendar(){
         <option value="Гала">Гала-концерт</option>
       </select>
     </div>
-    <div class="calendar-legend">${db.projects.map(p=>`<span class="legend-item"><span class="dot" style="background:${p.color}"></span>${esc(p.name)}</span>`).join("")}</div>
+    <div class="calendar-legend">
+      <span class="legend-item"><span class="dot" style="background:${ACADEMIC_COLOR}"></span>Заняття</span>
+      ${db.projects.map(p=>`<span class="legend-item"><span class="dot" style="background:${p.color}"></span>${esc(p.name)}</span>`).join("")}
+    </div>
     <div id="calendarSummary" class="calendar-summary"></div>
     <div id="calendarMount"></div>`;
 
@@ -3064,34 +3499,30 @@ function calendar(){
     const ranges={august:["2026-08-01","2026-08-31"],autumn:["2026-09-01","2026-11-30"],winter:["2026-12-01","2027-02-28"],spring:["2027-03-01","2027-05-31"],year:["2026-08-01","2027-05-31"]};
     const [start,end]=ranges[period];
     const dates=datesBetween(start,end);
+    const source=$("#calSource").value;
     const pf=$("#calProject").value;
     const gf=$("#calGroup").value;
     const q=$("#calStudent").value.toLowerCase().trim();
     const tf=$("#calType").value.toLowerCase();
 
-    const students=db.students.filter(s=>{
-      if(gf && String(s.group||"")!==gf) return false;
-      if(!s.name.toLowerCase().includes(q)) return false;
-      if(!pf) return true;
-      return db.events.some(e=>String(e.projectId)===String(pf) && studentsForEvent(e).some(x=>String(x.id)===String(s.id)));
+    const students=(db.students||[]).filter(st=>{
+      if(gf && String(st.group||"")!==gf) return false;
+      if(!String(st.name||"").toLowerCase().includes(q)) return false;
+      if(pf){
+        return (db.events||[]).some(e=>String(e.projectId)===String(pf) && studentsForEvent(e).some(x=>String(x.id)===String(st.id)));
+      }
+      return true;
     });
-    const rawMap=eventAssignments();
 
+    const rawMap=combinedAssignments();
     const map={};
-    Object.entries(rawMap).forEach(([key,projects])=>{
-      const [sid,date]=key.split("|");
-      const filtered=projects.filter(p=>{
-        if(pf && p.id!==pf) return false;
-        if(tf){
-          const sidNum=Number(sid);
-          const matches=eventsFor(p.id).some(e=>
-            e.date===date &&
-            e.type.toLowerCase().includes(tf) &&
-            studentsForEvent(e).some(s=>s.id===sidNum)
-          );
-          if(!matches) return false;
-        }
-        return true;
+    Object.entries(rawMap).forEach(([key,activities])=>{
+      const filtered=activities.filter(a=>{
+        if(source && a.source!==source) return false;
+        if(pf && (a.source!=="project"||String(a.projectId)!==String(pf))) return false;
+        if(tf && (a.source!=="project"||!String(a.type||"").toLowerCase().includes(tf))) return false;
+        const date=key.split("|")[1];
+        return date>=start&&date<=end;
       });
       if(filtered.length) map[key]=filtered;
     });
@@ -3118,9 +3549,11 @@ function calendar(){
     };
 
     $("#calendarMount").innerHTML=Object.entries(monthGroups).map(([month,monthDates])=>{
-      const monthEventDates=new Set(db.events.filter(e=>e.date.startsWith(month)).map(e=>e.date)).size;
+      const monthActiveDates=new Set(
+        Object.keys(map).map(k=>k.split("|")[1]).filter(d=>d.startsWith(month))
+      ).size;
       return `<section class="calendar-month">
-        <div class="calendar-month-title"><h2>${monthNames[month]||month}</h2><span>${monthEventDates} дат із подіями</span></div>
+        <div class="calendar-month-title"><h2>${monthNames[month]||month}</h2><span>${monthActiveDates} зайнятих дат</span></div>
         <div class="calendar-wrap"><table class="calendar"><thead><tr>
           <th class="name">Студент</th>
           ${monthDates.map(d=>{
@@ -3131,21 +3564,24 @@ function calendar(){
             return `<th class="${today}">${dow}<br>${day}${today?'<span class="today-mini">СЬОГОДНІ</span>':""}</th>`;
           }).join("")}
         </tr></thead><tbody>
-        ${students.map(s=>`<tr><td class="name"><b>${esc(s.name)}</b><div class="muted">${esc(s.group||"")}</div></td>
+        ${students.map(st=>`<tr><td class="name"><b>${esc(st.name)}</b><div class="muted">${esc(st.group||"")}</div></td>
           ${monthDates.map(d=>{
             const day=new Date(d+"T12:00:00").getDay();
-            const arr=map[`${s.id}|${d}`]||[];
-            const hasConflict=studentDateHasConflict(s.id,d);
-            const focused=conflictCalendarFocus && String(conflictCalendarFocus.studentId)===String(s.id) && conflictCalendarFocus.date===d;
+            const arr=map[`${st.id}|${d}`]||[];
+            const hasConflict=studentDateHasConflict(st.id,d);
+            const focused=conflictCalendarFocus && String(conflictCalendarFocus.studentId)===String(st.id) && conflictCalendarFocus.date===d;
             const cls=(day===0||day===6?" weekend":"")+(hasConflict?" conflict":"")+(focused?" conflict-focus":"")+(localIsoDate()===d?" today-date":"");
-            if(!arr.length) return `<td class="day-cell${cls}" data-date="${d}" data-student-id="${esc(String(s.id))}"></td>`;
+            if(!arr.length) return `<td class="day-cell${cls}" data-date="${d}" data-student-id="${esc(String(st.id))}"></td>`;
 
-            return `<td class="day-cell${cls}" data-date="${d}" data-student-id="${esc(String(s.id))}" title="${arr.map(p=>p.name).join(" + ")}">
-              ${arr.map(p=>{
-                const types=[...new Set(eventsFor(p.id)
-                  .filter(e=>e.date===d && studentsForEvent(e).some(x=>x.id===s.id))
-                  .map(e=>shortType(e.type)))];
-                return `<div class="busy calendar-project-event" style="background:transparent">${calendarProjectCard(p,`${types.length?types.map(esc).join(" / "):esc(p.name)}`)}</div>`;
+            return `<td class="day-cell${cls}" data-date="${d}" data-student-id="${esc(String(st.id))}" title="${esc(arr.map(activityTitle).join(" + "))}">
+              ${arr.map(a=>{
+                if(a.source==="lesson"){
+                  return `<div class="academic-calendar-card"><b>🎓 ${esc(a.title)}</b><small>${esc(eventTimeText(a)||"час?")}</small></div>`;
+                }
+                const pr=pBy(a.projectId);
+                if(!pr) return "";
+                const label=`${shortType(a.type)}${eventTimeText(a)?` · ${eventTimeText(a)}`:""}`;
+                return `<div class="busy calendar-project-event" style="background:transparent">${calendarProjectCard(pr,esc(label))}</div>`;
               }).join("")}
             </td>`;
           }).join("")}
@@ -3174,6 +3610,7 @@ function calendar(){
     $("#calPeriod").value="year";
   }
   $("#calPeriod").onchange=render;
+  $("#calSource").onchange=render;
   $("#calProject").onchange=render;
   $("#calGroup").onchange=render;
   $("#calStudent").oninput=render;
@@ -3243,6 +3680,15 @@ function schedule(){
         if(assigned.length) reasons[p.name]=(reasons[p.name]||0)+assigned.length;
       });
 
+      const lessonBusyIds=new Set();
+      academicLessons().filter(l=>academicLessonOccursOnDate(l,date)).forEach(l=>{
+        lessonStudents(l).filter(st=>poolIds.has(String(st.id))).forEach(st=>{
+          busyIds.add(String(st.id));
+          lessonBusyIds.add(String(st.id));
+        });
+      });
+      if(lessonBusyIds.size) reasons["🎓 Заняття"]=lessonBusyIds.size;
+
       const busy=busyIds.size;
       const free=Math.max(0,poolStudents.length-busy);
       let cls="schedule-score-best",label="ІДЕАЛЬНО",dayClass="best";
@@ -3275,7 +3721,7 @@ function schedule(){
     const best=[...filtered].sort((a,b)=>stats[b].free-stats[a].free||a.localeCompare(b)).slice(0,5);
     $("#scheduleRecommended").innerHTML=best.length?`
       <div class="recommended-card">
-        <h2>Найкращі дні для занять</h2>
+        <h2>Найвільніші дні</h2>
         <div class="recommended-list">
           ${best.map(d=>{
             const wd=new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long"});
@@ -3346,6 +3792,9 @@ function schedule(){
           </div>
           <div class="schedule-day-projects">
             ${projectEntries.map(([name,count])=>{
+              if(name==="🎓 Заняття"){
+                return `<span class="schedule-mini-project project-watermark" style="--project-color:${ACADEMIC_COLOR};"><span class="project-watermark-text">${esc(name)} ${count}</span></span>`;
+              }
               const p=db.projects.find(x=>x.name===name);
               return `<span class="schedule-mini-project project-watermark" style="${p?projectWatermarkStyle(p):"--project-color:#6b7280;"}">${p?projectWatermarkInner(p,`${esc(name)} ${count}`):`<span class="project-watermark-text">${esc(name)} ${count}</span>`}</span>`;
             }).join("")}
@@ -3858,16 +4307,8 @@ function openNewStudentDialog(){
   if(!dialog.open) dialog.showModal();
 }
 
-const views={dashboard,students,projects,calendar,schedule,industry};
+const views={dashboard,students,projects,academic,calendar,schedule,industry};
 
-// Старий пункт "Особисті розклади" лишився в HTML, але окремий розділ більше не використовується.
-// Прибираємо тільки цей пункт із лівого меню; самі персональні сторінки студентів залишаються доступними.
-$$(".nav").forEach(b=>{
-  const label=(b.querySelector("span")?.textContent||b.textContent||"").trim().toLowerCase();
-  if(label.includes("особист") && label.includes("розклад")){
-    b.remove();
-  }
-});
 $$(".nav").forEach(b=>b.onclick=()=>switchView(b.dataset.view,b.querySelector("span")?.textContent||b.textContent.trim()));
 $("#quickAdd").onclick=()=>{
   if(!cloudReady){
@@ -3876,6 +4317,10 @@ $("#quickAdd").onclick=()=>{
   }
   if(currentView==="students"){
     openNewStudentDialog();
+    return;
+  }
+  if(currentView==="academic"){
+    openAcademicEditor();
     return;
   }
   if(currentView==="industry"){
@@ -4535,14 +4980,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.1.2 · Firebase не налаштовано");
+    setStatus("v5.2 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v4.1.2 · завантаження хмари…");
+    setStatus("v5.2 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
 functions=getFunctions(firebaseApp,"europe-west1");
     cloudDb=getFirestore(firebaseApp);
@@ -4557,6 +5002,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
         projects:remote.projects||[],
         events:remote.events||[],
         assignments:remote.assignments||[],
+        lessons:remote.lessons||[],
         settings:remote.settings||{}
       };
       cache();
@@ -4566,7 +5012,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v4.1.2 · хмара ✓");
+    setStatus("v5.2 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -4653,6 +5099,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
         projects:remote.projects||[],
         events:remote.events||[],
         assignments:remote.assignments||[],
+        lessons:remote.lessons||[],
         settings:remote.settings||{}
       };
       cache();
@@ -4666,19 +5113,19 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v4.1.2 · хмара ✓");
+      setStatus("v5.2 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v4.1.2 · хмара недоступна");
+      setStatus("v5.2 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v4.1.2 · хмара недоступна");
+    setStatus("v5.2 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -4689,7 +5136,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v4.1.2 · Firebase не налаштовано");
+    setStatus("v5.2 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -4705,19 +5152,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v4.1.2 · вхід ✓");
+        setStatus("v5.2 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v4.1.2 · потрібен вхід");
+        setStatus("v5.2 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v4.1.2 · помилка авторизації");
+    setStatus("v5.2 · помилка авторизації");
     showLogin();
   }
 }
