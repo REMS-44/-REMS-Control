@@ -724,12 +724,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v5.2 · немає з’єднання");
+    setStatus("v5.3 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v5.2 · збереження…");
+    setStatus("v5.3 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -739,7 +739,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v5.2 · хмара ✓");
+    setStatus("v5.3 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -750,7 +750,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v5.2 · помилка хмари");
+    setStatus("v5.3 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1141,7 +1141,7 @@ const eventAssignments=()=>{
 };
 
 
-// ===== Розклад занять · REMS Control v5.2 =====
+// ===== Розклад занять · REMS Control v5.3 =====
 const ACADEMIC_COLOR="#2563EB";
 const academicLessons=()=>Array.isArray(db.lessons)?db.lessons:[];
 const academicLessonId=()=>`lesson-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
@@ -1153,6 +1153,32 @@ const academicWeekdays=[
   {value:"5",label:"П’ятниця",short:"Пт"},
   {value:"6",label:"Субота",short:"Сб"}
 ];
+const academicLessonTypes=[
+  "Лекція",
+  "Практичне заняття",
+  "Семінар",
+  "Лабораторне заняття",
+  "Індивідуальне заняття",
+  "Консультація",
+  "Контрольна робота",
+  "Залік",
+  "Іспит",
+  "Інше"
+];
+const academicDefaultRooms=["230","324","324а"];
+const academicRoomValues=()=>[...new Set([
+  ...academicDefaultRooms,
+  ...academicLessons().map(l=>String(l.room||"").trim()).filter(Boolean)
+])].sort((a,b)=>a.localeCompare(b,"uk",{numeric:true,sensitivity:"base"}));
+const academicRoomOptionsHtml=current=>{
+  const cur=String(current||"").trim();
+  const rooms=academicRoomValues();
+  const has=rooms.includes(cur);
+  return [`<option value="">Оберіть аудиторію</option>`,
+    ...rooms.map(r=>`<option value="${esc(r)}" ${r===cur?"selected":""}>${esc(r)}</option>`),
+    `<option value="__other__" ${cur&&!has?"selected":""}>Інша аудиторія…</option>`
+  ].join("");
+};
 const mondayIso=date=>{
   const d=new Date(String(date)+"T12:00:00");
   const day=(d.getDay()+6)%7;
@@ -1199,6 +1225,7 @@ const lessonActivity=(lesson,date)=>({
   endTime:String(lesson.endTime||""),
   title:String(lesson.subject||"Заняття"),
   type:"Заняття",
+  lessonType:String(lesson.lessonType||"Заняття"),
   location:String(lesson.room||""),
   teacher:String(lesson.teacher||""),
   group:String(lesson.group||""),
@@ -1232,7 +1259,7 @@ const activityTitle=a=>String(a?.source==="lesson"?a.title:(pBy(a?.projectId)?.n
 const activityColor=a=>String(a?.source==="lesson"?ACADEMIC_COLOR:(pBy(a?.projectId)?.color||a?.color||"#6b7280"));
 const activityMeta=a=>{
   if(a?.source==="lesson"){
-    return ["Заняття",eventTimeText(a),a.location,a.teacher].filter(Boolean).join(" · ");
+    return [a.lessonType||"Заняття",eventTimeText(a),a.location?`ауд. ${a.location}`:"",a.teacher].filter(Boolean).join(" · ");
   }
   return [a?.type||"Подія",eventTimeText(a),a?.location].filter(Boolean).join(" · ");
 };
@@ -1653,7 +1680,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v5.2 · аналіз відновлення…");
+  setStatus("v5.3 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1762,7 +1789,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v5.2 · відновлено ✓");
+    setStatus("v5.3 · відновлено ✓");
     students();
 
     alert(
@@ -1776,7 +1803,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v5.2 · помилка відновлення");
+    setStatus("v5.3 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -3146,8 +3173,8 @@ function showDay(date){
         if(a.source==="lesson"){
           return `<div class="day-event-row">
             <span class="dot" style="background:${ACADEMIC_COLOR}"></span>
-            <div><b>🎓 ${esc(a.title)}</b><div class="day-event-meta">${esc(eventTimeText(a)||"Час не вказано")}${a.location?` · ауд. ${esc(a.location)}`:""} · ${x.students.length} студентів</div></div>
-            <span class="chip" style="background:#eff6ff;color:#1d4ed8">Заняття</span>
+            <div><b>🎓 ${esc(a.title)}</b><div class="day-event-meta">${esc(a.lessonType||"Заняття")} · ${esc(eventTimeText(a)||"Час не вказано")}${a.location?` · ауд. ${esc(a.location)}`:""} · ${x.students.length} студентів</div></div>
+            <span class="chip" style="background:#eff6ff;color:#1d4ed8">${esc(a.lessonType||"Заняття")}</span>
           </div>`;
         }
         const pr=pBy(a.projectId);
@@ -3208,6 +3235,7 @@ function openAcademicEditor(lessonId=null){
   const base=lesson?clone(lesson):{
     id:academicLessonId(),
     subject:"",
+    lessonType:"Практичне заняття",
     group:availableGroups()[0]||"",
     mode:"weekly",
     weekday:"1",
@@ -3230,6 +3258,7 @@ function openAcademicEditor(lessonId=null){
     </div>
     <form id="academicForm" class="academic-form">
       <label class="full">Дисципліна<input id="academicSubject" required value="${esc(base.subject||"")}" placeholder="Наприклад: Режисура естради і шоу"></label>
+      <label>Вид заняття<select id="academicLessonType">${academicLessonTypes.map(t=>`<option value="${esc(t)}" ${String(base.lessonType||"Практичне заняття")===t?"selected":""}>${esc(t)}</option>`).join("")}</select></label>
       <label>Група<select id="academicGroup" required>${groupOptionsHtml(base.group,"Оберіть групу")}</select></label>
       <label>Формат<select id="academicMode">
         <option value="weekly" ${base.mode!=="once"?"selected":""}>Регулярне заняття</option>
@@ -3255,7 +3284,8 @@ function openAcademicEditor(lessonId=null){
         <label>Дата<input id="academicDate" type="date" value="${esc(base.date||localIsoDate())}"></label>
       </div>
 
-      <label>Аудиторія<input id="academicRoom" value="${esc(base.room||"")}" placeholder="Наприклад: 324"></label>
+      <label>Аудиторія<select id="academicRoom">${academicRoomOptionsHtml(base.room)}</select></label>
+      <label id="academicRoomOtherWrap" style="display:none">Інша аудиторія<input id="academicRoomOther" value="${esc(academicRoomValues().includes(String(base.room||"").trim())?"":String(base.room||""))}" placeholder="Введіть номер / назву"></label>
       <label>Викладач<input id="academicTeacher" value="${esc(base.teacher||"")}" placeholder="Необов’язково"></label>
 
       <label class="full">Для кого<select id="academicScope">
@@ -3278,7 +3308,15 @@ function openAcademicEditor(lessonId=null){
   const group=body.querySelector("#academicGroup");
   const scope=body.querySelector("#academicScope");
   const studentPick=body.querySelector("#academicStudentPick");
+  const roomSelect=body.querySelector("#academicRoom");
+  const roomOtherWrap=body.querySelector("#academicRoomOtherWrap");
+  const roomOther=body.querySelector("#academicRoomOther");
 
+  const updateRoom=()=>{
+    const other=roomSelect.value==="__other__";
+    roomOtherWrap.style.display=other?"":"none";
+    if(other) setTimeout(()=>roomOther?.focus(),0);
+  };
   const updateMode=()=>{
     const once=mode.value==="once";
     body.querySelector(".academic-weekly-fields").style.display=once?"none":"";
@@ -3297,8 +3335,10 @@ function openAcademicEditor(lessonId=null){
       <div class="academic-student-grid">${rows.map(st=>`<label class="academic-student-check"><input type="checkbox" value="${esc(String(st.id))}" ${selected.has(String(st.id))?"checked":""}><span>${esc(st.name)}</span></label>`).join("")||'<span class="muted">У цій групі студентів немає.</span>'}</div>`;
   };
   mode.onchange=updateMode;
+  roomSelect.onchange=updateRoom;
   group.onchange=updateStudents;
   scope.onchange=updateStudents;
+  updateRoom();
   updateMode();
   updateStudents();
 
@@ -3329,6 +3369,7 @@ function openAcademicEditor(lessonId=null){
       ...base,
       id:String(base.id||academicLessonId()),
       subject,
+      lessonType:body.querySelector("#academicLessonType").value,
       group:groupValue,
       mode:mode.value,
       startTime,
@@ -3338,7 +3379,7 @@ function openAcademicEditor(lessonId=null){
       startDate:body.querySelector("#academicStartDate").value,
       endDate:body.querySelector("#academicEndDate").value,
       date:body.querySelector("#academicDate").value,
-      room:body.querySelector("#academicRoom").value.trim(),
+      room:(roomSelect.value==="__other__"?roomOther.value.trim():roomSelect.value.trim()),
       teacher:body.querySelector("#academicTeacher").value.trim(),
       note:body.querySelector("#academicNote").value.trim(),
       studentIds
@@ -3359,62 +3400,81 @@ function openAcademicEditor(lessonId=null){
 }
 
 function academic(){
-  const groups=availableGroups();
+  const monthNames={
+    "2026-08":"Серпень 2026","2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
+    "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027",
+    "2027-03":"Березень 2027","2027-04":"Квітень 2027","2027-05":"Травень 2027"
+  };
+  const monthKeys=Object.keys(monthNames);
+  const weekdays=["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
   app.innerHTML=`<div class="academic-page">
     <div class="academic-topbar">
       <div>
         <h2>Розклад занять</h2>
-        <p>Навчальні пари зберігаються окремо від проєктів, але автоматично враховуються у зведеній зайнятості та конфліктах.</p>
+        <p>Окремий календар навчальних пар. Оберіть групу й місяць — усі заняття видно одразу на календарі.</p>
       </div>
       <div class="academic-filter">
         <select id="academicGroupFilter">${groupOptionsHtml("","Усі групи")}</select>
       </div>
     </div>
     <div id="academicSummary" class="academic-summary"></div>
-    <div id="academicWeekly"></div>
-    <div id="academicOnce"></div>
+    <div id="academicMonthTabs" class="schedule-month-tabs academic-month-tabs"></div>
+    <div id="academicCalendarMount"></div>
   </div>`;
+
+  let activeMonth=(()=>{
+    const cur=localIsoDate().slice(0,7);
+    return monthKeys.includes(cur)?cur:"2026-09";
+  })();
 
   const render=()=>{
     const gf=$("#academicGroupFilter").value;
     const rows=academicLessons().filter(l=>!gf||String(l.group||"")===gf);
-    const recurring=rows.filter(l=>l.mode!=="once").sort((a,b)=>String(a.weekday).localeCompare(String(b.weekday))||String(a.startTime||"").localeCompare(String(b.startTime||"")));
-    const once=rows.filter(l=>l.mode==="once").sort((a,b)=>String(a.date||"").localeCompare(String(b.date||""))||String(a.startTime||"").localeCompare(String(b.startTime||"")));
     const subjects=new Set(rows.map(l=>l.subject).filter(Boolean)).size;
+    const monthLessons=rows.filter(l=>academicLessonDates(l).some(d=>d.startsWith(activeMonth)));
+    const monthOccurrences=monthLessons.reduce((n,l)=>n+academicLessonDates(l).filter(d=>d.startsWith(activeMonth)).length,0);
     $("#academicSummary").innerHTML=`
-      <div class="schedule-kpi"><span>Занять у шаблоні</span><strong>${rows.length}</strong></div>
       <div class="schedule-kpi"><span>Дисциплін</span><strong>${subjects}</strong></div>
-      <div class="schedule-kpi"><span>Регулярних</span><strong>${recurring.length}</strong></div>
-      <div class="schedule-kpi"><span>Разових</span><strong>${once.length}</strong></div>`;
+      <div class="schedule-kpi"><span>Записів розкладу</span><strong>${rows.length}</strong></div>
+      <div class="schedule-kpi"><span>Пар у місяці</span><strong>${monthOccurrences}</strong></div>
+      <div class="schedule-kpi"><span>Група</span><strong class="academic-kpi-group">${esc(gf||"Усі")}</strong></div>`;
 
-    $("#academicWeekly").innerHTML=`<section class="academic-section">
-      <div class="project-section-head"><div><h2>Тижневий розклад</h2><div class="muted">Натисни на заняття, щоб редагувати</div></div></div>
-      <div class="academic-week-grid">
-        ${academicWeekdays.map(w=>{
-          const dayRows=recurring.filter(l=>String(l.weekday)===w.value);
-          return `<div class="academic-day-column">
-            <div class="academic-day-head">${w.label}</div>
-            <div class="academic-day-list">${dayRows.map(l=>`<button type="button" class="academic-lesson-card" data-id="${esc(String(l.id))}">
-              <div class="academic-time">${esc(eventTimeText(l)||"Час не вказано")}</div>
-              <b>${esc(l.subject||"Заняття")}</b>
-              <span>${esc(l.group||"")}${l.room?` · ауд. ${esc(l.room)}`:""}</span>
-              <small>${esc(({all:"Щотижня",odd:"Непарні тижні",even:"Парні тижні"}[l.weekPattern||"all"]))} · ${esc(academicAudienceLabel(l))}</small>
-            </button>`).join("")||'<div class="academic-empty">—</div>'}</div>
-          </div>`;
-        }).join("")}
+    $("#academicMonthTabs").innerHTML=monthKeys.map(m=>`<button type="button" class="schedule-month-tab ${m===activeMonth?"active":""}" data-month="${m}">${monthNames[m]}</button>`).join("");
+    $$("#academicMonthTabs .schedule-month-tab").forEach(b=>b.onclick=()=>{activeMonth=b.dataset.month;render();});
+
+    const [year,mon]=activeMonth.split("-").map(Number);
+    const start=`${activeMonth}-01`;
+    const lastDay=new Date(year,mon,0).getDate();
+    const dates=Array.from({length:lastDay},(_,i)=>`${activeMonth}-${String(i+1).padStart(2,"0")}`);
+    const first=new Date(start+"T12:00:00");
+    const blanks=Array.from({length:(first.getDay()+6)%7},()=>'<div class="academic-month-day empty"></div>').join("");
+
+    const cells=dates.map(date=>{
+      const dt=new Date(date+"T12:00:00");
+      const day=dt.getDay();
+      const lessons=rows.filter(l=>academicLessonOccursOnDate(l,date)).sort((a,b)=>String(a.startTime||"").localeCompare(String(b.startTime||""))||String(a.subject||"").localeCompare(String(b.subject||""),"uk"));
+      const isToday=localIsoDate()===date;
+      return `<div class="academic-month-day ${day===0||day===6?"weekend":""} ${isToday?"today-date":""}" data-date="${date}">
+        <div class="academic-month-day-head"><b>${dt.getDate()}</b>${isToday?'<span class="today-mini">СЬОГОДНІ</span>':""}</div>
+        <div class="academic-month-lessons">
+          ${lessons.map(l=>`<button type="button" class="academic-month-lesson" data-id="${esc(String(l.id))}">
+            <div class="academic-month-lesson-time">${esc(eventTimeText(l)||"час?")}</div>
+            <strong>${esc(l.subject||"Заняття")}</strong>
+            <span>${esc(l.lessonType||"Заняття")}</span>
+            <small>${esc(l.group||"")}${l.room?` · ауд. ${esc(l.room)}`:""}</small>
+          </button>`).join("")||'<div class="academic-month-empty">—</div>'}
+        </div>
+      </div>`;
+    }).join("");
+
+    $("#academicCalendarMount").innerHTML=`<section class="academic-month-section">
+      <div class="academic-month-title"><h2>${monthNames[activeMonth]}</h2><span>${monthOccurrences} пар</span></div>
+      <div class="academic-month-grid">
+        ${weekdays.map(w=>`<div class="academic-month-weekday">${w}</div>`).join("")}
+        ${blanks}${cells}
       </div>
     </section>`;
-
-    $("#academicOnce").innerHTML=`<section class="academic-section">
-      <div class="project-section-head"><div><h2>Разові заняття</h2><div class="muted">${once.length} записів</div></div></div>
-      <div class="academic-once-list">${once.map(l=>`<button type="button" class="academic-once-card" data-id="${esc(String(l.id))}">
-        <div><b>${l.date?fullfmt(l.date):"Без дати"} · ${esc(eventTimeText(l)||"час не вказано")}</b><span>${esc(l.subject||"Заняття")}</span></div>
-        <small>${esc(l.group||"")}${l.room?` · ауд. ${esc(l.room)}`:""} · ${esc(academicAudienceLabel(l))}</small>
-        <em>Редагувати →</em>
-      </button>`).join("")||'<div class="empty">Разових занять поки немає.</div>'}</div>
-    </section>`;
-
-    $$(".academic-lesson-card,.academic-once-card").forEach(b=>b.onclick=()=>openAcademicEditor(b.dataset.id));
+    $$(".academic-month-lesson").forEach(b=>b.onclick=e=>{e.stopPropagation();openAcademicEditor(b.dataset.id);});
   };
   $("#academicGroupFilter").onchange=render;
   render();
@@ -3454,6 +3514,22 @@ function academic(){
     .academic-actions{grid-column:1/-1}
     .academic-calendar-card{border-left:3px solid ${ACADEMIC_COLOR};background:#eff6ff;border-radius:6px;padding:4px 5px;font-size:10px;color:#1e3a8a;margin:1px auto;max-width:104px;overflow:hidden}
     .academic-calendar-card b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.academic-calendar-card small{font-size:8px;color:#475569}
+    .academic-month-tabs{margin-top:0}
+    .academic-month-section{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;overflow:auto}
+    .academic-month-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.academic-month-title h2{margin:0}.academic-month-title span{font-size:11px;color:#64748b}
+    .academic-month-grid{display:grid;grid-template-columns:repeat(7,minmax(128px,1fr));gap:7px;min-width:920px}
+    .academic-month-weekday{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;padding:5px 7px;text-align:center}
+    .academic-month-day{min-height:142px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:7px;display:flex;flex-direction:column;gap:6px}
+    .academic-month-day.weekend{background:#fafafa}.academic-month-day.today-date{box-shadow:inset 0 0 0 2px #2563eb}
+    .academic-month-day.empty{min-height:0;border-style:dashed;background:#fafafa}
+    .academic-month-day-head{display:flex;align-items:center;justify-content:space-between;min-height:22px}.academic-month-day-head>b{font-size:13px;color:#111827}
+    .academic-month-lessons{display:grid;gap:5px}
+    .academic-month-lesson{width:100%;border:1px solid #bfdbfe;background:#eff6ff;border-radius:9px;padding:6px;text-align:left;display:grid;gap:2px;cursor:pointer}
+    .academic-month-lesson:hover{background:#dbeafe;border-color:#60a5fa}.academic-month-lesson-time{font-size:9px;font-weight:800;color:#1d4ed8}.academic-month-lesson strong{font-size:10px;line-height:1.2;color:#111827}.academic-month-lesson span{font-size:8px;color:#1e40af}.academic-month-lesson small{font-size:8px;color:#64748b}
+    .academic-month-empty{font-size:10px;color:#cbd5e1;padding:12px 2px;text-align:center}
+    .academic-kpi-group{font-size:16px!important;line-height:1.2;overflow-wrap:anywhere}
+    .combined-lesson-card{max-width:132px!important;padding:5px 6px!important}.combined-lesson-card b{font-size:9px}.combined-lesson-card small{display:block;white-space:normal;line-height:1.25;margin-top:2px}
+    .calendar-month-tabs{margin-top:10px}
     @media(max-width:900px){.academic-summary{grid-template-columns:repeat(2,1fr)}.academic-form-grid{grid-template-columns:1fr 1fr}}
     @media(max-width:650px){.academic-topbar{flex-direction:column}.academic-summary{grid-template-columns:1fr 1fr}.academic-form{grid-template-columns:1fr}.academic-form .full{grid-column:1}.academic-form-grid{grid-template-columns:1fr}.academic-student-grid{grid-template-columns:1fr}.academic-once-card{grid-template-columns:1fr}.academic-editor{padding:14px;min-width:0}}
   `;
@@ -3461,15 +3537,14 @@ function academic(){
 })();
 
 function calendar(){
+  const monthNames={
+    "2026-08":"Серпень 2026","2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
+    "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027",
+    "2027-03":"Березень 2027","2027-04":"Квітень 2027","2027-05":"Травень 2027"
+  };
+  const monthKeys=Object.keys(monthNames);
   app.innerHTML=`
     <div class="calendar-toolbar">
-      <select id="calPeriod">
-        <option value="year">Серпень–травень</option>
-        <option value="august">Серпень 2026</option>
-        <option value="autumn" selected>Вересень–листопад</option>
-        <option value="winter">Грудень–лютий</option>
-        <option value="spring">Березень–травень</option>
-      </select>
       <select id="calSource">
         <option value="">Заняття + проєкти</option>
         <option value="lesson">Тільки заняття</option>
@@ -3492,18 +3567,26 @@ function calendar(){
       ${db.projects.map(p=>`<span class="legend-item"><span class="dot" style="background:${p.color}"></span>${esc(p.name)}</span>`).join("")}
     </div>
     <div id="calendarSummary" class="calendar-summary"></div>
+    <div id="calendarMonthTabs" class="schedule-month-tabs calendar-month-tabs"></div>
     <div id="calendarMount"></div>`;
 
+  let activeMonth=(()=>{
+    const focus=conflictCalendarFocus?.date?.slice(0,7);
+    if(focus&&monthKeys.includes(focus)) return focus;
+    const cur=localIsoDate().slice(0,7);
+    return monthKeys.includes(cur)?cur:"2026-09";
+  })();
+
   const render=()=>{
-    const period=$("#calPeriod").value;
-    const ranges={august:["2026-08-01","2026-08-31"],autumn:["2026-09-01","2026-11-30"],winter:["2026-12-01","2027-02-28"],spring:["2027-03-01","2027-05-31"],year:["2026-08-01","2027-05-31"]};
-    const [start,end]=ranges[period];
-    const dates=datesBetween(start,end);
     const source=$("#calSource").value;
     const pf=$("#calProject").value;
     const gf=$("#calGroup").value;
     const q=$("#calStudent").value.toLowerCase().trim();
     const tf=$("#calType").value.toLowerCase();
+    const [year,mon]=activeMonth.split("-").map(Number);
+    const start=`${activeMonth}-01`;
+    const end=`${activeMonth}-${String(new Date(year,mon,0).getDate()).padStart(2,"0")}`;
+    const dates=datesBetween(start,end);
 
     const students=(db.students||[]).filter(st=>{
       if(gf && String(st.group||"")!==gf) return false;
@@ -3527,68 +3610,57 @@ function calendar(){
       if(filtered.length) map[key]=filtered;
     });
 
-    const busyCells=Object.keys(map).length;
+    const visibleStudentIds=new Set(students.map(st=>String(st.id)));
+    const visibleKeys=Object.keys(map).filter(k=>visibleStudentIds.has(k.split("|")[0]));
+    const busyCells=visibleKeys.length;
     const conflicts=students.reduce((n,st)=>n+conflictGroupsForStudent(st.id).filter(g=>g.date>=start&&g.date<=end).length,0);
-    const uniqueBusyStudents=new Set(Object.keys(map).map(k=>k.split("|")[0])).size;
+    const uniqueBusyStudents=new Set(visibleKeys.map(k=>k.split("|")[0])).size;
     $("#calendarSummary").innerHTML=`
-      <span class="summary-pill">Студентів у вибірці: <b>${students.length}</b></span>
+      <span class="summary-pill">Місяць: <b>${monthNames[activeMonth]}</b></span>
+      <span class="summary-pill">Студентів: <b>${students.length}</b></span>
       <span class="summary-pill">Зайнятих студентів: <b>${uniqueBusyStudents}</b></span>
       <span class="summary-pill">Заповнених клітинок: <b>${busyCells}</b></span>
       ${conflicts?`<button type="button" class="summary-pill conflict-summary-button" id="calendarConflictBtn">Конфліктів: <b>${conflicts}</b> · Відкрити →</button>`:`<span class="summary-pill">Конфліктів: <b>0</b></span>`}`;
 
-    const monthGroups={};
-    dates.forEach(d=>{
-      const key=d.slice(0,7);
-      (monthGroups[key] ||= []).push(d);
-    });
+    $("#calendarMonthTabs").innerHTML=monthKeys.map(m=>`<button type="button" class="schedule-month-tab ${m===activeMonth?"active":""}" data-month="${m}">${monthNames[m]}</button>`).join("");
+    $$("#calendarMonthTabs .schedule-month-tab").forEach(b=>b.onclick=()=>{activeMonth=b.dataset.month;render();});
 
-    const monthNames={
-      "2026-08":"Серпень 2026","2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
-      "2026-12":"Грудень 2026","2027-01":"Січень 2027","2027-02":"Лютий 2027",
-      "2027-03":"Березень 2027","2027-04":"Квітень 2027","2027-05":"Травень 2027"
-    };
-
-    $("#calendarMount").innerHTML=Object.entries(monthGroups).map(([month,monthDates])=>{
-      const monthActiveDates=new Set(
-        Object.keys(map).map(k=>k.split("|")[1]).filter(d=>d.startsWith(month))
-      ).size;
-      return `<section class="calendar-month">
-        <div class="calendar-month-title"><h2>${monthNames[month]||month}</h2><span>${monthActiveDates} зайнятих дат</span></div>
-        <div class="calendar-wrap"><table class="calendar"><thead><tr>
-          <th class="name">Студент</th>
-          ${monthDates.map(d=>{
-            const dt=new Date(d+"T12:00:00");
-            const dow=dt.toLocaleDateString("uk-UA",{weekday:"short"});
-            const day=dt.getDate();
-            const today=localIsoDate()===d?" today-head":"";
-            return `<th class="${today}">${dow}<br>${day}${today?'<span class="today-mini">СЬОГОДНІ</span>':""}</th>`;
-          }).join("")}
-        </tr></thead><tbody>
-        ${students.map(st=>`<tr><td class="name"><b>${esc(st.name)}</b><div class="muted">${esc(st.group||"")}</div></td>
-          ${monthDates.map(d=>{
-            const day=new Date(d+"T12:00:00").getDay();
-            const arr=map[`${st.id}|${d}`]||[];
-            const hasConflict=studentDateHasConflict(st.id,d);
-            const focused=conflictCalendarFocus && String(conflictCalendarFocus.studentId)===String(st.id) && conflictCalendarFocus.date===d;
-            const cls=(day===0||day===6?" weekend":"")+(hasConflict?" conflict":"")+(focused?" conflict-focus":"")+(localIsoDate()===d?" today-date":"");
-            if(!arr.length) return `<td class="day-cell${cls}" data-date="${d}" data-student-id="${esc(String(st.id))}"></td>`;
-
-            return `<td class="day-cell${cls}" data-date="${d}" data-student-id="${esc(String(st.id))}" title="${esc(arr.map(activityTitle).join(" + "))}">
-              ${arr.map(a=>{
-                if(a.source==="lesson"){
-                  return `<div class="academic-calendar-card"><b>🎓 ${esc(a.title)}</b><small>${esc(eventTimeText(a)||"час?")}</small></div>`;
-                }
-                const pr=pBy(a.projectId);
-                if(!pr) return "";
-                const label=`${shortType(a.type)}${eventTimeText(a)?` · ${eventTimeText(a)}`:""}`;
-                return `<div class="busy calendar-project-event" style="background:transparent">${calendarProjectCard(pr,esc(label))}</div>`;
-              }).join("")}
-            </td>`;
-          }).join("")}
-        </tr>`).join("")}
-        </tbody></table></div>
-      </section>`;
-    }).join("");
+    $("#calendarMount").innerHTML=`<section class="calendar-month calendar-month-single">
+      <div class="calendar-month-title"><h2>${monthNames[activeMonth]}</h2><span>Заняття + проєкти по кожному студенту</span></div>
+      <div class="calendar-wrap"><table class="calendar"><thead><tr>
+        <th class="name">Студент</th>
+        ${dates.map(d=>{
+          const dt=new Date(d+"T12:00:00");
+          const dow=dt.toLocaleDateString("uk-UA",{weekday:"short"});
+          const day=dt.getDate();
+          const today=localIsoDate()===d?" today-head":"";
+          return `<th class="${today}">${dow}<br>${day}${today?'<span class="today-mini">СЬОГОДНІ</span>':""}</th>`;
+        }).join("")}
+      </tr></thead><tbody>
+      ${students.map(st=>`<tr><td class="name"><b>${esc(st.name)}</b><div class="muted">${esc(st.group||"")}</div></td>
+        ${dates.map(d=>{
+          const day=new Date(d+"T12:00:00").getDay();
+          const arr=map[`${st.id}|${d}`]||[];
+          const hasConflict=studentDateHasConflict(st.id,d);
+          const focused=conflictCalendarFocus && String(conflictCalendarFocus.studentId)===String(st.id) && conflictCalendarFocus.date===d;
+          const cls=(day===0||day===6?" weekend":"")+(hasConflict?" conflict":"")+(focused?" conflict-focus":"")+(localIsoDate()===d?" today-date":"");
+          if(!arr.length) return `<td class="day-cell${cls}" data-date="${d}" data-student-id="${esc(String(st.id))}"></td>`;
+          return `<td class="day-cell${cls}" data-date="${d}" data-student-id="${esc(String(st.id))}" title="${esc(arr.map(activityTitle).join(" + "))}">
+            ${arr.map(a=>{
+              if(a.source==="lesson"){
+                const meta=[a.lessonType||"Заняття",eventTimeText(a),a.location?`ауд. ${a.location}`:""].filter(Boolean).join(" · ");
+                return `<div class="academic-calendar-card combined-lesson-card"><b>🎓 ${esc(a.title)}</b><small>${esc(meta)}</small></div>`;
+              }
+              const pr=pBy(a.projectId);
+              if(!pr) return "";
+              const label=`${shortType(a.type)}${eventTimeText(a)?` · ${eventTimeText(a)}`:""}`;
+              return `<div class="busy calendar-project-event" style="background:transparent">${calendarProjectCard(pr,esc(label))}</div>`;
+            }).join("")}
+          </td>`;
+        }).join("")}
+      </tr>`).join("")}
+      </tbody></table></div>
+    </section>`;
 
     $$(".day-cell").forEach(td=>td.onclick=()=>showDay(td.dataset.date));
     if($("#calendarConflictBtn")) $("#calendarConflictBtn").onclick=showAllConflicts;
@@ -3607,9 +3679,7 @@ function calendar(){
       $("#calStudent").value=focusStudent.name;
       $("#calGroup").value=focusStudent.group||"";
     }
-    $("#calPeriod").value="year";
   }
-  $("#calPeriod").onchange=render;
   $("#calSource").onchange=render;
   $("#calProject").onchange=render;
   $("#calGroup").onchange=render;
@@ -4980,14 +5050,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.2 · Firebase не налаштовано");
+    setStatus("v5.3 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v5.2 · завантаження хмари…");
+    setStatus("v5.3 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
 functions=getFunctions(firebaseApp,"europe-west1");
     cloudDb=getFirestore(firebaseApp);
@@ -5012,7 +5082,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v5.2 · хмара ✓");
+    setStatus("v5.3 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -5113,19 +5183,19 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v5.2 · хмара ✓");
+      setStatus("v5.3 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v5.2 · хмара недоступна");
+      setStatus("v5.3 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v5.2 · хмара недоступна");
+    setStatus("v5.3 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -5136,7 +5206,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.2 · Firebase не налаштовано");
+    setStatus("v5.3 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -5152,19 +5222,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v5.2 · вхід ✓");
+        setStatus("v5.3 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v5.2 · потрібен вхід");
+        setStatus("v5.3 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v5.2 · помилка авторизації");
+    setStatus("v5.3 · помилка авторизації");
     showLogin();
   }
 }
