@@ -818,12 +818,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v5.3 · немає з’єднання");
+    setStatus("v5.5 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v5.3 · збереження…");
+    setStatus("v5.5 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -833,7 +833,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v5.3 · хмара ✓");
+    setStatus("v5.5 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -844,7 +844,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v5.3 · помилка хмари");
+    setStatus("v5.5 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1235,7 +1235,7 @@ const eventAssignments=()=>{
 };
 
 
-// ===== Розклад занять · REMS Control v5.3 =====
+// ===== Розклад занять · REMS Control v5.5 =====
 const ACADEMIC_COLOR="#2563EB";
 const academicLessons=()=>Array.isArray(db.lessons)?db.lessons:[];
 const academicLessonId=()=>`lesson-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
@@ -1303,7 +1303,8 @@ const academicLessonDates=lesson=>{
 };
 const lessonStudents=lesson=>{
   const ids=Array.isArray(lesson?.studentIds)?lesson.studentIds.map(String).filter(Boolean):[];
-  if(ids.length){
+  const scope=String(lesson?.scope||"").trim();
+  if(scope==="selected" || ids.length){
     const set=new Set(ids);
     return (db.students||[]).filter(st=>set.has(String(st.id)));
   }
@@ -1780,7 +1781,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v5.3 · аналіз відновлення…");
+  setStatus("v5.5 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1889,7 +1890,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v5.3 · відновлено ✓");
+    setStatus("v5.5 · відновлено ✓");
     students();
 
     alert(
@@ -1903,7 +1904,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v5.3 · помилка відновлення");
+    setStatus("v5.5 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -3337,6 +3338,7 @@ const academicPatternLabel=l=>{
 };
 const academicAudienceLabel=l=>{
   const ids=Array.isArray(l.studentIds)?l.studentIds.filter(Boolean):[];
+  if(String(l?.scope||"")==="selected") return ids.length?`${ids.length} окремих студентів`:"Окремі студенти · не зіставлено";
   return ids.length?`${ids.length} окремих студентів`:(l.group||"Уся група");
 };
 function openAcademicEditor(lessonId=null){
@@ -3358,6 +3360,7 @@ function openAcademicEditor(lessonId=null){
     room:"",
     teacher:"",
     note:"",
+    scope:"group",
     studentIds:[]
   };
   const body=d.querySelector("#academicDialogBody");
@@ -3366,6 +3369,7 @@ function openAcademicEditor(lessonId=null){
       <div><h2 style="margin:0">${lesson?"Редагувати заняття":"Нове заняття"}</h2><div class="muted">Розклад занять студентів</div></div>
       <button type="button" class="ghost" id="academicClose">Закрити</button>
     </div>
+    ${lesson?.source==="rems-rozklad"?'<div class="academic-import-warning"><b>Імпортовано з REMS-РОЗКЛАД</b><span>Цей запис можна переглянути або виправити, але під час наступного імпорту для цієї групи він буде замінений актуальними даними з REMS-РОЗКЛАД.</span></div>':""}
     <form id="academicForm" class="academic-form">
       <label class="full">Дисципліна<input id="academicSubject" required value="${esc(base.subject||"")}" placeholder="Наприклад: Режисура естради і шоу"></label>
       <label>Вид заняття<select id="academicLessonType">${academicLessonTypes.map(t=>`<option value="${esc(t)}" ${String(base.lessonType||"Практичне заняття")===t?"selected":""}>${esc(t)}</option>`).join("")}</select></label>
@@ -3399,8 +3403,8 @@ function openAcademicEditor(lessonId=null){
       <label>Викладач<input id="academicTeacher" value="${esc(base.teacher||"")}" placeholder="Необов’язково"></label>
 
       <label class="full">Для кого<select id="academicScope">
-        <option value="group" ${!Array.isArray(base.studentIds)||!base.studentIds.length?"selected":""}>Уся група</option>
-        <option value="selected" ${Array.isArray(base.studentIds)&&base.studentIds.length?"selected":""}>Окремі студенти</option>
+        <option value="group" ${String(base.scope||"")!=="selected"&&(!Array.isArray(base.studentIds)||!base.studentIds.length)?"selected":""}>Уся група</option>
+        <option value="selected" ${String(base.scope||"")==="selected"||(Array.isArray(base.studentIds)&&base.studentIds.length)?"selected":""}>Окремі студенти</option>
       </select></label>
       <div class="academic-student-pick full" id="academicStudentPick"></div>
       <label class="full">Примітка<textarea id="academicNote" rows="3" placeholder="Необов’язково">${esc(base.note||"")}</textarea></label>
@@ -3492,6 +3496,7 @@ function openAcademicEditor(lessonId=null){
       room:(roomSelect.value==="__other__"?roomOther.value.trim():roomSelect.value.trim()),
       teacher:body.querySelector("#academicTeacher").value.trim(),
       note:body.querySelector("#academicNote").value.trim(),
+      scope:scope.value,
       studentIds
     };
     if(record.mode!=="once"&&(!record.startDate||!record.endDate||record.startDate>record.endDate)){
@@ -3505,6 +3510,219 @@ function openAcademicEditor(lessonId=null){
     if(!ok){if(submit){submit.disabled=false;submit.textContent=lesson?"Зберегти":"Додати заняття";}alert("Не вдалося зберегти заняття в хмару.");return;}
     d.close();
     if(currentView==="academic") academic();
+  };
+  if(!d.open) d.showModal();
+}
+
+
+const ACADEMIC_IMPORT_SOURCE="rems-rozklad";
+const ACADEMIC_PAIR_TIMES={
+  "1":["09:00","10:20"],"2":["10:40","12:00"],"3":["12:30","13:50"],
+  "4":["14:10","15:30"],"5":["15:40","17:00"],"6":["17:10","18:30"],"7":["18:40","20:00"]
+};
+const academicImportNameNorm=v=>String(v||"").toLowerCase().replace(/[’'`]/g,"").replace(/[-_]+/g," ").replace(/\s+/g," ").trim();
+const academicImportShortNameNorm=v=>academicImportNameNorm(String(v||"").trim().split(/\s+/).slice(0,2).join(" "));
+const academicImportLessonType=value=>{
+  const raw=String(value||"").trim();
+  const t=raw.toLowerCase();
+  if(t.includes("лекц")) return "Лекція";
+  if(t.includes("практ")) return "Практичне заняття";
+  if(t.includes("семін")) return "Семінар";
+  if(t.includes("лаборат")) return "Лабораторне заняття";
+  if(t.includes("індив")) return "Індивідуальне заняття";
+  if(t.includes("консульт")) return "Консультація";
+  if(t.includes("контроль")) return "Контрольна робота";
+  if(t.includes("залік")) return "Залік";
+  if(t.includes("іспит")||t.includes("екзам")) return "Іспит";
+  return raw||"Інше";
+};
+const academicExtractRozkladSchedule=payload=>{
+  if(Array.isArray(payload)) return payload;
+  if(!payload||typeof payload!=="object") return [];
+  const candidates=[
+    payload.schedule,
+    payload.data?.schedule,
+    payload.db?.schedule,
+    payload.workspace?.schedule,
+    payload.backup?.schedule,
+    payload.remsRozklad?.schedule,
+    payload.rems_rozklad?.schedule,
+    payload.REMS_ROZKLAD?.schedule
+  ];
+  return candidates.find(Array.isArray)||[];
+};
+const academicImportGroupValue=row=>String(row?.group??row?.groupCode??row?.groupId??"").trim();
+const academicImportPairTimes=row=>{
+  const start=String(row?.startTime??row?.start??row?.timeStart??"").trim();
+  const end=String(row?.endTime??row?.end??row?.timeEnd??"").trim();
+  if(start||end) return [start,end];
+  const pair=String(row?.pairNumber??row?.pair??row?.lessonNumber??"").replace(/\D+/g,"");
+  return ACADEMIC_PAIR_TIMES[pair]||["",""];
+};
+const academicImportRawStudents=row=>{
+  const raw=row?.studentNames??row?.students??row?.studentIds??row?.student??"";
+  if(Array.isArray(raw)) return raw.map(x=>typeof x==="object"?(x.name??x.fullName??x.studentName??x.id??""):x).map(String).filter(Boolean);
+  return String(raw||"").split(/[;,\n]+/).map(x=>x.trim()).filter(Boolean);
+};
+const academicResolveImportedStudentIds=(row,group)=>{
+  const names=academicImportRawStudents(row);
+  const coverage=String(row?.coverage??row?.scope??"").trim();
+  const isWholeGroup=!names.length && (/^(вся|уся)\s+група$/i.test(coverage)||/^(whole|all)\s*group$/i.test(coverage)||!coverage);
+  if(isWholeGroup) return {scope:"group",studentIds:[],unmatched:[]};
+  const groupStudents=(db.students||[]).filter(st=>String(st.group||"")===String(group||""));
+  const studentIds=[],unmatched=[];
+  for(const name of names){
+    const n=academicImportNameNorm(name),sn=academicImportShortNameNorm(name);
+    const hit=groupStudents.find(st=>academicImportNameNorm(st.name)===n)
+      || groupStudents.find(st=>academicImportShortNameNorm(st.name)===sn);
+    if(hit) studentIds.push(String(hit.id)); else unmatched.push(String(name));
+  }
+  return {scope:"selected",studentIds:[...new Set(studentIds)],unmatched};
+};
+const academicMapRozkladRow=(row,index)=>{
+  const group=academicImportGroupValue(row);
+  const date=String(row?.date??row?.lessonDate??"").slice(0,10);
+  const [startTime,endTime]=academicImportPairTimes(row);
+  const subject=String(row?.discipline??row?.subject??row?.disciplineName??row?.courseName??"").trim()||"Заняття";
+  const lessonType=academicImportLessonType(row?.type??row?.lessonType??row?.activityType??"");
+  const room=String(row?.room??row?.classroom??row?.auditorium??"").trim();
+  const teacher=String(row?.teacher??row?.teacherName??row?.lecturer??"").trim();
+  const note=String(row?.note??row?.notes??"").trim();
+  const audience=academicResolveImportedStudentIds(row,group);
+  const sourceId=String(row?.id??row?.scheduleId??`${group}|${date}|${startTime}|${subject}|${index}`);
+  return {
+    id:`rr-${sourceId}`,
+    source:ACADEMIC_IMPORT_SOURCE,
+    sourceId,
+    sourceCoverage:String(row?.coverage??row?.scope??""),
+    sourceStudents:String(Array.isArray(row?.students)?row.students.join(", "):(row?.students??row?.studentNames??"")),
+    importedAt:new Date().toISOString(),
+    mode:"once",
+    date,
+    subject,
+    lessonType,
+    group,
+    startTime,
+    endTime,
+    room,
+    teacher,
+    note:[note,audience.unmatched.length?`Не зіставлено студентів: ${audience.unmatched.join(", ")}`:""].filter(Boolean).join(" · "),
+    scope:audience.scope,
+    studentIds:audience.studentIds,
+    importUnmatchedStudents:audience.unmatched
+  };
+};
+function ensureAcademicImportDialog(){
+  let d=document.querySelector("#academicImportDialog");
+  if(d) return d;
+  d=document.createElement("dialog");
+  d.id="academicImportDialog";
+  d.className="student-dialog academic-dialog";
+  d.innerHTML='<div id="academicImportDialogBody"></div>';
+  document.body.appendChild(d);
+  return d;
+}
+function openAcademicImportDialog(){
+  const d=ensureAcademicImportDialog();
+  const body=d.querySelector("#academicImportDialogBody");
+  const groups=availableGroups();
+  const defaults=new Set(["РЕМС-34","РЕМС-44"]);
+  let parsed=null,fileName="";
+  body.innerHTML=`<div class="academic-editor academic-import-editor">
+    <div class="project-section-head">
+      <div><h2 style="margin:0">Імпорт із REMS-РОЗКЛАД</h2><div class="muted">Підтягуємо офіційний розклад занять, не чіпаючи проєкти й ручні записи.</div></div>
+      <button type="button" class="ghost" id="academicImportClose">Закрити</button>
+    </div>
+    <div class="academic-import-info">
+      <b>Що станеться</b>
+      <span>Для вибраних груп попередні записи, імпортовані з REMS-РОЗКЛАД, будуть замінені новими. Заняття, які ви додали вручну в REMS Control, залишаться.</span>
+    </div>
+    <div class="academic-import-groups">
+      <b>Групи</b>
+      <div class="academic-import-group-grid">${groups.map(g=>`<label><input type="checkbox" value="${esc(g)}" ${defaults.has(g)?"checked":""}><span>${esc(g)}</span><em data-import-group-count="${esc(g)}">—</em></label>`).join("")}</div>
+    </div>
+    <label class="academic-import-file">Файл із REMS-РОЗКЛАД
+      <input id="academicRozkladFile" type="file" accept=".json,application/json">
+      <small>У REMS-РОЗКЛАД: Налаштування → Експорт даних.</small>
+    </label>
+    <div id="academicImportPreview" class="academic-import-preview"><span>Оберіть JSON-файл — тут з’явиться попередній перегляд.</span></div>
+    <div class="dialog-actions academic-actions">
+      <button type="button" class="ghost" id="academicImportCancel">Скасувати</button>
+      <button type="button" class="primary" id="academicImportApply" disabled>Імпортувати розклад</button>
+    </div>
+  </div>`;
+  const file=body.querySelector("#academicRozkladFile");
+  const preview=body.querySelector("#academicImportPreview");
+  const apply=body.querySelector("#academicImportApply");
+  const selectedGroups=()=>[...body.querySelectorAll('.academic-import-group-grid input[type="checkbox"]:checked')].map(x=>x.value);
+  const renderPreview=()=>{
+    if(!parsed){apply.disabled=true;return;}
+    const schedule=academicExtractRozkladSchedule(parsed);
+    const counts={}; schedule.forEach(row=>{const g=academicImportGroupValue(row);counts[g]=(counts[g]||0)+1;});
+    body.querySelectorAll("[data-import-group-count]").forEach(el=>el.textContent=`${counts[el.dataset.importGroupCount]||0} пар`);
+    const chosen=selectedGroups();
+    const rows=schedule.filter(row=>chosen.includes(academicImportGroupValue(row)));
+    const valid=rows.filter(row=>String(row?.date??row?.lessonDate??"").slice(0,10));
+    const rooms=new Set(valid.map(row=>String(row?.room??row?.classroom??row?.auditorium??"").trim()).filter(Boolean));
+    const subjects=new Set(valid.map(row=>String(row?.discipline??row?.subject??row?.disciplineName??"").trim()).filter(Boolean));
+    preview.innerHTML=`<div><b>${esc(fileName||"Файл")}</b><span>${schedule.length} записів у файлі</span></div>
+      <div class="academic-import-preview-kpis"><span><b>${valid.length}</b> буде імпортовано</span><span><b>${subjects.size}</b> дисциплін</span><span><b>${rooms.size}</b> аудиторій</span></div>
+      ${valid.length?"":'<div class="notice warn">Для вибраних груп у файлі немає занять із датами.</div>'}`;
+    apply.disabled=!valid.length;
+  };
+  body.querySelectorAll('.academic-import-group-grid input[type="checkbox"]').forEach(ch=>ch.onchange=renderPreview);
+  file.onchange=()=>{
+    const f=file.files?.[0]; if(!f){parsed=null;renderPreview();return;}
+    fileName=f.name;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        parsed=JSON.parse(reader.result);
+        const schedule=academicExtractRozkladSchedule(parsed);
+        if(!schedule.length) throw new Error("У файлі не знайдено масив schedule");
+        renderPreview();
+      }catch(err){
+        console.error("REMS-РОЗКЛАД import:",err);
+        parsed=null;apply.disabled=true;
+        preview.innerHTML='<div class="notice warn">Не вдалося знайти розклад у цьому JSON-файлі. Оберіть файл, експортований із REMS-РОЗКЛАД.</div>';
+      }
+    };
+    reader.readAsText(f);
+  };
+  body.querySelector("#academicImportClose").onclick=()=>d.close();
+  body.querySelector("#academicImportCancel").onclick=()=>d.close();
+  apply.onclick=async()=>{
+    if(!parsed) return;
+    const chosen=selectedGroups();
+    if(!chosen.length){alert("Оберіть хоча б одну групу.");return;}
+    const sourceRows=academicExtractRozkladSchedule(parsed).filter(row=>chosen.includes(academicImportGroupValue(row)));
+    const mapped=sourceRows.map(academicMapRozkladRow).filter(l=>l.date&&l.group);
+    if(!mapped.length){alert("Для вибраних груп у файлі немає занять.");return;}
+    const importedIds=new Set();
+    mapped.forEach((l,i)=>{
+      let id=String(l.id||academicLessonId());
+      while(importedIds.has(id)||academicLessons().some(x=>String(x.id)===id&&x.source!==ACADEMIC_IMPORT_SOURCE)) id=`${id}-${i+1}`;
+      l.id=id; importedIds.add(id);
+    });
+    const previous=academicLessons().filter(l=>l.source===ACADEMIC_IMPORT_SOURCE&&chosen.includes(String(l.group||""))).length;
+    db.lessons=academicLessons().filter(l=>!(l.source===ACADEMIC_IMPORT_SOURCE&&chosen.includes(String(l.group||""))));
+    db.lessons.push(...mapped);
+    const unmatched=mapped.reduce((n,l)=>n+(l.importUnmatchedStudents?.length||0),0);
+    db.academicImport={
+      source:"REMS-РОЗКЛАД",
+      sourceFile:fileName,
+      importedAt:new Date().toISOString(),
+      groups:chosen,
+      count:mapped.length,
+      replaced:previous,
+      unmatchedStudents:unmatched
+    };
+    apply.disabled=true;apply.textContent="Збереження…";
+    const ok=await save();
+    if(!ok){apply.disabled=false;apply.textContent="Імпортувати розклад";alert("Не вдалося зберегти імпорт у хмару.");return;}
+    d.close();
+    if(currentView==="academic") academic();
+    alert(`Готово.\n\nІмпортовано занять: ${mapped.length}\nЗамінено попередніх імпортованих записів: ${previous}${unmatched?`\nНе зіставлено студентів у вибіркових заняттях: ${unmatched}`:""}`);
   };
   if(!d.open) d.showModal();
 }
@@ -3523,10 +3741,12 @@ function academic(){
         <h2>Розклад занять</h2>
         <p>Окремий календар навчальних пар. Оберіть групу й місяць — усі заняття видно одразу на календарі.</p>
       </div>
-      <div class="academic-filter">
+      <div class="academic-filter academic-filter-actions">
         <select id="academicGroupFilter">${groupOptionsHtml("","Усі групи")}</select>
+        <button type="button" class="ghost" id="academicImportRozklad">↻ Імпорт із REMS-РОЗКЛАД</button>
       </div>
     </div>
+    ${db.academicImport?.importedAt?`<div class="academic-import-status"><span><b>REMS-РОЗКЛАД</b> · ${esc((db.academicImport.groups||[]).join(", "))} · ${Number(db.academicImport.count||0)} занять</span><small>Останній імпорт: ${esc(new Date(db.academicImport.importedAt).toLocaleString("uk-UA"))}${db.academicImport.sourceFile?` · ${esc(db.academicImport.sourceFile)}`:""}</small></div>`:""}
     <div id="academicSummary" class="academic-summary"></div>
     <div id="academicMonthTabs" class="schedule-month-tabs academic-month-tabs"></div>
     <div id="academicCalendarMount"></div>
@@ -3570,7 +3790,7 @@ function academic(){
           ${lessons.map(l=>`<button type="button" class="academic-month-lesson" data-id="${esc(String(l.id))}">
             <div class="academic-month-lesson-time">${esc(eventTimeText(l)||"час?")}</div>
             <strong>${esc(l.subject||"Заняття")}</strong>
-            <span>${esc(l.lessonType||"Заняття")}</span>
+            <span>${esc(l.lessonType||"Заняття")}${l.source===ACADEMIC_IMPORT_SOURCE?' · ↻ REMS-РОЗКЛАД':""}</span>
             <small>${esc(l.group||"")}${l.room?` · ауд. ${esc(l.room)}`:""}</small>
           </button>`).join("")||'<div class="academic-month-empty">—</div>'}
         </div>
@@ -3587,6 +3807,7 @@ function academic(){
     $$(".academic-month-lesson").forEach(b=>b.onclick=e=>{e.stopPropagation();openAcademicEditor(b.dataset.id);});
   };
   $("#academicGroupFilter").onchange=render;
+  $("#academicImportRozklad").onclick=openAcademicImportDialog;
   render();
 }
 
@@ -3599,6 +3820,17 @@ function academic(){
     .academic-topbar{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px}
     .academic-topbar h2{margin:0 0 5px}.academic-topbar p{margin:0;color:#6b7280;font-size:12px;max-width:760px;line-height:1.5}
     .academic-filter select{min-width:180px}
+    .academic-filter-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .academic-import-status{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:10px 14px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:12px;color:#1e3a8a;font-size:11px}
+    .academic-import-status small{color:#475569}
+    .academic-import-warning,.academic-import-info{margin-top:14px;padding:12px 14px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:12px;display:grid;gap:4px;font-size:11px;color:#1e3a8a}
+    .academic-import-warning span,.academic-import-info span{color:#475569;line-height:1.5}
+    .academic-import-groups{margin-top:16px;display:grid;gap:8px}.academic-import-group-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+    .academic-import-group-grid label{display:grid!important;grid-template-columns:auto 1fr auto!important;align-items:center;gap:8px!important;border:1px solid #e5e7eb;background:#fff;border-radius:9px;padding:9px 10px!important}
+    .academic-import-group-grid input{width:auto!important;margin:0!important}.academic-import-group-grid em{font-size:9px;font-style:normal;color:#64748b}
+    .academic-import-file{display:grid!important;gap:7px!important;margin-top:16px}.academic-import-file small{font-size:10px;color:#64748b}.academic-import-file input{background:#fff}
+    .academic-import-preview{margin-top:14px;border:1px dashed #cbd5e1;border-radius:12px;padding:12px;background:#f8fafc;display:grid;gap:9px;font-size:11px}.academic-import-preview>div:first-child{display:flex;justify-content:space-between;gap:12px}.academic-import-preview span{color:#64748b}
+    .academic-import-preview-kpis{display:flex!important;gap:8px!important;flex-wrap:wrap!important;justify-content:flex-start!important}.academic-import-preview-kpis span{background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:5px 8px;color:#475569}
     .academic-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
     .academic-section{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;overflow:hidden}
     .academic-week-grid{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px}
@@ -3641,7 +3873,7 @@ function academic(){
     .combined-lesson-card{max-width:132px!important;padding:5px 6px!important}.combined-lesson-card b{font-size:9px}.combined-lesson-card small{display:block;white-space:normal;line-height:1.25;margin-top:2px}
     .calendar-month-tabs{margin-top:10px}
     @media(max-width:900px){.academic-summary{grid-template-columns:repeat(2,1fr)}.academic-form-grid{grid-template-columns:1fr 1fr}}
-    @media(max-width:650px){.academic-topbar{flex-direction:column}.academic-summary{grid-template-columns:1fr 1fr}.academic-form{grid-template-columns:1fr}.academic-form .full{grid-column:1}.academic-form-grid{grid-template-columns:1fr}.academic-student-grid{grid-template-columns:1fr}.academic-once-card{grid-template-columns:1fr}.academic-editor{padding:14px;min-width:0}}
+    @media(max-width:650px){.academic-topbar{flex-direction:column}.academic-filter-actions{width:100%;justify-content:stretch}.academic-filter-actions select,.academic-filter-actions button{width:100%}.academic-import-status{align-items:flex-start;flex-direction:column}.academic-import-group-grid{grid-template-columns:1fr}.academic-summary{grid-template-columns:1fr 1fr}.academic-form{grid-template-columns:1fr}.academic-form .full{grid-column:1}.academic-form-grid{grid-template-columns:1fr}.academic-student-grid{grid-template-columns:1fr}.academic-once-card{grid-template-columns:1fr}.academic-editor{padding:14px;min-width:0}}
   `;
   document.head.appendChild(st);
 })();
@@ -5160,14 +5392,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.3 · Firebase не налаштовано");
+    setStatus("v5.5 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v5.3 · завантаження хмари…");
+    setStatus("v5.5 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
 functions=getFunctions(firebaseApp,"europe-west1");
     cloudDb=getFirestore(firebaseApp);
@@ -5192,7 +5424,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v5.3 · хмара ✓");
+    setStatus("v5.5 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -5293,19 +5525,19 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v5.3 · хмара ✓");
+      setStatus("v5.5 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v5.3 · хмара недоступна");
+      setStatus("v5.5 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v5.3 · хмара недоступна");
+    setStatus("v5.5 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -5316,7 +5548,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.3 · Firebase не налаштовано");
+    setStatus("v5.5 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -5332,19 +5564,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v5.3 · вхід ✓");
+        setStatus("v5.5 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v5.3 · потрібен вхід");
+        setStatus("v5.5 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v5.3 · помилка авторизації");
+    setStatus("v5.5 · помилка авторизації");
     showLogin();
   }
 }
