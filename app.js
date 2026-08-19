@@ -526,6 +526,34 @@
 })();
 
 
+
+(function injectAcknowledgementStylesV54(){
+  if(document.getElementById("remsAcknowledgementStylesV54")) return;
+  const st=document.createElement("style");
+  st.id="remsAcknowledgementStylesV54";
+  st.textContent=`
+    .project-ack-line{margin-top:6px;font-size:11px;color:#4b5563;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border-radius:8px;background:#f3f4f6}
+    .project-ack-line:hover{background:#e5e7eb}
+    [data-project-ack-count].complete{color:#15803d}
+    .ack-dashboard{margin-top:18px;padding:16px}
+    #ackDashboardList{display:grid;gap:8px}
+    .ack-dashboard-item{width:100%;border:1px solid #e5e7eb;background:#fff;border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;font:inherit;cursor:pointer}
+    .ack-dashboard-item:hover{background:#f8fafc}
+    .ack-dashboard-item span{display:grid;gap:3px}.ack-dashboard-item small{color:#6b7280}
+    .ack-dashboard-item strong{flex:0 0 auto;font-size:15px;padding:5px 8px;border-radius:999px;background:#f3f4f6}
+    .ack-summary-list{display:grid;gap:10px;margin-top:16px}
+    .ack-summary-row{border:1px solid #e5e7eb;border-radius:13px;overflow:hidden;background:#fff}
+    .ack-summary-main{width:100%;border:0;background:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;font:inherit;cursor:pointer}
+    .ack-summary-main:hover{background:#f8fafc}.ack-summary-main span{display:grid;gap:3px}.ack-summary-main small{color:#6b7280}
+    .ack-summary-main strong{font-size:16px;padding:5px 9px;border-radius:999px;background:#f3f4f6}
+    .ack-summary-main strong.complete{background:#dcfce7;color:#166534}
+    .ack-summary-detail{border-top:1px solid #e5e7eb;padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#f8fafc}
+    .ack-summary-detail[hidden]{display:none}.ack-summary-detail p{margin:6px 0 0;line-height:1.65;color:#4b5563}
+    @media(max-width:650px){.ack-summary-detail{grid-template-columns:1fr}}
+  `;
+  document.head.appendChild(st);
+})();
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-functions.js";
@@ -544,6 +572,72 @@ let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=fals
 let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null, functions=null;
 const projectUiState={};
 let currentView="dashboard";
+
+const ACK_COLLECTION="rems_student_acknowledgements";
+const ackNameNorm=v=>String(v||"").toLowerCase().replace(/[’'`]/g,"").replace(/\s+/g," ").trim();
+const acknowledgementMatchesEvent=(ack,e)=>
+  String(ack?.projectId||"")===String(e?.projectId||"") &&
+  String(ack?.date||"")===String(e?.date||"") &&
+  String(ack?.type||"")===String(e?.type||"");
+
+const loadAllAcknowledgements=async()=>{
+  if(!cloudDb) return [];
+  try{
+    const snap=await getDocs(collection(cloudDb,ACK_COLLECTION));
+    return snap.docs.map(d=>({id:d.id,...(d.data()||{})}));
+  }catch(err){console.error("Acknowledgements:",err);return [];}
+};
+
+const acknowledgementStats=(e,all)=>{
+  const assigned=studentsForEvent(e);
+  const ackNames=new Set((all||[]).filter(x=>acknowledgementMatchesEvent(x,e)).map(x=>ackNameNorm(x.studentName)).filter(Boolean));
+  const yes=assigned.filter(s=>ackNames.has(ackNameNorm(s.name)));
+  const no=assigned.filter(s=>!ackNames.has(ackNameNorm(s.name)));
+  return {assigned,yes,no};
+};
+
+async function openProjectAcknowledgements(projectId){
+  const p=pBy(projectId); if(!p) return;
+  const dialog=ensureProjectCardDialog();
+  const holder=dialog.querySelector("#projectCardBody");
+  holder.innerHTML=`<div class="project-body"><h2>${esc(p.name)}</h2><div class="profile-empty">Завантаження ознайомлень…</div></div>`;
+  if(!dialog.open) dialog.showModal();
+  const all=await loadAllAcknowledgements();
+  const rows=eventsFor(projectId).map(e=>({e,...acknowledgementStats(e,all)}));
+  holder.innerHTML=`<div class="project-body">
+    <div class="project-section-head"><div><span class="eyebrow">Ознайомлення</span><h2 style="margin:3px 0 0">${esc(p.name)}</h2></div><button class="ghost" id="ackBackToProject">Назад до проєкту</button></div>
+    <div class="ack-summary-list">${rows.map((r,i)=>`<div class="ack-summary-row">
+      <button type="button" class="ack-summary-main" data-ack-detail="${i}"><span><b>${fmt(r.e.date)} · ${esc(r.e.type||"Подія")}</b><small>${eventMetaText(r.e)?esc(eventMetaText(r.e)):""}</small></span><strong class="${r.yes.length===r.assigned.length&&r.assigned.length?"complete":""}">${r.yes.length}/${r.assigned.length}</strong></button>
+      <div class="ack-summary-detail" data-ack-panel="${i}" hidden><div><b>✓ Ознайомилися (${r.yes.length})</b><p>${r.yes.map(s=>esc(s.name)).join("<br>")||"—"}</p></div><div><b>Не ознайомилися (${r.no.length})</b><p>${r.no.map(s=>esc(s.name)).join("<br>")||"—"}</p></div></div>
+    </div>`).join("")||'<div class="empty">У проєкті ще немає подій.</div>'}</div>
+  </div>`;
+  holder.querySelector("#ackBackToProject").onclick=()=>openProjectCard(projectId);
+  holder.querySelectorAll("[data-ack-detail]").forEach(b=>b.onclick=()=>{const panel=holder.querySelector(`[data-ack-panel="${b.dataset.ackDetail}"]`);if(panel) panel.hidden=!panel.hidden;});
+}
+
+async function showEventAcknowledgements(ev){
+  const all=await loadAllAcknowledgements();
+  const s=acknowledgementStats(ev,all);
+  alert(`Ознайомилися: ${s.yes.length}/${s.assigned.length}\n\n✓ ${s.yes.map(x=>x.name).join("\n✓ ")||"—"}\n\nНе ознайомилися (${s.no.length}):\n${s.no.map(x=>x.name).join("\n")||"—"}`);
+}
+
+async function updateAckIndicators(){
+  if(!cloudDb) return;
+  const all=await loadAllAcknowledgements();
+  document.querySelectorAll("[data-project-ack-count]").forEach(el=>{
+    const pid=el.dataset.projectAckCount; let yes=0,total=0;
+    eventsFor(pid).forEach(e=>{const s=acknowledgementStats(e,all);yes+=s.yes.length;total+=s.assigned.length;});
+    el.textContent=`${yes}/${total}`; el.classList.toggle("complete",total>0&&yes===total);
+  });
+  const dash=document.querySelector("#ackDashboardList");
+  if(dash){
+    const today=localIsoDate(new Date());
+    const rows=(db.events||[]).filter(e=>String(e.date||"")>=today).map(e=>{const s=acknowledgementStats(e,all);return {e,p:pBy(e.projectId),...s};}).filter(x=>x.p&&x.assigned.length&&x.no.length).sort((x,y)=>String(x.e.date).localeCompare(String(y.e.date))).slice(0,8);
+    dash.innerHTML=rows.map(x=>`<button type="button" class="ack-dashboard-item" data-ack-project="${esc(String(x.e.projectId))}"><span><b>${esc(x.p.name)}</b><small>${fmt(x.e.date)} · ${esc(x.e.type||"Подія")}</small></span><strong>${x.yes.length}/${x.assigned.length}</strong></button>`).join("")||'<div class="muted">Усі найближчі події ознайомлені ✓</div>';
+    dash.querySelectorAll("[data-ack-project]").forEach(b=>b.onclick=()=>openProjectAcknowledgements(b.dataset.ackProject));
+  }
+}
+
 const statusEl=()=>document.querySelector("#cloudStatus");
 const setStatus=(text)=>{ if(statusEl()) statusEl().textContent=text; };
 const coreDbSnapshot=()=>{
@@ -1463,6 +1557,11 @@ function dashboard(){
       <div class="card kpi"><span>Подій у базі</span><strong>${db.events.length}</strong></div>
     </div>
 
+    <div class="ack-dashboard card">
+      <div class="dashboard-projects-head"><h2>Потребують ознайомлення</h2><span class="muted">Найближчі події, які ще підтвердили не всі</span></div>
+      <div id="ackDashboardList"><div class="muted">Завантаження…</div></div>
+    </div>
+
     <div class="dashboard-projects-head"><h2>Проєкти</h2><span class="muted">Натисни на картку, щоб відкрити проєкт</span></div>
     <div class="dashboard-project-grid">
       ${db.projects.map(p=>{
@@ -1475,7 +1574,7 @@ function dashboard(){
             ${projectLogoHtml(p,"dashboard-project-logo")}
             <div class="dashboard-project-copy">
               <h3>${esc(p.name)}</h3>
-              <div class="muted">${evs.length} подій · ${people.length} студентів</div>
+              <div class="muted">${evs.length} подій · ${people.length} студентів · Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></div>
             </div>
             <span class="dashboard-project-arrow">→</span>
           </div>
@@ -1488,6 +1587,7 @@ function dashboard(){
   $$(".week-day-card").forEach(x=>x.onclick=()=>showDay(x.dataset.date));
   $$(".dashboard-project-card").forEach(btn=>btn.onclick=()=>openProjectCard(btn.dataset.projectId));
   if($("#dashboardConflictBtn")) $("#dashboardConflictBtn").onclick=showAllConflicts;
+  updateAckIndicators().catch(console.error);
 }
 
 
@@ -2350,6 +2450,7 @@ function projects(){
           <div style="text-align:left;min-width:0">
             <h3 style="margin:0">${esc(p.name)}</h3>
             <div class="muted">${evs.length} подій · ${assigned.length} студентів</div>
+            <div class="project-ack-line">Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></div>
           </div>
         </div>
         <span class="project-open-arrow">→</span>
@@ -2359,8 +2460,12 @@ function projects(){
   }).join("")||'<div class="empty">Проєктів ще немає.</div>'}</div>`;
 
   $$(".project-open-card").forEach(btn=>{
-    btn.onclick=()=>openProjectCard(btn.dataset.projectId);
+    btn.onclick=e=>{
+      if(e.target.closest(".project-ack-line")) return openProjectAcknowledgements(btn.dataset.projectId);
+      openProjectCard(btn.dataset.projectId);
+    };
   });
+  updateAckIndicators().catch(console.error);
 }
 
 function projectMonthLabel(month){
@@ -2493,7 +2598,8 @@ function openProjectCard(id){
           <div class="project-logo">${projectLogoHtml(p,"project-hero-logo")}</div>
           <div><h2>${esc(p.name)}</h2><div class="muted">${esc(p.description||"")}</div></div>
         </div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="ghost" id="projectAcknowledgementsBtn">Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></button>
           <button class="ghost" id="editProjectBtn">Редагувати</button>
           <button class="ghost" onclick="document.querySelector('#projectCardDialog').close()">Закрити</button>
         </div>
@@ -2592,6 +2698,8 @@ function openProjectCard(id){
   });
   dialog.querySelectorAll(".project-cal-day.has-event,.project-cal-day.planned").forEach(day=>day.onclick=()=>{if(day.dataset.projectDay) showProjectDay(id,day.dataset.projectDay);});
 
+  dialog.querySelector("#projectAcknowledgementsBtn").onclick=()=>openProjectAcknowledgements(id);
+  updateAckIndicators().catch(console.error);
   dialog.querySelector("#editProjectBtn").onclick=()=>editProjectCard(id);
   }catch(err){
     console.error("Project card error:",err);
@@ -2651,6 +2759,7 @@ function editProjectEvent(projectId,ev){
       </label>
 
       <div class="full profile-actions">
+        <button type="button" class="ghost" id="viewEventAcknowledgements">Ознайомлення</button>
         <button type="button" class="ghost" id="cancelProjectEventEditBottom">Скасувати</button>
         <button type="submit" class="ghost" data-notify="0">Зберегти</button>
         <button type="submit" class="primary" data-notify="1">Зберегти та повідомити</button>
@@ -2661,6 +2770,7 @@ function editProjectEvent(projectId,ev){
   const back=()=>openProjectCard(projectId);
   dialog.querySelector("#cancelProjectEventEdit").onclick=back;
   dialog.querySelector("#cancelProjectEventEditBottom").onclick=back;
+  dialog.querySelector("#viewEventAcknowledgements").onclick=()=>showEventAcknowledgements(ev);
 
   dialog.querySelector("#projectEventEditForm").onsubmit=async e=>{
     e.preventDefault();
