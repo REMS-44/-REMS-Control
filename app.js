@@ -3517,7 +3517,7 @@ function openAcademicEditor(lessonId=null){
 
 const ACADEMIC_IMPORT_SOURCE="rems-rozklad";
 const ACADEMIC_LIVE_CONFIG={
-  apiKey:"AIzaSyAV1kYVYT06BuG0itRdxQAz09fNYx4ru8g",
+  apiKey:"AIzaSyAV1kYVYTO6BuG0itRdxQAz09fNYx4ru8g",
   authDomain:"rems-rozklad-2026-2027.firebaseapp.com",
   projectId:"rems-rozklad-2026-2027",
   storageBucket:"rems-rozklad-2026-2027.firebasestorage.app",
@@ -3822,7 +3822,7 @@ function openAcademicSyncDialog(){
     if(!email||!password){alert("Введіть email і пароль від REMS-РОЗКЛАД.");return;}
     const btn=body.querySelector("#academicLiveConnect");btn.disabled=true;btn.textContent="Підключення…";
     try{await academicEnsureLiveClient();await signInWithEmailAndPassword(academicLiveAuth,email,password);body.querySelector("#academicLivePassword").value="";await loadLive();}
-    catch(err){console.error(err);alert("Не вдалося увійти в REMS-РОЗКЛАД. Перевірте email і пароль.");}
+    catch(err){console.error(err);const code=String(err?.code||"");const msg=code==="auth/invalid-credential"?"Не вдалося увійти. Перевірте email і пароль REMS-РОЗКЛАД.":code==="auth/too-many-requests"?"Забагато спроб входу. Зачекайте трохи і спробуйте ще раз.":`Не вдалося підключитися до REMS-РОЗКЛАД${code?` (${code})`:""}.`;alert(msg);}
     finally{btn.disabled=false;btn.textContent="Підключити REMS-РОЗКЛАД";}
   };
   refresh.onclick=loadLive;
