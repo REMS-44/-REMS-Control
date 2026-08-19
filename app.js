@@ -818,12 +818,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v5.5 · немає з’єднання");
+    setStatus("v5.6 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v5.5 · збереження…");
+    setStatus("v5.6 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -833,7 +833,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v5.5 · хмара ✓");
+    setStatus("v5.6 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -844,7 +844,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v5.5 · помилка хмари");
+    setStatus("v5.6 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1235,7 +1235,7 @@ const eventAssignments=()=>{
 };
 
 
-// ===== Розклад занять · REMS Control v5.5 =====
+// ===== Розклад занять · REMS Control v5.6 =====
 const ACADEMIC_COLOR="#2563EB";
 const academicLessons=()=>Array.isArray(db.lessons)?db.lessons:[];
 const academicLessonId=()=>`lesson-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
@@ -1781,7 +1781,7 @@ async function recoverStudentsFromFirebase(){
   );
   if(!ok) return;
 
-  setStatus("v5.5 · аналіз відновлення…");
+  setStatus("v5.6 · аналіз відновлення…");
 
   try{
     const [mediaSnap,profilesSnap]=await Promise.all([
@@ -1890,7 +1890,7 @@ async function recoverStudentsFromFirebase(){
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),payload,{merge:false});
 
     await loadAllStudentMedia();
-    setStatus("v5.5 · відновлено ✓");
+    setStatus("v5.6 · відновлено ✓");
     students();
 
     alert(
@@ -1904,7 +1904,7 @@ async function recoverStudentsFromFirebase(){
     );
   }catch(err){
     console.error("Student recovery failed:",err);
-    setStatus("v5.5 · помилка відновлення");
+    setStatus("v5.6 · помилка відновлення");
     alert(`Не вдалося виконати відновлення.\n${err?.code||err?.message||err}`);
   }
 }
@@ -3516,6 +3516,55 @@ function openAcademicEditor(lessonId=null){
 
 
 const ACADEMIC_IMPORT_SOURCE="rems-rozklad";
+const ACADEMIC_LIVE_CONFIG={
+  apiKey:"AIzaSyAV1kYVYT06BuG0itRdxQAz09fNYx4ru8g",
+  authDomain:"rems-rozklad-2026-2027.firebaseapp.com",
+  projectId:"rems-rozklad-2026-2027",
+  storageBucket:"rems-rozklad-2026-2027.firebasestorage.app",
+  messagingSenderId:"521554904109",
+  appId:"1:521554904109:web:dabd5d93d79635dcd7e4a4"
+};
+const ACADEMIC_LIVE_WORKSPACE="main";
+const ACADEMIC_LIVE_APP_NAME="rems-rozklad-source";
+let academicLiveApp=null,academicLiveAuth=null,academicLiveDb=null;
+
+async function academicEnsureLiveClient(){
+  if(academicLiveApp&&academicLiveAuth&&academicLiveDb) return {app:academicLiveApp,auth:academicLiveAuth,db:academicLiveDb};
+  academicLiveApp=initializeApp(ACADEMIC_LIVE_CONFIG,ACADEMIC_LIVE_APP_NAME);
+  academicLiveAuth=getAuth(academicLiveApp);
+  await setPersistence(academicLiveAuth,browserLocalPersistence);
+  academicLiveDb=getFirestore(academicLiveApp);
+  return {app:academicLiveApp,auth:academicLiveAuth,db:academicLiveDb};
+}
+
+async function academicLiveProfile(){
+  await academicEnsureLiveClient();
+  const u=academicLiveAuth.currentUser;
+  if(!u){const e=new Error("Потрібне підключення до REMS-РОЗКЛАД");e.code="academic/auth-required";throw e;}
+  const snap=await getDoc(doc(academicLiveDb,"users",u.uid));
+  if(!snap.exists()){const e=new Error("Для цього облікового запису немає профілю в REMS-РОЗКЛАД.");e.code="academic/profile-missing";throw e;}
+  const profile=snap.data()||{};
+  if(profile.enabled===false){const e=new Error("Доступ до REMS-РОЗКЛАД заблоковано.");e.code="academic/access-disabled";throw e;}
+  if(!["admin","dispatcher","viewer"].includes(String(profile.role||""))){
+    const e=new Error("Цей обліковий запис не має доступу до повного факультетського розкладу.");e.code="academic/access-limited";throw e;
+  }
+  return {user:u,profile};
+}
+
+async function academicFetchLivePayload(){
+  const access=await academicLiveProfile();
+  const scheduleRef=collection(academicLiveDb,"workspaces",ACADEMIC_LIVE_WORKSPACE,"schedule");
+  const studentsRef=collection(academicLiveDb,"workspaces",ACADEMIC_LIVE_WORKSPACE,"students");
+  const [scheduleSnap,studentsSnap]=await Promise.all([getDocs(scheduleRef),getDocs(studentsRef)]);
+  return {
+    schedule:scheduleSnap.docs.map(d=>({id:d.id,...(d.data()||{})})),
+    students:studentsSnap.docs.map(d=>({id:d.id,...(d.data()||{})})),
+    sourceProject:ACADEMIC_LIVE_CONFIG.projectId,
+    sourceWorkspace:ACADEMIC_LIVE_WORKSPACE,
+    sourceUser:String(access.user.email||""),
+    sourceRole:String(access.profile.role||"")
+  };
+}
 const ACADEMIC_PAIR_TIMES={
   "1":["09:00","10:20"],"2":["10:40","12:00"],"3":["12:30","13:50"],
   "4":["14:10","15:30"],"5":["15:40","17:00"],"6":["17:10","18:30"],"7":["18:40","20:00"]
@@ -3551,6 +3600,49 @@ const academicExtractRozkladSchedule=payload=>{
   ];
   return candidates.find(Array.isArray)||[];
 };
+const academicExtractRozkladStudents=payload=>{
+  if(!payload||typeof payload!=="object") return [];
+  const candidates=[payload.students,payload.data?.students,payload.db?.students,payload.workspace?.students,payload.backup?.students,payload.remsRozklad?.students,payload.rems_rozklad?.students,payload.REMS_ROZKLAD?.students];
+  return candidates.find(Array.isArray)||[];
+};
+const academicSourceStudentMap=payload=>new Map(
+  academicExtractRozkladStudents(payload).map(st=>[
+    String(st?.id??st?.studentId??""),
+    {name:String(st?.name??st?.fullName??st?.studentName??"").trim(),group:String(st?.group??st?.groupCode??"").trim()}
+  ]).filter(([id])=>id)
+);
+const academicExpandRozkladRows=payload=>{
+  const schedule=academicExtractRozkladSchedule(payload);
+  const studentMap=academicSourceStudentMap(payload);
+  const out=[];
+  const studentNames=ids=>(ids||[]).map(id=>studentMap.get(String(id))?.name||"").filter(Boolean);
+  for(const row0 of schedule){
+    const row=row0||{};
+    const specialId=row.studentId??null;
+    if(row.specialSchedule===true&&specialId!==null&&specialId!==undefined){
+      const sourceStudent=studentMap.get(String(specialId));
+      const group=String(row.group||sourceStudent?.group||"").trim();
+      out.push({...row,group,coverage:"Вибрані студенти",students:sourceStudent?.name||row.students||"",__expandedGroup:group});
+      continue;
+    }
+    const partitions=Array.isArray(row.audiencePartitions)?row.audiencePartitions.filter(p=>String(p?.group||"").trim()):[];
+    if(partitions.length){
+      partitions.forEach(part=>{
+        const group=String(part.group||"").trim();
+        const selected=String(part.mode||"")==="selected";
+        const names=selected?studentNames(part.studentIds||[]):[];
+        out.push({...row,group,audienceGroups:[group],coverage:selected?"Вибрані студенти":"Вся група",students:selected?names.join(", "):"",__expandedGroup:group});
+      });
+      continue;
+    }
+    const groups=[...new Set((Array.isArray(row.audienceGroups)?row.audienceGroups:[row.group]).map(x=>String(x||"").trim()).filter(Boolean))];
+    if(groups.length>1){
+      groups.forEach(group=>out.push({...row,group,audienceGroups:[group],coverage:row.coverage||"Вся група",__expandedGroup:group}));
+    }else out.push({...row,group:groups[0]||String(row.group||"").trim(),__expandedGroup:groups[0]||String(row.group||"").trim()});
+  }
+  return out;
+};
+const academicPrepareRozkladRows=payload=>academicExpandRozkladRows(payload);
 const academicImportGroupValue=row=>String(row?.group??row?.groupCode??row?.groupId??"").trim();
 const academicImportPairTimes=row=>{
   const start=String(row?.startTime??row?.start??row?.timeStart??"").trim();
@@ -3589,7 +3681,8 @@ const academicMapRozkladRow=(row,index)=>{
   const teacher=String(row?.teacher??row?.teacherName??row?.lecturer??"").trim();
   const note=String(row?.note??row?.notes??"").trim();
   const audience=academicResolveImportedStudentIds(row,group);
-  const sourceId=String(row?.id??row?.scheduleId??`${group}|${date}|${startTime}|${subject}|${index}`);
+  const rawSourceId=String(row?.id??row?.scheduleId??`${date}|${startTime}|${subject}|${index}`);
+  const sourceId=`${rawSourceId}|${group||"nogroup"}`;
   return {
     id:`rr-${sourceId}`,
     source:ACADEMIC_IMPORT_SOURCE,
@@ -3612,6 +3705,140 @@ const academicMapRozkladRow=(row,index)=>{
     importUnmatchedStudents:audience.unmatched
   };
 };
+async function academicReplaceImportedRows(preparedRows,chosen,meta={}){
+  const groups=[...new Set((chosen||[]).map(String).filter(Boolean))];
+  if(!groups.length) return {ok:false,error:"Оберіть хоча б одну групу."};
+  const sourceRows=(preparedRows||[]).filter(row=>groups.includes(academicImportGroupValue(row)));
+  const mapped=sourceRows.map(academicMapRozkladRow).filter(l=>l.date&&l.group);
+  if(!mapped.length) return {ok:false,error:"Для вибраних груп у REMS-РОЗКЛАД немає занять."};
+  const importedIds=new Set();
+  mapped.forEach((l,i)=>{
+    let id=String(l.id||academicLessonId());
+    while(importedIds.has(id)||academicLessons().some(x=>String(x.id)===id&&x.source!==ACADEMIC_IMPORT_SOURCE)) id=`${id}-${i+1}`;
+    l.id=id; importedIds.add(id);
+  });
+  const beforeLessons=clone(academicLessons());
+  const beforeImport=db.academicImport?clone(db.academicImport):null;
+  const previous=academicLessons().filter(l=>l.source===ACADEMIC_IMPORT_SOURCE&&groups.includes(String(l.group||""))).length;
+  db.lessons=academicLessons().filter(l=>!(l.source===ACADEMIC_IMPORT_SOURCE&&groups.includes(String(l.group||""))));
+  db.lessons.push(...mapped);
+  const unmatched=mapped.reduce((n,l)=>n+(l.importUnmatchedStudents?.length||0),0);
+  db.academicImport={
+    source:"REMS-РОЗКЛАД",
+    syncMode:meta.syncMode||"json",
+    sourceFile:meta.sourceFile||"",
+    sourceProject:meta.sourceProject||"",
+    sourceWorkspace:meta.sourceWorkspace||"",
+    sourceUser:meta.sourceUser||"",
+    importedAt:new Date().toISOString(),
+    groups,
+    count:mapped.length,
+    replaced:previous,
+    unmatchedStudents:unmatched
+  };
+  const ok=await save();
+  if(!ok){
+    db.lessons=beforeLessons;
+    if(beforeImport)db.academicImport=beforeImport;else delete db.academicImport;
+    cache();
+    return {ok:false,error:"Не вдалося зберегти синхронізацію в хмару."};
+  }
+  return {ok:true,count:mapped.length,replaced:previous,unmatched};
+}
+
+function ensureAcademicSyncDialog(){
+  let d=document.querySelector("#academicSyncDialog");
+  if(d) return d;
+  d=document.createElement("dialog");
+  d.id="academicSyncDialog";
+  d.className="student-dialog academic-dialog";
+  d.innerHTML='<div id="academicSyncDialogBody"></div>';
+  document.body.appendChild(d);
+  return d;
+}
+
+function openAcademicSyncDialog(){
+  const d=ensureAcademicSyncDialog();
+  const body=d.querySelector("#academicSyncDialogBody");
+  const groups=availableGroups();
+  const defaults=new Set((db.academicImport?.groups?.length?db.academicImport.groups:["РЕМС-34","РЕМС-44"]).map(String));
+  let livePayload=null,prepared=[];
+  body.innerHTML=`<div class="academic-editor academic-import-editor academic-sync-editor">
+    <div class="project-section-head">
+      <div><h2 style="margin:0">Синхронізація з REMS-РОЗКЛАД</h2><div class="muted">Забираємо актуальні пари прямо з факультетської онлайн-бази.</div></div>
+      <button type="button" class="ghost" id="academicSyncClose">Закрити</button>
+    </div>
+    <div class="academic-import-info"><b>Без JSON-файлу</b><span>Ручні заняття в REMS Control не стираються. Для вибраних груп замінюються лише попередні записи з REMS-РОЗКЛАД.</span></div>
+    <div id="academicLiveConnection" class="academic-live-connection"><span>Перевіряю підключення…</span></div>
+    <div id="academicLiveLogin" class="academic-live-login" hidden>
+      <label>Email REMS-РОЗКЛАД<input id="academicLiveEmail" type="email" value="${esc(currentUser?.email||"")}" autocomplete="username"></label>
+      <label>Пароль<input id="academicLivePassword" type="password" autocomplete="current-password" placeholder="Введіть один раз на цьому браузері"></label>
+      <button type="button" class="primary" id="academicLiveConnect">Підключити REMS-РОЗКЛАД</button>
+      <small>Пароль не записується в REMS Control. Firebase зберігає лише авторизовану сесію цього браузера.</small>
+    </div>
+    <div class="academic-import-groups">
+      <b>Які групи синхронізувати</b>
+      <div class="academic-import-group-grid">${groups.map(g=>`<label><input type="checkbox" value="${esc(g)}" ${defaults.has(g)?"checked":""}><span>${esc(g)}</span><em data-live-group-count="${esc(g)}">—</em></label>`).join("")}</div>
+    </div>
+    <div class="academic-sync-actions-inline"><button type="button" class="ghost" id="academicLiveRefresh" disabled>↻ Оновити дані</button><button type="button" class="ghost" id="academicLiveDisconnect" hidden>Відключити</button></div>
+    <div id="academicLivePreview" class="academic-import-preview"><span>Після підключення тут з’явиться актуальний розклад.</span></div>
+    <div class="dialog-actions academic-actions"><button type="button" class="ghost" id="academicSyncCancel">Скасувати</button><button type="button" class="primary" id="academicLiveApply" disabled>Синхронізувати</button></div>
+  </div>`;
+  const connection=body.querySelector("#academicLiveConnection"),login=body.querySelector("#academicLiveLogin"),preview=body.querySelector("#academicLivePreview"),apply=body.querySelector("#academicLiveApply"),refresh=body.querySelector("#academicLiveRefresh"),disconnect=body.querySelector("#academicLiveDisconnect");
+  const selectedGroups=()=>[...body.querySelectorAll('.academic-import-group-grid input[type="checkbox"]:checked')].map(x=>x.value);
+  const renderPreview=()=>{
+    const counts={};prepared.forEach(row=>{const g=academicImportGroupValue(row);counts[g]=(counts[g]||0)+1;});
+    body.querySelectorAll("[data-live-group-count]").forEach(el=>el.textContent=`${counts[el.dataset.liveGroupCount]||0} пар`);
+    const chosen=selectedGroups();
+    const rows=prepared.filter(row=>chosen.includes(academicImportGroupValue(row)));
+    const disciplines=new Set(rows.map(r=>String(r?.discipline??r?.subject??r?.disciplineName??"").trim()).filter(Boolean));
+    const rooms=new Set(rows.map(r=>String(r?.room??r?.classroom??r?.auditorium??"").trim()).filter(Boolean));
+    preview.innerHTML=livePayload?`<div><b>Онлайн-база готова</b><span>${rows.length} занять для вибраних груп</span></div><div class="academic-import-preview-kpis"><span>${disciplines.size} дисциплін</span><span>${rooms.size} аудиторій</span><span>${esc(livePayload.sourceUser||"")}</span></div>`:'<span>Немає завантажених даних.</span>';
+    apply.disabled=!livePayload||!rows.length||!chosen.length;
+  };
+  const showSignedOut=()=>{
+    connection.innerHTML='<b>Потрібне підключення</b><span>Перший раз авторизуй REMS Control у базі REMS-РОЗКЛАД.</span>';
+    login.hidden=false;refresh.disabled=true;disconnect.hidden=true;apply.disabled=true;
+  };
+  const loadLive=async()=>{
+    connection.innerHTML='<b>Завантаження…</b><span>Читаю актуальний факультетський розклад.</span>';
+    refresh.disabled=true;apply.disabled=true;
+    try{
+      livePayload=await academicFetchLivePayload();
+      prepared=academicPrepareRozkladRows(livePayload);
+      login.hidden=true;disconnect.hidden=false;refresh.disabled=false;
+      connection.innerHTML=`<b>Підключено ✓</b><span>${esc(livePayload.sourceUser||"")} · ${prepared.length} записів · робочий простір ${esc(livePayload.sourceWorkspace||ACADEMIC_LIVE_WORKSPACE)}</span>`;
+      renderPreview();
+    }catch(err){
+      console.error("REMS-РОЗКЛАД live sync:",err);
+      if(err?.code==="academic/auth-required")showSignedOut();
+      else{connection.innerHTML=`<b>Не вдалося підключитися</b><span>${esc(err?.message||String(err))}</span>`;login.hidden=!!academicLiveAuth?.currentUser;refresh.disabled=false;disconnect.hidden=!academicLiveAuth?.currentUser;}
+    }
+  };
+  body.querySelectorAll('.academic-import-group-grid input[type="checkbox"]').forEach(x=>x.onchange=renderPreview);
+  body.querySelector("#academicSyncClose").onclick=()=>d.close();body.querySelector("#academicSyncCancel").onclick=()=>d.close();
+  body.querySelector("#academicLiveConnect").onclick=async()=>{
+    const email=body.querySelector("#academicLiveEmail").value.trim(),password=body.querySelector("#academicLivePassword").value;
+    if(!email||!password){alert("Введіть email і пароль від REMS-РОЗКЛАД.");return;}
+    const btn=body.querySelector("#academicLiveConnect");btn.disabled=true;btn.textContent="Підключення…";
+    try{await academicEnsureLiveClient();await signInWithEmailAndPassword(academicLiveAuth,email,password);body.querySelector("#academicLivePassword").value="";await loadLive();}
+    catch(err){console.error(err);alert("Не вдалося увійти в REMS-РОЗКЛАД. Перевірте email і пароль.");}
+    finally{btn.disabled=false;btn.textContent="Підключити REMS-РОЗКЛАД";}
+  };
+  refresh.onclick=loadLive;
+  disconnect.onclick=async()=>{if(academicLiveAuth)await signOut(academicLiveAuth);livePayload=null;prepared=[];showSignedOut();renderPreview();};
+  apply.onclick=async()=>{
+    const chosen=selectedGroups();if(!chosen.length){alert("Оберіть хоча б одну групу.");return;}if(!livePayload){alert("Спочатку завантажте дані з REMS-РОЗКЛАД.");return;}
+    apply.disabled=true;apply.textContent="Синхронізація…";
+    const result=await academicReplaceImportedRows(prepared,chosen,{syncMode:"live",sourceFile:"Онлайн-база",sourceProject:livePayload.sourceProject,sourceWorkspace:livePayload.sourceWorkspace,sourceUser:livePayload.sourceUser});
+    if(!result.ok){apply.disabled=false;apply.textContent="Синхронізувати";alert(result.error||"Не вдалося синхронізувати.");return;}
+    d.close();if(currentView==="academic")academic();
+    alert(`Готово.\n\nСинхронізовано занять: ${result.count}\nЗамінено попередніх записів REMS-РОЗКЛАД: ${result.replaced}${result.unmatched?`\nНе зіставлено студентів у вибіркових заняттях: ${result.unmatched}`:""}`);
+  };
+  (async()=>{try{await academicEnsureLiveClient();if(academicLiveAuth.currentUser)await loadLive();else showSignedOut();}catch(err){connection.innerHTML=`<b>Помилка ініціалізації</b><span>${esc(err?.message||String(err))}</span>`;}})();
+  if(!d.open)d.showModal();
+}
+
 function ensureAcademicImportDialog(){
   let d=document.querySelector("#academicImportDialog");
   if(d) return d;
@@ -3657,7 +3884,7 @@ function openAcademicImportDialog(){
   const selectedGroups=()=>[...body.querySelectorAll('.academic-import-group-grid input[type="checkbox"]:checked')].map(x=>x.value);
   const renderPreview=()=>{
     if(!parsed){apply.disabled=true;return;}
-    const schedule=academicExtractRozkladSchedule(parsed);
+    const schedule=academicPrepareRozkladRows(parsed);
     const counts={}; schedule.forEach(row=>{const g=academicImportGroupValue(row);counts[g]=(counts[g]||0)+1;});
     body.querySelectorAll("[data-import-group-count]").forEach(el=>el.textContent=`${counts[el.dataset.importGroupCount]||0} пар`);
     const chosen=selectedGroups();
@@ -3678,7 +3905,7 @@ function openAcademicImportDialog(){
     reader.onload=()=>{
       try{
         parsed=JSON.parse(reader.result);
-        const schedule=academicExtractRozkladSchedule(parsed);
+        const schedule=academicPrepareRozkladRows(parsed);
         if(!schedule.length) throw new Error("У файлі не знайдено масив schedule");
         renderPreview();
       }catch(err){
@@ -3695,34 +3922,13 @@ function openAcademicImportDialog(){
     if(!parsed) return;
     const chosen=selectedGroups();
     if(!chosen.length){alert("Оберіть хоча б одну групу.");return;}
-    const sourceRows=academicExtractRozkladSchedule(parsed).filter(row=>chosen.includes(academicImportGroupValue(row)));
-    const mapped=sourceRows.map(academicMapRozkladRow).filter(l=>l.date&&l.group);
-    if(!mapped.length){alert("Для вибраних груп у файлі немає занять.");return;}
-    const importedIds=new Set();
-    mapped.forEach((l,i)=>{
-      let id=String(l.id||academicLessonId());
-      while(importedIds.has(id)||academicLessons().some(x=>String(x.id)===id&&x.source!==ACADEMIC_IMPORT_SOURCE)) id=`${id}-${i+1}`;
-      l.id=id; importedIds.add(id);
-    });
-    const previous=academicLessons().filter(l=>l.source===ACADEMIC_IMPORT_SOURCE&&chosen.includes(String(l.group||""))).length;
-    db.lessons=academicLessons().filter(l=>!(l.source===ACADEMIC_IMPORT_SOURCE&&chosen.includes(String(l.group||""))));
-    db.lessons.push(...mapped);
-    const unmatched=mapped.reduce((n,l)=>n+(l.importUnmatchedStudents?.length||0),0);
-    db.academicImport={
-      source:"REMS-РОЗКЛАД",
-      sourceFile:fileName,
-      importedAt:new Date().toISOString(),
-      groups:chosen,
-      count:mapped.length,
-      replaced:previous,
-      unmatchedStudents:unmatched
-    };
+    const sourceRows=academicPrepareRozkladRows(parsed).filter(row=>chosen.includes(academicImportGroupValue(row)));
     apply.disabled=true;apply.textContent="Збереження…";
-    const ok=await save();
-    if(!ok){apply.disabled=false;apply.textContent="Імпортувати розклад";alert("Не вдалося зберегти імпорт у хмару.");return;}
+    const result=await academicReplaceImportedRows(sourceRows,chosen,{syncMode:"json",sourceFile:fileName});
+    if(!result.ok){apply.disabled=false;apply.textContent="Імпортувати розклад";alert(result.error||"Не вдалося зберегти імпорт у хмару.");return;}
     d.close();
     if(currentView==="academic") academic();
-    alert(`Готово.\n\nІмпортовано занять: ${mapped.length}\nЗамінено попередніх імпортованих записів: ${previous}${unmatched?`\nНе зіставлено студентів у вибіркових заняттях: ${unmatched}`:""}`);
+    alert(`Готово.\n\nІмпортовано занять: ${result.count}\nЗамінено попередніх імпортованих записів: ${result.replaced}${result.unmatched?`\nНе зіставлено студентів у вибіркових заняттях: ${result.unmatched}`:""}`);
   };
   if(!d.open) d.showModal();
 }
@@ -3743,10 +3949,11 @@ function academic(){
       </div>
       <div class="academic-filter academic-filter-actions">
         <select id="academicGroupFilter">${groupOptionsHtml("","Усі групи")}</select>
-        <button type="button" class="ghost" id="academicImportRozklad">↻ Імпорт із REMS-РОЗКЛАД</button>
+        <button type="button" class="primary" id="academicSyncRozklad">↻ Синхронізувати з REMS-РОЗКЛАД</button>
+        <button type="button" class="ghost" id="academicImportRozklad">JSON-файл</button>
       </div>
     </div>
-    ${db.academicImport?.importedAt?`<div class="academic-import-status"><span><b>REMS-РОЗКЛАД</b> · ${esc((db.academicImport.groups||[]).join(", "))} · ${Number(db.academicImport.count||0)} занять</span><small>Останній імпорт: ${esc(new Date(db.academicImport.importedAt).toLocaleString("uk-UA"))}${db.academicImport.sourceFile?` · ${esc(db.academicImport.sourceFile)}`:""}</small></div>`:""}
+    ${db.academicImport?.importedAt?`<div class="academic-import-status"><span><b>REMS-РОЗКЛАД</b> · ${esc((db.academicImport.groups||[]).join(", "))} · ${Number(db.academicImport.count||0)} занять${db.academicImport.syncMode==="live"?` · <b>ОНЛАЙН</b>`:""}</span><small>${db.academicImport.syncMode==="live"?"Остання синхронізація":"Останній імпорт"}: ${esc(new Date(db.academicImport.importedAt).toLocaleString("uk-UA"))}${db.academicImport.sourceFile?` · ${esc(db.academicImport.sourceFile)}`:""}</small></div>`:""}
     <div id="academicSummary" class="academic-summary"></div>
     <div id="academicMonthTabs" class="schedule-month-tabs academic-month-tabs"></div>
     <div id="academicCalendarMount"></div>
@@ -3807,6 +4014,7 @@ function academic(){
     $$(".academic-month-lesson").forEach(b=>b.onclick=e=>{e.stopPropagation();openAcademicEditor(b.dataset.id);});
   };
   $("#academicGroupFilter").onchange=render;
+  $("#academicSyncRozklad").onclick=openAcademicSyncDialog;
   $("#academicImportRozklad").onclick=openAcademicImportDialog;
   render();
 }
@@ -3831,6 +4039,9 @@ function academic(){
     .academic-import-file{display:grid!important;gap:7px!important;margin-top:16px}.academic-import-file small{font-size:10px;color:#64748b}.academic-import-file input{background:#fff}
     .academic-import-preview{margin-top:14px;border:1px dashed #cbd5e1;border-radius:12px;padding:12px;background:#f8fafc;display:grid;gap:9px;font-size:11px}.academic-import-preview>div:first-child{display:flex;justify-content:space-between;gap:12px}.academic-import-preview span{color:#64748b}
     .academic-import-preview-kpis{display:flex!important;gap:8px!important;flex-wrap:wrap!important;justify-content:flex-start!important}.academic-import-preview-kpis span{background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:5px 8px;color:#475569}
+    .academic-live-connection{margin-top:14px;padding:12px 14px;border:1px solid #dbeafe;background:#f8fbff;border-radius:12px;display:grid;gap:4px;font-size:11px}.academic-live-connection b{color:#1d4ed8}.academic-live-connection span{color:#64748b;line-height:1.45}
+    .academic-live-login{margin-top:10px;border:1px solid #e5e7eb;background:#fff;border-radius:12px;padding:12px;display:grid;grid-template-columns:1fr 1fr auto;gap:9px;align-items:end}.academic-live-login[hidden]{display:none}.academic-live-login label{display:grid;gap:5px;font-size:11px}.academic-live-login small{grid-column:1/-1;color:#64748b}.academic-sync-actions-inline{display:flex;gap:8px;margin-top:10px;justify-content:flex-end}
+    @media(max-width:760px){.academic-live-login{grid-template-columns:1fr}.academic-live-login small{grid-column:auto}}
     .academic-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
     .academic-section{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;overflow:hidden}
     .academic-week-grid{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px}
@@ -5392,14 +5603,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.5 · Firebase не налаштовано");
+    setStatus("v5.6 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v5.5 · завантаження хмари…");
+    setStatus("v5.6 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
 functions=getFunctions(firebaseApp,"europe-west1");
     cloudDb=getFirestore(firebaseApp);
@@ -5424,7 +5635,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     cloudReady=true;
     setWriteUiReady(true);
-    setStatus("v5.5 · хмара ✓");
+    setStatus("v5.6 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -5525,19 +5736,19 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v5.5 · хмара ✓");
+      setStatus("v5.6 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v5.5 · хмара недоступна");
+      setStatus("v5.6 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v5.5 · хмара недоступна");
+    setStatus("v5.6 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -5548,7 +5759,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.5 · Firebase не налаштовано");
+    setStatus("v5.6 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -5564,19 +5775,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v5.5 · вхід ✓");
+        setStatus("v5.6 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v5.5 · потрібен вхід");
+        setStatus("v5.6 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v5.5 · помилка авторизації");
+    setStatus("v5.6 · помилка авторизації");
     showLogin();
   }
 }
