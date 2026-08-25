@@ -1,0 +1,8 @@
+REMS Control v10 — phone + iPad/tablet adaptation
+Base: user-uploaded REMS Control v5.9 / ACK RESET v9.
+
+Desktop behaviour is unchanged.
+Phone (<=700 px): bottom navigation, full-screen dialogs, floating contextual add button, touch-sized controls, iOS safe areas, stacked editing forms, readable project/day occupancy, touch-scroll calendars, mobile Word export, mobile academic planning, mobile conflict/acknowledgement views.
+iPad/tablet: compact 86 px side rail, two-column cards, larger touch targets, tablet-sized dialogs, full calendar workspace.
+Device mode is selected automatically from width and touch capability.
+Added files: responsive.css, responsive.js.

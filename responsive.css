@@ -1,0 +1,166 @@
+/* REMS Control v10 — touch adaptation for phone + iPad/tablet.
+   Desktop is intentionally left unchanged. */
+:root{--safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px)}
+.mobile-bottom-nav{display:none}
+body.ui-mobile,body.ui-tablet{-webkit-tap-highlight-color:transparent}
+body.ui-mobile button,body.ui-tablet button,body.ui-mobile .file-btn,body.ui-tablet .file-btn{touch-action:manipulation}
+body.ui-mobile input,body.ui-mobile select,body.ui-mobile textarea{font-size:16px!important}
+body.ui-mobile .calendar-wrap,body.ui-mobile .academic-month-section,body.ui-mobile .student-calendar-view,body.ui-mobile .word-export-projects,body.ui-mobile .planner-person-list,body.ui-tablet .calendar-wrap,body.ui-tablet .academic-month-section{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+
+/* iPad / tablet */
+body.ui-tablet .sidebar{width:86px!important;padding:18px 10px!important}
+body.ui-tablet .brand{padding:0 8px 22px!important;justify-content:center}
+body.ui-tablet .brand div:last-child,body.ui-tablet .sidebar .nav span,body.ui-tablet .sidebar-note,body.ui-tablet #authUser{display:none!important}
+body.ui-tablet .sidebar .nav{min-height:50px;padding:12px 6px!important;text-align:center!important;font-size:20px!important}
+body.ui-tablet .sidebar-bottom{display:grid!important;gap:7px}
+body.ui-tablet main{margin-left:86px!important;width:calc(100% - 86px)!important;padding:0 20px 34px!important;min-width:0}
+body.ui-tablet .topbar{height:86px!important;position:sticky;top:0;z-index:18;background:rgba(245,246,248,.94);backdrop-filter:blur(14px)}
+body.ui-tablet .topbar h1{font-size:24px!important}
+body.ui-tablet .students-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+body.ui-tablet .kpis{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+body.ui-tablet .projects-grid-main,body.ui-tablet .dashboard-project-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+body.ui-tablet .industry-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+body.ui-tablet dialog{max-width:calc(100vw - 120px)!important;max-height:88dvh!important}
+body.ui-tablet .student-dialog{width:min(900px,calc(100vw - 120px))!important}
+body.ui-tablet .word-export-dialog{width:min(1040px,calc(100vw - 120px))!important}
+body.ui-tablet .calendar-wrap{max-height:calc(100dvh - 160px)!important}
+body.ui-tablet .primary,body.ui-tablet .ghost,body.ui-tablet .danger,body.ui-tablet input,body.ui-tablet select{min-height:42px}
+body.ui-tablet .availability-chip{min-height:36px}
+
+/* phone shell */
+body.ui-mobile{display:block!important;padding-bottom:calc(74px + var(--safe-bottom))}
+body.ui-mobile .sidebar{display:none!important}
+body.ui-mobile main{margin-left:0!important;width:100%!important;padding:0 12px calc(96px + var(--safe-bottom))!important;min-width:0!important}
+body.ui-mobile #app{min-width:0!important}
+body.ui-mobile .topbar{height:auto!important;min-height:72px;position:sticky;top:0;z-index:40;margin:0 -12px 12px;padding:calc(10px + var(--safe-top)) 14px 10px;background:rgba(245,246,248,.95);backdrop-filter:blur(16px);border-bottom:1px solid rgba(229,231,235,.9);gap:10px}
+body.ui-mobile .topbar>div{min-width:0}
+body.ui-mobile .topbar h1{font-size:21px!important;line-height:1.15;overflow-wrap:anywhere}
+body.ui-mobile .topbar p{font-size:10px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:68vw}
+body.ui-mobile #quickAdd:not([hidden]){position:fixed!important;z-index:90;right:14px;bottom:calc(74px + var(--safe-bottom) + 12px);box-shadow:0 12px 30px rgba(17,24,39,.24);max-width:calc(100vw - 28px);min-height:46px;border-radius:999px;padding:10px 16px!important}
+
+body.ui-mobile .mobile-bottom-nav{position:fixed;display:flex;left:0;right:0;bottom:0;z-index:100;gap:2px;overflow-x:auto;scrollbar-width:none;padding:7px 6px calc(7px + var(--safe-bottom));background:rgba(17,19,24,.98);border-top:1px solid rgba(255,255,255,.08);box-shadow:0 -12px 30px rgba(17,24,39,.16);-webkit-overflow-scrolling:touch}
+body.ui-mobile .mobile-bottom-nav::-webkit-scrollbar{display:none}
+body.ui-mobile .mobile-bottom-nav .nav{flex:0 0 72px;min-width:72px;min-height:54px;display:grid;place-items:center;gap:2px;padding:5px 4px!important;border-radius:12px!important;color:#aeb3bd!important;background:transparent!important;text-align:center!important;font-size:18px!important}
+body.ui-mobile .mobile-bottom-nav .nav b{font-size:19px;line-height:1}
+body.ui-mobile .mobile-bottom-nav .nav span{display:block!important;font-size:9px;line-height:1.1;font-weight:650}
+body.ui-mobile .mobile-bottom-nav .nav.active{background:#2b3039!important;color:#fff!important}
+
+/* core cards / toolbars */
+body.ui-mobile .grid{gap:10px!important}
+body.ui-mobile .card{padding:13px!important;border-radius:14px!important}
+body.ui-mobile .kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;margin-bottom:12px!important}
+body.ui-mobile .kpi{padding:12px!important}body.ui-mobile .kpi strong{font-size:22px!important;margin-top:6px!important}body.ui-mobile .kpi span{font-size:10px!important}
+body.ui-mobile .two,body.ui-mobile .students-grid,body.ui-mobile .projects-grid-main,body.ui-mobile .dashboard-project-grid,body.ui-mobile .industry-grid,body.ui-mobile .schedule-admin-grid{grid-template-columns:1fr!important}
+body.ui-mobile .project-card,body.ui-mobile .student-card{padding:13px!important;border-radius:13px!important}
+body.ui-mobile .toolbar{display:grid!important;grid-template-columns:1fr 1fr;gap:8px!important;align-items:stretch}
+body.ui-mobile .toolbar .spacer{display:none}body.ui-mobile .toolbar>input:first-child,body.ui-mobile .toolbar>input[type=search],body.ui-mobile .toolbar>.full{grid-column:1/-1}
+body.ui-mobile .toolbar input,body.ui-mobile .toolbar select,body.ui-mobile label input,body.ui-mobile label select,body.ui-mobile label textarea{width:100%;min-width:0;min-height:44px}
+body.ui-mobile .primary,body.ui-mobile .ghost,body.ui-mobile .danger,body.ui-mobile .mini{min-height:44px;padding:10px 12px}
+body.ui-mobile .dialog-actions,body.ui-mobile .profile-actions{display:grid!important;grid-template-columns:1fr 1fr;gap:8px!important;width:100%}
+
+/* dialogs = touch workspaces */
+body.ui-mobile dialog,body.ui-mobile .student-dialog,body.ui-mobile .word-export-dialog{width:100vw!important;max-width:none!important;height:calc(var(--rems-vh,1vh)*100)!important;max-height:none!important;margin:0!important;border-radius:0!important;overflow:auto!important;overscroll-behavior:contain}
+body.ui-mobile dialog::backdrop{background:rgba(17,24,39,.68)}
+body.ui-mobile dialog form{padding:16px 14px calc(24px + var(--safe-bottom))!important}
+body.ui-mobile .student-profile,body.ui-mobile .project-body,body.ui-mobile .academic-editor,body.ui-mobile .word-export-body,body.ui-mobile .conflict-panel{padding:14px!important;min-width:0!important}
+body.ui-mobile .project-section-head,body.ui-mobile .word-export-head{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:10px!important}
+
+/* student profile */
+body.ui-mobile .profile-hero{border-radius:0!important;padding:16px!important}
+body.ui-mobile .profile-body{padding:14px!important}
+body.ui-mobile .profile-hero-top{display:block!important}
+body.ui-mobile .profile-hero-title,body.ui-mobile .profile-identity{gap:12px!important}
+body.ui-mobile .profile-photo,body.ui-mobile .profile-identity .profile-photo{width:86px!important;height:108px!important;flex-basis:86px!important;border-radius:14px!important}
+body.ui-mobile .profile-hero h2{font-size:21px!important}
+body.ui-mobile .profile-hero .hero-actions{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%!important;margin-top:10px!important}
+body.ui-mobile .contact-grid,body.ui-mobile .portfolio-grid,body.ui-mobile .profile-edit-form{grid-template-columns:1fr!important}
+body.ui-mobile .profile-edit-form .full{grid-column:1!important}
+body.ui-mobile .profile-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
+body.ui-mobile .profile-stat{padding:9px!important}body.ui-mobile .profile-stat strong{font-size:19px!important}
+body.ui-mobile .timeline-row{grid-template-columns:1fr!important;gap:4px!important}
+
+/* project + planning */
+body.ui-mobile .project-calendar-actions{display:grid!important;grid-template-columns:1fr 1fr;width:100%;gap:7px!important}
+body.ui-mobile .project-calendar-actions .project-view-switch{grid-column:1/-1;display:grid!important;grid-template-columns:1fr 1fr!important}
+body.ui-mobile .project-calendar-actions>button{width:100%}
+body.ui-mobile .project-cal-grid{border-radius:10px!important}
+body.ui-mobile .project-cal-weekday{padding:7px 2px!important;font-size:9px!important}
+body.ui-mobile .project-cal-day{min-height:72px!important;padding:4px!important}
+body.ui-mobile .project-cal-number{font-size:10px!important}
+body.ui-mobile .project-cal-event{font-size:7px!important;padding:3px!important;border-left-width:2px!important}
+body.ui-mobile .project-cal-event .project-watermark-logo{display:none!important}
+body.ui-mobile .project-cal-event .project-watermark-text{font-size:7px!important}
+body.ui-mobile .project-planned-date-row,body.ui-mobile .project-planned-range,body.ui-mobile .planner-form-grid,body.ui-mobile .planner-person-row,body.ui-mobile .planner-block-row,body.ui-mobile .event-person-role-row{grid-template-columns:1fr!important}
+body.ui-mobile .planner-person-list{max-height:45dvh!important}
+body.ui-mobile .planner-person-toggle{min-height:44px}
+body.ui-mobile .planner-block-actions{justify-content:stretch!important;display:grid!important;grid-template-columns:1fr 1fr}
+
+/* day / project / group occupancy */
+body.ui-mobile .day-group-filter,body.ui-mobile .day-project-switcher{flex-wrap:nowrap!important;overflow-x:auto!important;padding:8px!important;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+body.ui-mobile .day-group-tab,body.ui-mobile .day-project-tab{flex:0 0 auto;min-height:40px;scroll-snap-align:start}
+body.ui-mobile .availability-grid-two{grid-template-columns:1fr!important;gap:9px!important}
+body.ui-mobile .availability-card{padding:10px!important;margin-top:9px!important}
+body.ui-mobile .availability-list{display:grid!important;grid-template-columns:1fr!important;gap:6px!important}
+body.ui-mobile .availability-chip{width:100%!important;min-height:42px;border-radius:10px!important;justify-content:flex-start;text-align:left;white-space:normal}
+body.ui-mobile .day-free-person{width:100%!important;border-radius:10px!important;display:grid!important;grid-template-columns:1fr 44px}
+body.ui-mobile .day-free-person .availability-chip{width:100%!important}
+body.ui-mobile .day-add-person{width:44px!important;min-width:44px!important;height:100%!important;min-height:42px}
+body.ui-mobile .day-project-focus-head,body.ui-mobile .availability-card-head{align-items:stretch!important;flex-direction:column!important}
+body.ui-mobile .day-add-selected{width:100%!important;min-height:44px}
+
+/* Word export */
+body.ui-mobile .word-export-grid,body.ui-mobile .word-export-dates{grid-template-columns:1fr!important}
+body.ui-mobile .word-export-card{padding:11px!important}
+body.ui-mobile .word-export-projects{max-height:30dvh!important}
+body.ui-mobile .word-export-project{min-height:48px}
+body.ui-mobile .word-export-actions{position:sticky;bottom:0;z-index:5;display:grid!important;grid-template-columns:1fr 1fr;background:#fff;border-top:1px solid #e5e7eb;padding:10px 0 calc(8px + var(--safe-bottom))!important}
+body.ui-mobile .word-export-status{grid-column:1/-1;margin:0!important}body.ui-mobile .word-export-actions button{width:100%}
+
+/* academic schedule */
+body.ui-mobile .academic-topbar,body.ui-mobile .academic-import-status{flex-direction:column!important;align-items:stretch!important}
+body.ui-mobile .academic-filter-actions{display:grid!important;grid-template-columns:1fr!important;width:100%!important}body.ui-mobile .academic-filter-actions>*{width:100%!important}
+body.ui-mobile .academic-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+body.ui-mobile .academic-form,body.ui-mobile .academic-form-grid,body.ui-mobile .academic-student-grid,body.ui-mobile .academic-once-card,body.ui-mobile .academic-bulk-form,body.ui-mobile .academic-import-group-grid{grid-template-columns:1fr!important}
+body.ui-mobile .academic-form .full,body.ui-mobile .academic-bulk-form .full{grid-column:1!important}
+body.ui-mobile .academic-month-section{padding:10px!important;max-height:calc(100dvh - 190px)}
+body.ui-mobile .academic-month-grid{min-width:820px!important;grid-template-columns:repeat(7,minmax(110px,1fr))!important}
+body.ui-mobile .academic-month-day{min-height:126px!important}
+body.ui-mobile .academic-bulk-bar{position:static!important;align-items:stretch!important;flex-direction:column!important}
+body.ui-mobile .academic-bulk-bar-actions{display:grid!important;grid-template-columns:1fr 1fr!important}
+body.ui-mobile .academic-bulk-time{grid-template-columns:1fr!important}
+
+/* wide calendars keep their information and pan naturally */
+body.ui-mobile .calendar-wrap{max-height:calc(100dvh - 170px)!important;border-radius:12px!important;margin-left:-4px;margin-right:-4px}
+body.ui-mobile .calendar{font-size:10px!important}
+body.ui-mobile .calendar th.name,body.ui-mobile .calendar td.name{min-width:150px!important;max-width:150px!important}
+body.ui-mobile .calendar th,body.ui-mobile .calendar td{min-width:36px!important;padding:4px!important}
+body.ui-mobile .busy{max-width:76px!important;font-size:9px!important}
+body.ui-mobile .student-calendar-view{overflow-x:auto!important;padding-bottom:5px}
+body.ui-mobile .student-month-grid{min-width:560px!important}
+body.ui-mobile .student-month-tabs,body.ui-mobile .schedule-month-tabs,body.ui-mobile .calendar-month-tabs{flex-wrap:nowrap!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+body.ui-mobile .student-month-tab,body.ui-mobile .schedule-month-tab{flex:0 0 auto}
+
+/* conflicts + acknowledgements */
+body.ui-mobile .conflict-card-head{align-items:flex-start!important;flex-direction:column!important}
+body.ui-mobile .conflict-student-row{grid-template-columns:1fr auto!important;gap:7px!important}body.ui-mobile .conflict-student-row em{grid-column:1/-1!important}
+body.ui-mobile .ack-dashboard-item,body.ui-mobile .ack-summary-main{align-items:flex-start!important;padding:11px!important}
+body.ui-mobile .ack-summary-detail{grid-template-columns:1fr!important}
+
+/* industry editor */
+body.ui-mobile .industry-editor{padding-bottom:calc(110px + var(--safe-bottom))!important}
+body.ui-mobile .industry-form-grid{grid-template-columns:1fr!important;padding:13px!important}body.ui-mobile .industry-form-grid .full{grid-column:1!important}
+body.ui-mobile .industry-block-head{align-items:flex-start!important;gap:8px}body.ui-mobile .industry-block-actions{flex-wrap:wrap;justify-content:flex-end}
+body.ui-mobile .industry-picker{flex-wrap:nowrap!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch}body.ui-mobile .industry-pick{flex:0 0 auto;min-height:40px}
+body.ui-mobile .industry-gallery-preview{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+body.ui-mobile .industry-savebar{bottom:calc(68px + var(--safe-bottom))!important;display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
+
+/* auth */
+body.ui-mobile #authGate{padding:14px!important;padding-top:calc(14px + var(--safe-top))!important}
+body.ui-mobile #authGate .auth-card{width:100%!important;max-width:430px;border-radius:18px!important;padding:20px!important}
+
+@media (orientation:landscape) and (max-height:520px){
+ body.ui-mobile .topbar{position:relative;padding-top:8px}
+ body.ui-mobile .kpis{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+ body.ui-mobile .mobile-bottom-nav .nav{min-height:46px}
+ body.ui-mobile #quickAdd:not([hidden]){bottom:62px}
+}
