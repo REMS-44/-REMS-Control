@@ -164,3 +164,93 @@ body.ui-mobile #authGate .auth-card{width:100%!important;max-width:430px;border-
  body.ui-mobile .mobile-bottom-nav .nav{min-height:46px}
  body.ui-mobile #quickAdd:not([hidden]){bottom:62px}
 }
+
+/* =========================================================
+   REMS Control v11 — compact phone calendars
+   Same principle as the individual student page:
+   7 columns always fit the screen, markers inside, details on tap.
+   Tablet and desktop remain unchanged.
+   ========================================================= */
+body.ui-mobile .mobile-calendar-source{display:none!important}
+body.ui-mobile .mobile-compact-calendar{display:grid;gap:10px;margin-top:10px}
+body.ui-mobile .mobile-compact-calendar-head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+body.ui-mobile .mobile-compact-calendar-head h2{margin:0;font-size:18px;line-height:1.15}
+body.ui-mobile .mobile-compact-calendar-head span{font-size:10px;color:#64748b;text-align:right}
+body.ui-mobile .mobile-compact-shell{overflow:hidden;border:1px solid #e5e7eb;border-radius:14px;background:#e5e7eb}
+body.ui-mobile .mobile-compact-weekdays,
+body.ui-mobile .mobile-compact-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px}
+body.ui-mobile .mobile-compact-weekdays>div{background:#171a20;color:#fff;text-align:center;padding:7px 1px;font-size:9px;font-weight:800}
+body.ui-mobile .mobile-cal-day{appearance:none;-webkit-appearance:none;border:0;border-radius:0;background:#fff;min-width:0;min-height:58px;padding:4px 3px;display:grid;grid-template-rows:auto 1fr auto;align-items:start;position:relative;text-align:left;font:inherit;color:#111827;cursor:pointer;box-shadow:none}
+body.ui-mobile .mobile-cal-day.outside{background:#f4f5f7;cursor:default}
+body.ui-mobile .mobile-cal-day.weekend{background:#fafafa}
+body.ui-mobile .mobile-cal-day.today{box-shadow:inset 0 0 0 2px #2563eb;z-index:1}
+body.ui-mobile .mobile-cal-day.conflict{box-shadow:inset 0 0 0 2px #ef4444;z-index:1}
+body.ui-mobile .mobile-cal-day.today.conflict{box-shadow:inset 0 0 0 2px #ef4444,inset 0 0 0 4px #dbeafe}
+body.ui-mobile .mobile-cal-number{font-size:11px;font-weight:850;line-height:1}
+body.ui-mobile .mobile-cal-markers{display:flex;align-items:center;align-self:center;justify-content:flex-start;gap:2px;min-height:10px;max-width:100%;overflow:hidden}
+body.ui-mobile .mobile-cal-markers i{display:block;width:6px;height:6px;border-radius:999px;flex:0 0 6px;background:#64748b}
+body.ui-mobile .mobile-cal-meta{font-size:8px;line-height:1;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+body.ui-mobile .mobile-cal-day.has-items .mobile-cal-number{color:#0f172a}
+body.ui-mobile .mobile-cal-day.selected{background:#eff6ff}
+
+/* Combined calendar: the desktop student x date matrix is replaced on phone. */
+body.ui-mobile #calendarMount{min-width:0!important;overflow:visible!important}
+body.ui-mobile #calendarMount .mobile-compact-calendar{margin-top:4px}
+
+/* Academic calendar: no 820/920 px canvas on phone. */
+body.ui-mobile .academic-month-section{overflow:visible!important;max-height:none!important;padding:10px!important}
+body.ui-mobile .academic-month-grid.mobile-calendar-source{display:none!important}
+body.ui-mobile .academic-mobile-compact{margin-top:4px}
+
+/* Availability calendar already has good day data; make it a true 7-column phone calendar. */
+body.ui-mobile .schedule-month{overflow:visible!important}
+body.ui-mobile .schedule-month-head{align-items:stretch!important;flex-direction:column!important;gap:8px!important}
+body.ui-mobile .schedule-month-nav{display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px!important;align-items:center!important}
+body.ui-mobile .schedule-month-nav>span{grid-column:1/-1;grid-row:1;text-align:left!important}
+body.ui-mobile .schedule-cal{grid-template-columns:repeat(7,minmax(0,1fr))!important;width:100%!important;min-width:0!important;border-radius:14px!important}
+body.ui-mobile .schedule-cal-head{padding:7px 1px!important;font-size:9px!important;min-width:0!important}
+body.ui-mobile .schedule-day{min-width:0!important;min-height:62px!important;padding:4px 3px!important;display:grid!important;grid-template-rows:auto 1fr auto!important;gap:2px!important;overflow:hidden!important}
+body.ui-mobile .schedule-day-number{font-size:11px!important;line-height:1!important}
+body.ui-mobile .schedule-day-number .today-mini{display:none!important}
+body.ui-mobile .schedule-score-badge{display:none!important}
+body.ui-mobile .schedule-day-meta{align-self:end!important;display:block!important;min-width:0!important}
+body.ui-mobile .schedule-day-free{font-size:8px!important;line-height:1.1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+body.ui-mobile .schedule-day-busy{display:none!important}
+body.ui-mobile .schedule-day-projects{align-self:center!important;display:flex!important;gap:2px!important;min-height:8px!important;overflow:hidden!important}
+body.ui-mobile .schedule-mini-project{width:6px!important;height:6px!important;min-width:6px!important;padding:0!important;border-radius:999px!important;overflow:hidden!important;background:var(--project-color,#64748b)!important;border:0!important}
+body.ui-mobile .schedule-mini-project>*{display:none!important}
+
+/* Project calendar: keep the whole month on screen and reduce events to markers. */
+body.ui-mobile .project-cal-grid{grid-template-columns:repeat(7,minmax(0,1fr))!important;width:100%!important;min-width:0!important}
+body.ui-mobile .project-cal-weekday{font-size:9px!important;padding:7px 1px!important;min-width:0!important}
+body.ui-mobile .project-cal-day{min-width:0!important;min-height:58px!important;padding:4px 3px!important;gap:2px!important;overflow:hidden!important}
+body.ui-mobile .project-cal-number{font-size:10px!important;line-height:1!important}
+body.ui-mobile .project-cal-event{height:6px!important;min-height:6px!important;padding:0!important;border:0!important;border-radius:999px!important;overflow:hidden!important;background:var(--project-color,#64748b)!important;font-size:0!important}
+body.ui-mobile .project-cal-event *{display:none!important}
+
+/* Student card calendar inside admin: also fit 7 columns without horizontal panning. */
+body.ui-mobile .student-calendar-view{overflow:visible!important;padding-bottom:0!important}
+body.ui-mobile .student-month-grid{grid-template-columns:repeat(7,minmax(0,1fr))!important;min-width:0!important;width:100%!important}
+body.ui-mobile .student-month-head{padding:7px 1px!important;font-size:9px!important}
+body.ui-mobile .student-month-day{min-width:0!important;min-height:58px!important;padding:4px 3px!important;overflow:hidden!important;cursor:pointer}
+body.ui-mobile .student-month-number{font-size:10px!important;line-height:1!important;margin-bottom:4px!important}
+body.ui-mobile .student-month-number .today-mini{display:none!important}
+body.ui-mobile .student-day-events{display:flex!important;gap:2px!important;flex-wrap:wrap!important;align-content:flex-start!important}
+body.ui-mobile .student-day-event{width:7px!important;height:7px!important;min-width:7px!important;min-height:7px!important;padding:0!important;border-radius:999px!important;font-size:0!important;overflow:hidden!important;background:var(--mobile-dot-color,#64748b)!important;pointer-events:none!important;border:0!important}
+body.ui-mobile .student-day-event *{display:none!important}
+
+/* A lightweight full-width day sheet used by compact calendars. */
+body.ui-mobile dialog.mobile-calendar-day-dialog{background:#fff!important}
+body.ui-mobile .mobile-calendar-sheet{min-height:100%;padding:calc(14px + var(--safe-top)) 14px calc(24px + var(--safe-bottom));display:flex;flex-direction:column;gap:14px}
+body.ui-mobile .mobile-calendar-sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;position:sticky;top:0;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);padding:4px 0 10px;z-index:3;border-bottom:1px solid #eef0f3}
+body.ui-mobile .mobile-calendar-sheet-head h2{margin:2px 0 0;font-size:20px;line-height:1.2}
+body.ui-mobile .mobile-calendar-sheet-head small{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:800}
+body.ui-mobile .mobile-calendar-sheet-list{display:grid;gap:8px}
+body.ui-mobile .mobile-calendar-sheet-item{width:100%;min-height:58px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:10px 12px;display:grid;gap:3px;text-align:left;font:inherit;color:#111827}
+body.ui-mobile .mobile-calendar-sheet-item:active{background:#f8fafc}
+body.ui-mobile .mobile-calendar-sheet-item b{font-size:13px}
+body.ui-mobile .mobile-calendar-sheet-item span{font-size:10px;color:#475569;line-height:1.35}
+body.ui-mobile .mobile-calendar-sheet-item small{font-size:9px;color:#64748b;line-height:1.35}
+body.ui-mobile .mobile-calendar-sheet-item.selected{border-color:#2563eb;background:#eff6ff}
+body.ui-mobile .mobile-calendar-sheet-empty{padding:24px 14px;text-align:center;color:#94a3b8;font-size:12px;background:#f8fafc;border-radius:12px}
+body.ui-mobile .mobile-calendar-sheet-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto;position:sticky;bottom:0;background:#fff;padding-top:10px}
