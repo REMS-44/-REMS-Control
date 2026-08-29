@@ -886,7 +886,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v5.9 · хмара ✓");
+    setStatus("v7.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -1089,26 +1089,49 @@ const calendarProjectCard=(p,label)=>{
 async function compressProjectLogo(file){
   if(!file) return "";
   if(!file.type.startsWith("image/")) throw new Error("Оберіть файл зображення.");
-  if(file.size>8*1024*1024) throw new Error("Файл завеликий. Максимум 8 МБ.");
+  // Приймаємо великі оригінали, а до безпечного розміру стискаємо вже в браузері.
+  if(file.size>100*1024*1024) throw new Error("Файл завеликий. Максимум 100 МБ.");
 
-  const bitmap=await createImageBitmap(file);
-  const maxW=520,maxH=300;
-  const scale=Math.min(1,maxW/bitmap.width,maxH/bitmap.height);
-  const w=Math.max(1,Math.round(bitmap.width*scale));
-  const h=Math.max(1,Math.round(bitmap.height*scale));
+  const readAsDataURL=f=>new Promise((resolve,reject)=>{
+    const r=new FileReader(); r.onload=()=>resolve(String(r.result||"")); r.onerror=reject; r.readAsDataURL(f);
+  });
+
+  // Невеликі JPEG/WEBP уже оптимальні. Не перекодовуємо їх повторно —
+  // саме повторне WEBP-кодування в окремих браузерах і давало помилку навіть для файлів ~40 КБ.
+  if(file.size<=220*1024 && /image\/(jpeg|jpg|webp)/i.test(file.type)) return await readAsDataURL(file);
+
+  let bitmap;
+  try{ bitmap=await createImageBitmap(file); }
+  catch(_){ throw new Error("Не вдалося прочитати це зображення. Збережіть його як JPG або PNG і спробуйте ще раз."); }
+
+  let maxW=1200,maxH=800;
+  let scale=Math.min(1,maxW/bitmap.width,maxH/bitmap.height);
+  let w=Math.max(1,Math.round(bitmap.width*scale));
+  let h=Math.max(1,Math.round(bitmap.height*scale));
   const canvas=document.createElement("canvas");
-  canvas.width=w; canvas.height=h;
-  const ctx=canvas.getContext("2d");
-  ctx.clearRect(0,0,w,h);
-  ctx.drawImage(bitmap,0,0,w,h);
+  const render=()=>{
+    canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext("2d");
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,w,h); // JPEG не підтримує прозорість
+    ctx.drawImage(bitmap,0,0,w,h);
+  };
+  render();
 
-  let quality=.82;
-  let data=canvas.toDataURL("image/webp",quality);
-  while(data.length>120000 && quality>.42){
-    quality-=.10;
-    data=canvas.toDataURL("image/webp",quality);
+  // JPEG підтримується всіма потрібними браузерами. Ціль ~300 КБ у вигляді data URL,
+  // щоб фото безпечно зберігалося разом із даними проєкту.
+  let quality=.86;
+  let data=canvas.toDataURL("image/jpeg",quality);
+  while(data.length>300000 && quality>.46){
+    quality-=.08;
+    data=canvas.toDataURL("image/jpeg",quality);
   }
-  if(data.length>150000) throw new Error("Не вдалося достатньо стиснути логотип. Спробуйте менше зображення.");
+  while(data.length>300000 && w>480 && h>300){
+    w=Math.max(1,Math.round(w*.82)); h=Math.max(1,Math.round(h*.82));
+    render(); quality=.76;
+    data=canvas.toDataURL("image/jpeg",quality);
+  }
+  bitmap.close?.();
+  if(data.length>380000) throw new Error("Не вдалося підготувати зображення. Спробуйте JPG або PNG до 100 МБ.");
   return data;
 }
 
@@ -1387,6 +1410,89 @@ const studentProjects=id=>{
   return [...ids].map(pBy).filter(Boolean);
 };
 const projectStudents=id=>db.assignments.filter(a=>String(a.projectId)===String(id)).map(a=>sBy(a.studentId)).filter(Boolean);
+
+// v7.0 — у проєкту є загальна команда, але кожна дата / робочий блок
+// має власний підсклад. Видалення людини з проєкту прибирає її з усіх дат,
+// а додавання до проєкту НЕ додає її автоматично в уже створені дати.
+function normalizeProjectEventRosters(projectId){
+  const pid=String(projectId);
+  const team=projectStudents(pid);
+  const teamIds=team.map(st=>st.id);
+  const allowed=new Set(teamIds.map(String));
+  let changed=false;
+
+  (db.events||[]).forEach(e=>{
+    if(String(e.projectId)!==pid) return;
+
+    // Старі події без окремого складу раніше успадковували всю команду.
+    // Матеріалізуємо цей стан один раз; надалі це вже незалежний список дати.
+    if(!Array.isArray(e.studentIds)){
+      e.studentIds=[...teamIds];
+      changed=true;
+    }else{
+      const seen=new Set();
+      const cleaned=e.studentIds.filter(id=>{
+        const key=String(id);
+        if(!allowed.has(key)||seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if(cleaned.length!==e.studentIds.length || cleaned.some((id,i)=>String(id)!==String(e.studentIds[i]))){
+        e.studentIds=cleaned;
+        changed=true;
+      }
+    }
+
+    if(e.studentRoles && typeof e.studentRoles==='object'){
+      const active=new Set((e.studentIds||[]).map(String));
+      const roles={};
+      Object.entries(e.studentRoles).forEach(([sid,role])=>{
+        if(allowed.has(String(sid)) && active.has(String(sid)) && String(role||'').trim()) roles[String(sid)]=role;
+      });
+      if(JSON.stringify(roles)!==JSON.stringify(e.studentRoles)){
+        e.studentRoles=roles;
+        changed=true;
+      }
+    }
+  });
+  return changed;
+}
+
+function normalizeAllProjectEventRosters(){
+  let changed=false;
+  (db.projects||[]).forEach(p=>{ if(normalizeProjectEventRosters(p.id)) changed=true; });
+  return changed;
+}
+
+const defaultRosterTemplateNames=()=>["Монтаж","Репетиція","Концерт","Демонтаж"];
+function projectRosterTemplates(projectOrId){
+  const p=typeof projectOrId==='object'?projectOrId:pBy(projectOrId);
+  if(!p) return [];
+  if(!Array.isArray(p.rosterTemplates)) p.rosterTemplates=[];
+  return p.rosterTemplates;
+}
+function rosterTemplateById(projectId,templateId){
+  return projectRosterTemplates(projectId).find(t=>String(t.id)===String(templateId));
+}
+function rosterTemplatePayload(projectId,template){
+  const allowed=new Set(projectStudents(projectId).map(s=>String(s.id)));
+  const ids=(template?.studentIds||[]).filter(id=>allowed.has(String(id)));
+  const active=new Set(ids.map(String));
+  const roles={};
+  Object.entries(template?.studentRoles||{}).forEach(([sid,role])=>{
+    if(active.has(String(sid))&&String(role||'').trim()) roles[String(sid)]=String(role).trim();
+  });
+  return {studentIds:ids,studentRoles:roles};
+}
+async function applyRosterTemplateToDate(projectId,date,templateId){
+  const template=rosterTemplateById(projectId,templateId);
+  if(!template) return false;
+  const targets=(db.events||[]).filter(e=>String(e.projectId)===String(projectId)&&String(e.date)===String(date));
+  if(!targets.length) return false;
+  const payload=rosterTemplatePayload(projectId,template);
+  targets.forEach(e=>{e.studentIds=[...payload.studentIds];e.studentRoles={...payload.studentRoles};});
+  return await save();
+}
 const countDays=id=>new Set(
   db.events.filter(e=>studentsForEvent(e).some(s=>String(s.id)===String(id))).map(e=>e.date)
 ).size;
@@ -3113,10 +3219,16 @@ function showProjectDay(projectId,date){
   const team=projectStudents(projectId);
   const freePeople=team.filter(s=>!peopleIds.has(String(s.id))&&!studentBusyLabelsOnDate(s.id,date).length);
   const busyElsewherePeople=team.filter(s=>!peopleIds.has(String(s.id))&&studentBusyLabelsOnDate(s.id,date).length);
+  const rosterTemplates=projectRosterTemplates(p);
   dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
     <div class="project-section-head">
       <div><h2 style="margin:0">${pretty}</h2><div class="muted">${esc(p.name)} · ${evs.length} робочих блоків · ${people.length} учасників</div></div>
       <div class="planner-toolbar"><button class="ghost" id="addBlockThisDay">+ Блок на цей день</button><button class="ghost" id="openPlannerThisDay">Планування</button><button class="ghost" id="backToProjectCalendar">Назад</button></div>
+    </div>
+    <div class="planner-toolbar" style="margin:10px 0 14px;align-items:center">
+      <b style="font-size:12px">Швидкий склад на цю дату:</b>
+      ${rosterTemplates.map(t=>`<button type="button" class="ghost project-day-template" data-template-id="${esc(String(t.id))}">${esc(t.name||"Шаблон")}</button>`).join("")||'<span class="muted">Шаблонів ще немає.</span>'}
+      <button type="button" class="ghost" id="editDayRosterTemplates">Редагувати шаблони</button>
     </div>
     <div class="day-event-list">
       ${evs.map((e,i)=>`<div class="day-event-row">
@@ -3144,6 +3256,17 @@ function showProjectDay(projectId,date){
   </div>`;
   dialog.querySelector("#backToProjectCalendar").onclick=()=>openProjectCard(projectId);
   dialog.querySelector("#openPlannerThisDay").onclick=()=>openProjectPlanner(projectId,[date]);
+  const editDayTemplates=dialog.querySelector("#editDayRosterTemplates");
+  if(editDayTemplates) editDayTemplates.onclick=()=>openProjectRosterTemplates(projectId);
+  dialog.querySelectorAll(".project-day-template").forEach(btn=>btn.onclick=async()=>{
+    const t=rosterTemplateById(projectId,btn.dataset.templateId);
+    if(!t) return;
+    if(!confirm(`Застосувати шаблон «${t.name||"Шаблон"}» до всіх ${evs.length} блоків на ${fmt(date)}? Поточний склад і функції цих блоків буде замінено.`)) return;
+    btn.disabled=true;
+    const ok=await applyRosterTemplateToDate(projectId,date,t.id);
+    if(!ok){btn.disabled=false;alert("Не вдалося зберегти шаблон на цю дату.");return;}
+    showProjectDay(projectId,date);
+  });
   dialog.querySelector("#addBlockThisDay").onclick=()=>{
     $("#eventProjectId").value=projectId;
     $("#eventDate").value=date;
@@ -3218,7 +3341,7 @@ function openProjectCard(id){
       </div>
 
       <div class="project-section">
-        <div class="project-section-head"><b>Студенти</b><span class="muted">${assigned.length}</span></div>
+        <div class="project-section-head"><b>Студенти</b><div style="display:flex;align-items:center;gap:8px"><span class="muted">${assigned.length}</span><button type="button" class="ghost" id="projectRosterTemplatesBtn">Шаблони складу</button></div></div>
         <div class="project-students">
           ${db.students.map(s=>`<button class="project-student-chip ${assigned.some(x=>String(x.id)===String(s.id))?"active":""}" data-student="${s.id}">${studentIdentityHtml(s)}</button>`).join("")}
         </div>
@@ -3261,10 +3384,14 @@ function openProjectCard(id){
     if(sid===undefined) return;
     const i=db.assignments.findIndex(a=>String(a.projectId)===String(id)&&String(a.studentId)===String(sid));
     if(i>=0) db.assignments.splice(i,1); else db.assignments.push({projectId:id,studentId:sid});
+    // Видалення з команди чистить людину з усіх дат. Додавання лишає дати незалежними.
+    normalizeProjectEventRosters(id);
     await save(); openProjectCard(id);
   });
 
   dialog.querySelector("#projectPlannerBtn").onclick=()=>openProjectPlanner(id);
+  const rosterTemplatesBtn=dialog.querySelector("#projectRosterTemplatesBtn");
+  if(rosterTemplatesBtn) rosterTemplatesBtn.onclick=()=>openProjectRosterTemplates(id);
 
   dialog.querySelector("#addProjectEventBtn").onclick=()=>{
     $("#eventProjectId").value=id;
@@ -3479,6 +3606,11 @@ function editEventPeople(projectId,ev){
       <div><h2 style="margin:0">Учасники й обов'язки</h2><div class="muted">${esc(p.name)} · ${fmt(ev.date)} · ${esc(ev.type)}</div></div>
       <button class="ghost" id="backToProject">Назад</button>
     </div>
+    <div class="planner-toolbar" style="margin:10px 0 14px;align-items:center">
+      <b style="font-size:12px">Шаблон:</b>
+      ${projectRosterTemplates(p).map(t=>`<button type="button" class="ghost event-roster-template" data-template-id="${esc(String(t.id))}">${esc(t.name||"Шаблон")}</button>`).join("")||'<span class="muted">Шаблонів ще немає.</span>'}
+      <button type="button" class="ghost" id="editEventRosterTemplates">Редагувати шаблони</button>
+    </div>
     <div class="event-assignment-box">
       <b>Хто працює саме в цьому блоці</b>
       <div class="event-person-role-list">
@@ -3497,6 +3629,20 @@ function editEventPeople(projectId,ev){
   </div>`;
 
   let selected=new Set(currentIds);
+  const editEventTemplates=dialog.querySelector("#editEventRosterTemplates");
+  if(editEventTemplates) editEventTemplates.onclick=()=>openProjectRosterTemplates(projectId);
+  dialog.querySelectorAll(".event-roster-template").forEach(btn=>btn.onclick=()=>{
+    const t=rosterTemplateById(projectId,btn.dataset.templateId);
+    if(!t) return;
+    const payload=rosterTemplatePayload(projectId,t);
+    selected=new Set(payload.studentIds.map(String));
+    dialog.querySelectorAll(".event-person").forEach(x=>x.classList.toggle("active",selected.has(String(x.dataset.id))));
+    dialog.querySelectorAll(".event-person-role").forEach(input=>{
+      const sid=String(input.dataset.id);
+      input.disabled=!selected.has(sid);
+      input.value=selected.has(sid)?String(payload.studentRoles[sid]||""):"";
+    });
+  });
   dialog.querySelectorAll(".event-person").forEach(btn=>btn.onclick=()=>{
     const sid=String(btn.dataset.id);
     if(selected.has(sid)) selected.delete(sid); else selected.add(sid);
@@ -3588,6 +3734,11 @@ function openProjectPlanner(projectId,preselectedDates=[]){
 
       <section class="planner-card">
         <div class="project-section-head"><h3>3. Люди й обов'язки</h3><span class="muted">Команда проєкту: ${projectPeople.length}</span></div>
+        <div class="planner-toolbar" style="margin-bottom:8px">
+          <b style="font-size:12px">Шаблон:</b>
+          ${projectRosterTemplates(p).map(t=>`<button type="button" class="ghost planner-roster-template" data-template-id="${esc(String(t.id))}">${esc(t.name||"Шаблон")}</button>`).join("")||'<span class="muted">Шаблонів ще немає.</span>'}
+          <button type="button" class="ghost" id="plannerEditRosterTemplates">Редагувати шаблони</button>
+        </div>
         <div class="planner-toolbar">
           <button type="button" class="ghost" id="plannerAllPeople">Всі</button>
           <button type="button" class="ghost" id="plannerClearPeople">Ніхто</button>
@@ -3654,6 +3805,20 @@ function openProjectPlanner(projectId,preselectedDates=[]){
       render();
     };
 
+    const plannerEditTemplates=root.querySelector("#plannerEditRosterTemplates");
+    if(plannerEditTemplates) plannerEditTemplates.onclick=()=>openProjectRosterTemplates(projectId);
+    root.querySelectorAll(".planner-roster-template").forEach(btn=>btn.onclick=()=>{
+      const t=rosterTemplateById(projectId,btn.dataset.templateId);
+      if(!t) return;
+      const payload=rosterTemplatePayload(projectId,t);
+      selectedPeople=new Set(payload.studentIds.map(String));
+      root.querySelectorAll(".planner-person-toggle").forEach(x=>x.classList.toggle("active",selectedPeople.has(String(x.dataset.id))));
+      root.querySelectorAll(".planner-role-input").forEach(input=>{
+        const sid=String(input.dataset.id);
+        input.disabled=!selectedPeople.has(sid);
+        input.value=selectedPeople.has(sid)?String(payload.studentRoles[sid]||""):"";
+      });
+    });
     root.querySelectorAll(".planner-person-toggle").forEach(btn=>btn.onclick=()=>{
       const sid=String(btn.dataset.id);
       if(selectedPeople.has(sid)) selectedPeople.delete(sid); else selectedPeople.add(sid);
@@ -3703,6 +3868,96 @@ function openProjectPlanner(projectId,preselectedDates=[]){
     root.querySelectorAll(".planner-people-block").forEach(b=>b.onclick=()=>editEventPeople(projectId,eventsFor(projectId)[+b.dataset.index]));
   };
   render();
+}
+
+function openProjectRosterTemplates(projectId,editTemplateId=""){
+  const p=pBy(projectId); if(!p) return;
+  const dialog=ensureProjectCardDialog();
+  const templates=projectRosterTemplates(p);
+  const team=projectStudents(projectId);
+  const editing=editTemplateId?templates.find(t=>String(t.id)===String(editTemplateId)):null;
+
+  if(editing){
+    const selected=new Set((editing.studentIds||[]).map(String));
+    dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
+      <div class="project-section-head"><div><h2 style="margin:0">Редагувати шаблон складу</h2><div class="muted">${esc(p.name)}</div></div><button class="ghost" id="backRosterTemplates">Назад</button></div>
+      <form id="rosterTemplateForm" class="project-edit-form" style="margin-top:14px">
+        <label class="full">Назва кнопки<input id="rosterTemplateName" value="${esc(editing.name||"")}" placeholder="Наприклад: Монтаж / Репетиція / Зйомка"></label>
+        <div class="full event-assignment-box">
+          <div class="project-section-head"><b>Люди й функції в цьому шаблоні</b><span class="muted">${team.length} у команді проєкту</span></div>
+          <div class="event-person-role-list">
+            ${team.map(st=>`<div class="event-person-role-row">
+              <button type="button" class="event-person roster-template-person ${selected.has(String(st.id))?"active":""}" data-id="${esc(String(st.id))}">${studentIdentityHtml(st)}</button>
+              <input class="event-person-role roster-template-role" data-id="${esc(String(st.id))}" value="${esc(String((editing.studentRoles||{})[String(st.id)]||""))}" placeholder="Функція / позиція" ${selected.has(String(st.id))?"":"disabled"}>
+            </div>`).join("")||'<span class="muted">У проєкті ще немає людей.</span>'}
+          </div>
+        </div>
+        <div class="full profile-actions"><button type="button" class="ghost" id="rosterTemplateAll">Всі</button><button type="button" class="ghost" id="rosterTemplateNone">Ніхто</button><button type="submit" class="primary">Зберегти шаблон</button></div>
+      </form>
+    </div>`;
+    let chosen=new Set(selected);
+    const updatePerson=(sid,on)=>{
+      const btn=dialog.querySelector(`.roster-template-person[data-id="${CSS.escape(String(sid))}"]`);
+      const input=dialog.querySelector(`.roster-template-role[data-id="${CSS.escape(String(sid))}"]`);
+      if(btn) btn.classList.toggle("active",on);
+      if(input) input.disabled=!on;
+    };
+    dialog.querySelector("#backRosterTemplates").onclick=()=>openProjectRosterTemplates(projectId);
+    dialog.querySelectorAll(".roster-template-person").forEach(btn=>btn.onclick=()=>{
+      const sid=String(btn.dataset.id); if(chosen.has(sid)) chosen.delete(sid); else chosen.add(sid); updatePerson(sid,chosen.has(sid));
+    });
+    dialog.querySelector("#rosterTemplateAll").onclick=()=>{chosen=new Set(team.map(st=>String(st.id)));team.forEach(st=>updatePerson(st.id,true));};
+    dialog.querySelector("#rosterTemplateNone").onclick=()=>{chosen.clear();team.forEach(st=>updatePerson(st.id,false));};
+    dialog.querySelector("#rosterTemplateForm").onsubmit=async e=>{
+      e.preventDefault();
+      const name=dialog.querySelector("#rosterTemplateName").value.trim();
+      if(!name){alert("Вкажіть назву кнопки шаблону.");return;}
+      editing.name=name;
+      editing.studentIds=team.filter(st=>chosen.has(String(st.id))).map(st=>st.id);
+      const roles={};
+      dialog.querySelectorAll(".roster-template-role").forEach(input=>{
+        const sid=String(input.dataset.id), role=input.value.trim();
+        if(chosen.has(sid)&&role) roles[sid]=role;
+      });
+      editing.studentRoles=roles;
+      const ok=await save();
+      if(!ok){alert("Не вдалося зберегти шаблон.");return;}
+      openProjectRosterTemplates(projectId);
+    };
+    return;
+  }
+
+  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
+    <div class="project-section-head"><div><h2 style="margin:0">Шаблони складу</h2><div class="muted">${esc(p.name)} · назви кнопок, людей і функції можна змінювати в кожному проєкті</div></div><button class="ghost" id="rosterTemplatesBackProject">Назад до проєкту</button></div>
+    <div class="profile-actions" style="margin:14px 0"><button type="button" class="primary" id="addRosterTemplate">+ Новий шаблон</button>${templates.length?"":`<button type="button" class="ghost" id="addDefaultRosterTemplates">Додати 4 базові кнопки</button>`}</div>
+    <div class="planner-block-list">
+      ${templates.map(t=>{
+        const payload=rosterTemplatePayload(projectId,t);
+        return `<div class="planner-block-row"><b>${esc(t.name||"Без назви")}</b><div><div class="muted">${payload.studentIds.length} ос.${Object.keys(payload.studentRoles).length?` · функцій: ${Object.keys(payload.studentRoles).length}`:""}</div></div><div class="planner-block-actions"><button type="button" class="ghost edit-roster-template" data-id="${esc(String(t.id))}">Редагувати</button><button type="button" class="ghost danger-inline delete-roster-template" data-id="${esc(String(t.id))}">Видалити</button></div></div>`;
+      }).join("")||'<div class="empty">Шаблонів ще немає. Створіть свої кнопки для типових складів команди.</div>'}
+    </div>
+    <div class="notice" style="margin-top:14px">Шаблон не змінює загальну команду проєкту. Він лише швидко підставляє потрібних людей і їхні функції в конкретну дату або робочий блок.</div>
+  </div>`;
+  dialog.querySelector("#rosterTemplatesBackProject").onclick=()=>openProjectCard(projectId);
+  dialog.querySelector("#addRosterTemplate").onclick=async()=>{
+    const t={id:`rt_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,name:"Новий шаблон",studentIds:[],studentRoles:{}};
+    templates.push(t);
+    const ok=await save();
+    if(!ok){templates.splice(templates.indexOf(t),1);alert("Не вдалося створити шаблон.");return;}
+    openProjectRosterTemplates(projectId,t.id);
+  };
+  const defaultsBtn=dialog.querySelector("#addDefaultRosterTemplates");
+  if(defaultsBtn) defaultsBtn.onclick=async()=>{
+    defaultRosterTemplateNames().forEach(name=>templates.push({id:`rt_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,name,studentIds:[],studentRoles:{}}));
+    const ok=await save(); if(!ok){alert("Не вдалося створити базові шаблони.");return;} openProjectRosterTemplates(projectId);
+  };
+  dialog.querySelectorAll(".edit-roster-template").forEach(btn=>btn.onclick=()=>openProjectRosterTemplates(projectId,btn.dataset.id));
+  dialog.querySelectorAll(".delete-roster-template").forEach(btn=>btn.onclick=async()=>{
+    const t=rosterTemplateById(projectId,btn.dataset.id); if(!t) return;
+    if(!confirm(`Видалити шаблон «${t.name||"Без назви"}»?`)) return;
+    p.rosterTemplates=projectRosterTemplates(p).filter(x=>String(x.id)!==String(t.id));
+    const ok=await save(); if(!ok){alert("Не вдалося видалити шаблон.");return;} openProjectRosterTemplates(projectId);
+  });
 }
 
 function editProjectCard(id){
@@ -6698,7 +6953,7 @@ async function initCloud(){
   }
 
   try{
-    setStatus("v5.9 · завантаження хмари…");
+    setStatus("v7.0 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
 functions=getFunctions(firebaseApp,"europe-west1");
     cloudDb=getFirestore(firebaseApp);
@@ -6717,10 +6972,12 @@ functions=getFunctions(firebaseApp,"europe-west1");
         settings:remote.settings||{}
       };
       const timeMigrationChanged=normalizeUndeterminedTimes(db);
+      // Матеріалізуємо старі успадковані склади й чистимо лише тих, кого вже немає в команді.
+      const rosterMigrationChanged=normalizeAllProjectEventRosters();
       cache();
-      if(timeMigrationChanged){
+      if(timeMigrationChanged || rosterMigrationChanged){
         try{await setDoc(ref,{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});}
-        catch(err){console.error("Time-undetermined migration save failed:",err);}
+        catch(err){console.error("Data migration save failed:",err);}
       }
     }else{
       await setDoc(ref,{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});
@@ -6732,16 +6989,16 @@ functions=getFunctions(firebaseApp,"europe-west1");
     // One-time acknowledgement reset. Only old confirmations are removed;
     // projects, events, assignments and students remain untouched.
     try{
-      setStatus("v5.9 · обнулення ознайомлень…");
+      setStatus("v7.0 · обнулення ознайомлень…");
       const resetCount=await resetAllAcknowledgementsOnce(ref);
       if(resetCount>0) console.info(`Обнулено ознайомлень: ${resetCount}`);
     }catch(err){
       console.error("Acknowledgement reset failed:",err);
-      setStatus("v5.9 · помилка обнулення ознайомлень");
+      setStatus("v7.0 · помилка обнулення ознайомлень");
       throw err;
     }
 
-    setStatus("v5.9 · хмара ✓");
+    setStatus("v7.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -6832,6 +7089,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
         settings:remote.settings||{}
       };
       normalizeUndeterminedTimes(db);
+      syncAllProjectRostersToEvents();
       cache();
       applyingRemote=false;
 
@@ -6843,7 +7101,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v5.9 · хмара ✓");
+      setStatus("v7.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
