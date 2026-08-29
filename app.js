@@ -1492,10 +1492,16 @@ const autoPublicProfessionalData=s=>{
     roles:uniquePublicList(rp.roles),
     skills:uniquePublicList(rp.skills),
     programs:uniquePublicList(rp.programs),
-    structuredExperience:(rp.structuredExperience||[]).map(x=>({
+    structuredExperience:(rp.structuredExperience||[]).filter(x=>x?.public!==false).map(x=>({
       project:String(x?.project||"").trim(), role:String(x?.role||"").trim(), period:String(x?.period||"").trim(),
       category:String(x?.category||"").trim()
     })).filter(x=>x.project),
+    links:(rp.links||[]).filter(x=>x?.public!==false&&String(x?.url||"").trim()).map(x=>({label:String(x.label||"").trim(),url:String(x.url||"").trim()})),
+    customSections:(rp.customSections||[]).filter(x=>x?.public!==false&&String(x?.title||"").trim()).map(x=>({
+      title:String(x.title||"").trim(),
+      items:(Array.isArray(x.items)?x.items:[]).map(v=>String(v||"").trim()).filter(Boolean),
+      text:String(x.text||"").trim()
+    })),
     contacts:{
       instagram:String(s?.instagram||q.instagram||"").trim(), telegram:String(s?.telegram||q.telegram||"").trim(),
       email:String(s?.email||q.email||"").trim()
@@ -1534,6 +1540,8 @@ const publicProfileFor=s=>{
     existing.skills=uniquePublicList([...(auto.roles||[]),...(auto.skills||[])]);
     existing.programs=auto.programs;
     existing.structuredExperience=auto.structuredExperience;
+    existing.customSections=auto.customSections;
+    existing.links=auto.links;
     existing.publicFacts=auto.facts;
     existing.socials={...(existing.socials||{})};
     if(auto.contacts.instagram) existing.socials.instagram=socialUrl("instagram",auto.contacts.instagram);
@@ -1560,6 +1568,8 @@ const sanitizePublicProfile=(s,profile)=>{
     bio:Array.isArray(profile?.bio)?profile.bio.map(x=>String(x).trim()).filter(Boolean):[],
     roles:uniquePublicList(profile?.roles),skills:uniquePublicList(profile?.skills),programs:visibility.programs?uniquePublicList(profile?.programs):[],
     structuredExperience:visibility.experience?(Array.isArray(profile?.structuredExperience)?profile.structuredExperience.map(x=>({project:String(x?.project||"").trim(),role:String(x?.role||"").trim(),period:String(x?.period||"").trim(),category:String(x?.category||"").trim()})).filter(x=>x.project):[]):[],
+    links:Array.isArray(profile?.links)?profile.links.map(x=>({label:String(x?.label||"").trim(),url:String(x?.url||"").trim()})).filter(x=>x.url):[],
+    customSections:Array.isArray(profile?.customSections)?profile.customSections.map(x=>({title:String(x?.title||"").trim(),items:(Array.isArray(x?.items)?x.items:[]).map(v=>String(v||"").trim()).filter(Boolean),text:String(x?.text||"").trim()})).filter(x=>x.title):[],
     achievements:Array.isArray(profile?.achievements)?profile.achievements.map(x=>String(x).trim()).filter(Boolean):[],
     publicFacts:{
       birthDate:visibility.age?String(facts.birthDate||"").trim():"",height:visibility.height?String(facts.height||"").trim():"",
@@ -2483,6 +2493,11 @@ const importedResumeForStudent=s=>{
   }
   return bestScore>=70?best:null;
 };
+const importedLinksForStudent=s=>{
+  const bank=window.REMS_RESUME_LINKS_V25||{}; const n=normName(s?.name||"");
+  for(const [name,rows] of Object.entries(bank)){const nn=normName(name);if(nn===n||nn.split(" ").filter(Boolean).every(t=>n.includes(t))||n.split(" ").filter(Boolean).every(t=>nn.includes(t))) return clone(rows||[]);}
+  return [];
+};
 const studentProfessionalProfile=s=>{
   const imp=importedResumeForStudent(s)||{};
   const q=importedQuestionnaireForStudent(s)||{};
@@ -2494,6 +2509,8 @@ const studentProfessionalProfile=s=>{
     skills:Array.isArray(own.skills)?own.skills:[],
     experience:own.experience??imp.resumeText??"",
     structuredExperience:Array.isArray(own.structuredExperience)?own.structuredExperience:(imp.structuredExperience||[]),
+    customSections:Array.isArray(own.customSections)?own.customSections:[],
+    links:Array.isArray(own.links)?own.links:importedLinksForStudent(s),
     sourceText:imp.resumeText||"",
     sources:imp.sources||[],
     imported:!!imp.name,
@@ -3194,6 +3211,62 @@ async function deleteStudentCompletely(id){
   }
 }
 
+
+function proEditableListHtml(id,items=[],placeholder="Новий пункт"){
+  const rows=(Array.isArray(items)?items:[]);
+  return `<div class="pro-edit-list" id="${id}">${rows.map(v=>`<div class="pro-edit-item"><input value="${esc(v||"")}" placeholder="${esc(placeholder)}"><button type="button" class="ghost pro-remove-item" title="Видалити">×</button></div>`).join("")}</div><button type="button" class="ghost pro-add-item" data-target="${id}" data-placeholder="${esc(placeholder)}">+ Додати</button>`;
+}
+function proExperienceEditorHtml(items=[]){
+  const rows=Array.isArray(items)?items:[];
+  return `<div id="stProExperienceRows" class="pro-exp-editor">${rows.map((x,i)=>proExperienceRowHtml(x,i)).join("")}</div><button type="button" class="ghost" id="addProExperience">+ Додати проєкт / досвід</button>`;
+}
+function proExperienceRowHtml(x={},i=0){
+  return `<div class="pro-exp-edit-row" data-index="${i}">
+    <div class="pro-exp-edit-grid">
+      <label>Проєкт<input class="pro-project" value="${esc(x.project||"")}" placeholder="Назва проєкту"></label>
+      <label>Роль / функція<input class="pro-role" value="${esc(x.role||"")}" placeholder="Напр. асистент режисера"></label>
+      <label>Період / рік<input class="pro-period" value="${esc(x.period||"")}" placeholder="2025 або 2024–2025"></label>
+      <label>Категорія<input class="pro-category" value="${esc(x.category||"")}" placeholder="Концерти / TV / Кліпи..."></label>
+    </div>
+    <div class="pro-exp-edit-actions"><label class="mini-check"><input class="pro-public" type="checkbox" ${x.public===false?"":"checked"}> показувати на сайті</label><button type="button" class="danger pro-remove-exp">Видалити цей запис</button></div>
+  </div>`;
+}
+function proLinksEditorHtml(items=[]){
+  const rows=Array.isArray(items)?items:[];
+  return `<div id="stProLinksRows" class="pro-links-editor">${rows.map((x,i)=>proLinkRowHtml(x,i)).join("")}</div><button type="button" class="ghost" id="addProLink">+ Додати посилання</button>`;
+}
+function proLinkRowHtml(x={},i=0){return `<div class="pro-link-row" data-index="${i}"><input class="pro-link-label" value="${esc(x.label||"")}" placeholder="Назва / що це за робота"><input class="pro-link-url" value="${esc(x.url||"")}" placeholder="https://..."><label class="mini-check"><input class="pro-link-public" type="checkbox" ${x.public===false?"":"checked"}> на сайт</label><button type="button" class="danger pro-remove-link">Видалити</button></div>`;}
+function proCustomSectionsHtml(items=[]){
+  const rows=Array.isArray(items)?items:[];
+  return `<div id="stProCustomSections" class="pro-custom-sections">${rows.map((x,i)=>proCustomSectionHtml(x,i)).join("")}</div><button type="button" class="ghost" id="addProCustomSection">+ Додати власний блок</button>`;
+}
+function proCustomSectionHtml(x={},i=0){
+  const lines=Array.isArray(x.items)?x.items.join("\n"):(x.text||"");
+  return `<div class="pro-custom-block" data-index="${i}"><div class="pro-custom-head"><input class="pro-custom-title" value="${esc(x.title||"")}" placeholder="Назва блоку, напр. Мови"><label class="mini-check"><input class="pro-custom-public" type="checkbox" ${x.public===false?"":"checked"}> показувати на сайті</label><button type="button" class="danger pro-remove-custom">Видалити блок</button></div><textarea class="pro-custom-items" rows="4" placeholder="Кожен пункт з нового рядка">${esc(lines)}</textarea></div>`;
+}
+function bindProfessionalEditorControls(){
+  document.querySelectorAll('.pro-add-item').forEach(btn=>btn.onclick=()=>{
+    const box=document.getElementById(btn.dataset.target); if(!box) return;
+    box.insertAdjacentHTML('beforeend',`<div class="pro-edit-item"><input value="" placeholder="${esc(btn.dataset.placeholder||'Новий пункт')}"><button type="button" class="ghost pro-remove-item" title="Видалити">×</button></div>`);
+    bindProfessionalEditorControls();
+    box.lastElementChild?.querySelector('input')?.focus();
+  });
+  document.querySelectorAll('.pro-remove-item').forEach(btn=>btn.onclick=()=>btn.closest('.pro-edit-item')?.remove());
+  document.querySelectorAll('.pro-remove-exp').forEach(btn=>btn.onclick=()=>btn.closest('.pro-exp-edit-row')?.remove());
+  document.querySelectorAll('.pro-remove-custom').forEach(btn=>btn.onclick=()=>btn.closest('.pro-custom-block')?.remove());
+  document.querySelectorAll('.pro-remove-link').forEach(btn=>btn.onclick=()=>btn.closest('.pro-link-row')?.remove());
+  const ae=document.getElementById('addProExperience'); if(ae) ae.onclick=()=>{const box=document.getElementById('stProExperienceRows');box.insertAdjacentHTML('beforeend',proExperienceRowHtml({},box.children.length));bindProfessionalEditorControls();box.lastElementChild?.querySelector('.pro-project')?.focus();};
+  const al=document.getElementById('addProLink'); if(al) al.onclick=()=>{const box=document.getElementById('stProLinksRows');box.insertAdjacentHTML('beforeend',proLinkRowHtml({},box.children.length));bindProfessionalEditorControls();box.lastElementChild?.querySelector('.pro-link-label')?.focus();};
+  const ac=document.getElementById('addProCustomSection'); if(ac) ac.onclick=()=>{const box=document.getElementById('stProCustomSections');box.insertAdjacentHTML('beforeend',proCustomSectionHtml({},box.children.length));bindProfessionalEditorControls();box.lastElementChild?.querySelector('.pro-custom-title')?.focus();};
+}
+function readProList(id){return [...document.querySelectorAll(`#${id} .pro-edit-item input`)].map(x=>x.value.trim()).filter(Boolean);}
+function readProExperience(){return [...document.querySelectorAll('#stProExperienceRows .pro-exp-edit-row')].map(row=>({project:row.querySelector('.pro-project')?.value.trim()||'',role:row.querySelector('.pro-role')?.value.trim()||'',period:row.querySelector('.pro-period')?.value.trim()||'',category:row.querySelector('.pro-category')?.value.trim()||'',public:row.querySelector('.pro-public')?.checked!==false})).filter(x=>x.project||x.role||x.period||x.category);}
+function readProLinks(){return [...document.querySelectorAll('#stProLinksRows .pro-link-row')].map(row=>({label:row.querySelector('.pro-link-label')?.value.trim()||'',url:row.querySelector('.pro-link-url')?.value.trim()||'',public:row.querySelector('.pro-link-public')?.checked!==false})).filter(x=>x.url);}
+function readProCustomSections(){return [...document.querySelectorAll('#stProCustomSections .pro-custom-block')].map(row=>({title:row.querySelector('.pro-custom-title')?.value.trim()||'',items:String(row.querySelector('.pro-custom-items')?.value||'').split(/\n+/).map(x=>x.trim()).filter(Boolean),public:row.querySelector('.pro-custom-public')?.checked!==false})).filter(x=>x.title);}
+(function injectProEditorStyles(){if(document.getElementById('remsProEditorV24'))return;const st=document.createElement('style');st.id='remsProEditorV24';st.textContent=`
+.pro-builder{grid-column:1/-1;border:1px solid #dbe4f0;border-radius:16px;padding:16px;background:#f8fafc;display:grid;gap:14px}.pro-builder h4{margin:0}.pro-builder-note{font-size:13px;color:#64748b}.pro-edit-list{display:grid;gap:8px}.pro-edit-item{display:flex;gap:8px}.pro-edit-item input{flex:1}.pro-edit-item .pro-remove-item{width:42px;font-size:22px;padding:4px}.pro-exp-editor,.pro-custom-sections,.pro-links-editor{display:grid;gap:12px}.pro-link-row{display:grid;grid-template-columns:1.2fr 2fr auto auto;gap:8px;align-items:center;border:1px solid #dbe4f0;border-radius:12px;padding:10px;background:#fff}.pro-exp-edit-row,.pro-custom-block{border:1px solid #dbe4f0;border-radius:14px;padding:12px;background:#fff}.pro-exp-edit-grid{display:grid;grid-template-columns:2fr 1.5fr 1fr 1.2fr;gap:10px}.pro-exp-edit-actions,.pro-custom-head{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}.pro-exp-edit-actions .danger,.pro-custom-head .danger{margin-left:auto}.pro-custom-head .pro-custom-title{flex:1;min-width:240px}.pro-custom-block textarea{width:100%;margin-top:10px}.mini-check{display:flex!important;align-items:center;gap:6px!important;font-size:13px}.mini-check input{width:auto!important}.pro-section-title{display:flex;justify-content:space-between;align-items:end;gap:10px}.pro-section-title small{color:#64748b;font-weight:400}@media(max-width:800px){.pro-link-row{grid-template-columns:1fr}.pro-exp-edit-grid{grid-template-columns:1fr}.pro-exp-edit-actions .danger,.pro-custom-head .danger{margin-left:0}.pro-custom-head{align-items:stretch;flex-direction:column}.pro-custom-head .pro-custom-title{min-width:0}}
+`;document.head.appendChild(st);})();
+
 function editStudent(id){
   const s=sBy(id); if(!s) return;
   const q=importedQuestionnaireForStudent(s)||{};
@@ -3220,11 +3293,15 @@ function editStudent(id){
       <label class="full">Портфоліо — посилання<input id="stPortfolio" value="${esc(s.portfolioUrl||"")}" placeholder="https://..."></label>
       <label class="full">Відео / роботи — посилання<input id="stWorks" value="${esc(s.worksUrl||"")}" placeholder="https://..."></label>
       ${(()=>{const rp=studentProfessionalProfile(s);return `
-      <div class="resume-edit-section"><b>Професійне резюме</b><div class="muted">Імпортовано з наданих резюме; усе можна змінити вручну.</div></div>
+      <div class="resume-edit-section"><b>Професійний профіль — повний конструктор</b><div class="muted">Тут можна додавати, змінювати і видаляти окремі пункти, записи досвіду та цілі власні блоки.</div></div>
       <label class="full">Професійний опис<textarea id="stProfSummary">${esc(rp.summary||"")}</textarea></label>
-      <label class="full">Ролі / напрями (через кому)<textarea class="resume-edit-tags" id="stProfRoles">${esc((rp.roles||[]).join(", "))}</textarea></label>
-      <label class="full">Програми / інструменти (через кому)<textarea class="resume-edit-tags" id="stProfPrograms">${esc((rp.programs||[]).join(", "))}</textarea></label>
-      <label class="full">Досвід / проєкти з попереднього резюме<textarea id="stProfExperience" style="min-height:220px">${esc(rp.experience||"")}</textarea></label>
+      <div class="pro-builder"><div class="pro-section-title"><h4>Ролі / професійні напрями</h4><small>Кожен пункт окремо</small></div>${proEditableListHtml("stProfRolesList",rp.roles||[],"Напр. режисер-постановник")}</div>
+      <div class="pro-builder"><div class="pro-section-title"><h4>Навички</h4><small>Можна додати або видалити будь-яку</small></div>${proEditableListHtml("stProfSkillsList",rp.skills||[],"Напр. робота з артистами")}</div>
+      <div class="pro-builder"><div class="pro-section-title"><h4>Програми / інструменти</h4><small>Кожна програма окремо</small></div>${proEditableListHtml("stProfProgramsList",rp.programs||[],"Напр. DaVinci Resolve")}</div>
+      <div class="pro-builder"><div class="pro-section-title"><h4>Професійний досвід</h4><small>Кожен проєкт можна редагувати, видалити або приховати із сайту</small></div>${proExperienceEditorHtml(rp.structuredExperience||[])}</div>
+      <div class="pro-builder"><div class="pro-section-title"><h4>Посилання / роботи / портфоліо</h4><small>Посилання з резюме вже перенесені; кожне можна змінити, видалити або приховати із сайту</small></div>${proLinksEditorHtml(rp.links||[])}</div>
+      <div class="pro-builder"><div class="pro-section-title"><h4>Власні блоки</h4><small>Напр. «Мови», «Освіта», «Нагороди», «Додаткові компетенції»</small></div>${proCustomSectionsHtml(rp.customSections||[])}</div>
+      <details class="full"><summary>Оригінальний текст резюме / чернетка</summary><label class="full" style="margin-top:10px">Текст<textarea id="stProfExperience" style="min-height:180px">${esc(rp.experience||"")}</textarea></label></details>
       <div class="resume-edit-section"><b>Кастингові / зовнішні дані</b><div class="muted">Не визначаються автоматично за фото — заповнюються лише фактичні дані.</div></div>
       <label>Ігровий вік<input id="stCastAge" value="${esc(rp.casting.playingAge||"")}" placeholder="Напр. 18–24"></label>
       <label>Зріст<input id="stCastHeight" value="${esc(rp.casting.height||"")}" placeholder="Напр. 178 см"></label>
@@ -3247,6 +3324,7 @@ function editStudent(id){
   </div>`;
 
   $("#cancelStudentEdit").onclick=()=>openStudent(id);
+  bindProfessionalEditorControls();
   if($("#deleteStudentBtn")) $("#deleteStudentBtn").onclick=()=>deleteStudentCompletely(id);
 
   let removeStudentPhotoRequested=false;
@@ -3288,10 +3366,13 @@ function editStudent(id){
       notes:$("#stNotes").value.trim(),
       professionalProfile:{
         summary:$("#stProfSummary")?.value.trim()||"",
-        roles:($("#stProfRoles")?.value||"").split(/[,\n]/).map(x=>x.trim()).filter(Boolean),
-        programs:($("#stProfPrograms")?.value||"").split(/[,\n]/).map(x=>x.trim()).filter(Boolean),
+        roles:readProList("stProfRolesList"),
+        skills:readProList("stProfSkillsList"),
+        programs:readProList("stProfProgramsList"),
         experience:$("#stProfExperience")?.value.trim()||"",
-        structuredExperience:rp.structuredExperience||[],
+        structuredExperience:readProExperience(),
+        links:readProLinks(),
+        customSections:readProCustomSections(),
         casting:{
           playingAge:$("#stCastAge")?.value.trim()||"",
           height:$("#stCastHeight")?.value.trim()||"",
