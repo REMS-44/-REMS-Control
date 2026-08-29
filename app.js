@@ -880,12 +880,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v32.0 · немає з’єднання");
+    setStatus("v33.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v32.0 · збереження…");
+    setStatus("v33.0 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -895,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v32.0 · хмара ✓");
+    setStatus("v33.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -906,7 +906,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v32.0 · помилка хмари");
+    setStatus("v33.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -2579,8 +2579,14 @@ const importedResumeForStudent=s=>{
   return bestScore>=70?best:null;
 };
 const importedLinksForStudent=s=>{
-  const bank=window.REMS_RESUME_LINKS_V25||{}; const n=normName(s?.name||"");
-  for(const [name,rows] of Object.entries(bank)){const nn=normName(name);if(nn===n||nn.split(" ").filter(Boolean).every(t=>n.includes(t))||n.split(" ").filter(Boolean).every(t=>nn.includes(t))) return clone(rows||[]);}
+  const bank=window.REMS_RESUME_LINKS_V25||{};
+  // v33: use the app's real person-name normalizer. `normName` never existed and
+  // caused the complete Students view to throw, activating the v27 emergency renderer.
+  const n=normalizePersonName(s?.name||"");
+  for(const [name,rows] of Object.entries(bank)){
+    const nn=normalizePersonName(name);
+    if(nn===n||nn.split(" ").filter(Boolean).every(t=>n.includes(t))||n.split(" ").filter(Boolean).every(t=>nn.includes(t))) return clone(rows||[]);
+  }
   return [];
 };
 const studentProfessionalProfile=s=>{
@@ -7922,7 +7928,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v32.0 · хмара ✓");
+    setStatus("v33.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -8036,7 +8042,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v32.0 · хмара ✓");
+      setStatus("v33.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;

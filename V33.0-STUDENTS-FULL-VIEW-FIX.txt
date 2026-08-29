@@ -1,0 +1,5 @@
+V33.0 — Full Students view restored
+
+Fixed the actual runtime error in importedLinksForStudent(): the code called undefined normName(). It now uses normalizePersonName(), which already exists in the app. This prevented professionalProfileAudit() from crashing and triggering the simplified v27 emergency Students renderer.
+
+All v32 project staffing / roster-copy functionality is preserved.
