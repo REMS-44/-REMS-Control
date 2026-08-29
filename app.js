@@ -895,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v22.0 · хмара ✓");
+    setStatus("v28.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -2512,8 +2512,8 @@ const importedResumeForStudent=s=>{
   return bestScore>=70?best:null;
 };
 const importedLinksForStudent=s=>{
-  const bank=window.REMS_RESUME_LINKS_V25||{}; const n=normName(s?.name||"");
-  for(const [name,rows] of Object.entries(bank)){const nn=normName(name);if(nn===n||nn.split(" ").filter(Boolean).every(t=>n.includes(t))||n.split(" ").filter(Boolean).every(t=>nn.includes(t))) return clone(rows||[]);}
+  const bank=window.REMS_RESUME_LINKS_V25||{}; const n=resumeNorm(s?.name||"");
+  for(const [name,rows] of Object.entries(bank)){const nn=resumeNorm(name);if(nn===n||nn.split(" ").filter(Boolean).every(t=>n.includes(t))||n.split(" ").filter(Boolean).every(t=>nn.includes(t))) return clone(rows||[]);}
   return [];
 };
 const studentProfessionalProfile=s=>{
@@ -7838,7 +7838,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v22.0 · хмара ✓");
+    setStatus("v28.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -7952,7 +7952,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v22.0 · хмара ✓");
+      setStatus("v28.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
