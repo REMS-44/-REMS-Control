@@ -415,4 +415,70 @@ window.REMS_QUESTIONNAIRE_IMPORT_V16=[
     "clothingSize": "S",
     "shoeSize": "37"
   }
+,
+  {
+    "name": "Заярна Валерія Сергіївна",
+    "email": "valeriyazaiarnaya@gmail.com",
+    "funding": "Контракт",
+    "birthDate": "2006-09-27",
+    "phone": "0673617026",
+    "instagram": "@zayarna.vel",
+    "telegram": "@Zayarnavel",
+    "height": "170 см",
+    "weight": "56 кг",
+    "clothingSize": "S",
+    "shoeSize": "38"
+  },
+  {
+    "name": "Кохан Ольга Сергіївна",
+    "email": "kokhanolga27@gmail.com",
+    "funding": "Контракт",
+    "birthDate": "2006-11-26",
+    "phone": "0509096534",
+    "instagram": "@koanoles",
+    "telegram": "@koanoles",
+    "height": "158 см",
+    "weight": "51 кг",
+    "clothingSize": "M",
+    "shoeSize": "36"
+  },
+  {
+    "name": "Неня Анастасія Миколаївна",
+    "email": "nenyanastasia01@gmail.com",
+    "funding": "Контракт",
+    "birthDate": "2007-06-14",
+    "phone": "0666173346",
+    "instagram": "@nenichkaa",
+    "telegram": "@nenichkaa",
+    "height": "168 см",
+    "weight": "53-54 кг",
+    "clothingSize": "Xs-s",
+    "shoeSize": "38"
+  },
+  {
+    "name": "Мойсієнко Віталіна Денисівна",
+    "email": "vitalinamoysienko@gmail.com",
+    "funding": "Контракт",
+    "birthDate": "2007-09-15",
+    "phone": "0687683200",
+    "instagram": "@wy_latt",
+    "telegram": "@Wylatt",
+    "height": "165 см",
+    "weight": "90 кг",
+    "clothingSize": "L-XL",
+    "shoeSize": "39"
+  },
+  {
+    "name": "Рожанківська Іванна Орестівна",
+    "email": "ivasia2006@gmail.com",
+    "funding": "Контракт",
+    "birthDate": "2006-07-12",
+    "phone": "+380661939813",
+    "instagram": "@_rozhankivska_ivanka_",
+    "telegram": "@ivankarozh",
+    "height": "162 см",
+    "weight": "65 кг",
+    "clothingSize": "M",
+    "shoeSize": "38"
+  }
 ];

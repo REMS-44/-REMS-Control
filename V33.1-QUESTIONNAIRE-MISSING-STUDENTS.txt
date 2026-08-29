@@ -1,0 +1,1 @@
+Added questionnaire data for current students missing from previous import: Заярна Валерія, Кохан Ольга, Неня Анастасія, Мойсієнко Віталіна, Рожанківська Іванна. Source: user-provided 2025 questionnaire. No parent/address fields imported.
