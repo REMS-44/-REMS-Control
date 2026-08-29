@@ -1,3 +1,12 @@
+
+(function injectResumeV15Styles(){
+  if(document.getElementById("remsResumeV15Styles")) return;
+  const st=document.createElement("style"); st.id="remsResumeV15Styles";
+  st.textContent=`
+  .resume-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.resume-box{border:1px solid #e5e7eb;border-radius:14px;padding:13px;background:#fff}.resume-box.full{grid-column:1/-1}.resume-box h4{margin:0 0 8px}.resume-tags{display:flex;flex-wrap:wrap;gap:6px}.resume-tag{display:inline-flex;padding:6px 9px;border-radius:999px;background:#eef2ff;color:#283050;font-size:11px;font-weight:700}.resume-import-note{padding:10px 12px;border-radius:12px;background:#ecfdf5;color:#166534;font-size:11px;margin-bottom:10px}.resume-text{white-space:pre-wrap;max-height:300px;overflow:auto;font-size:12px;line-height:1.5;background:#f8fafc;border-radius:10px;padding:10px}.casting-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.casting-item{background:#f8fafc;border-radius:10px;padding:9px}.casting-item b{display:block;font-size:10px;color:#6b7280;text-transform:uppercase}.casting-item span{font-size:12px}.resume-edit-section{grid-column:1/-1;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:4px}.resume-edit-tags{min-height:76px}.resume-source-list{font-size:10px;color:#6b7280;line-height:1.45}@media(max-width:700px){.resume-profile-grid{grid-template-columns:1fr}.resume-box.full{grid-column:auto}.casting-grid{grid-template-columns:1fr 1fr}}
+  `; document.head.appendChild(st);
+})();
+
 (function(){const s=document.createElement("style");s.textContent=`
 .industry-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}.industry-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px;display:grid;gap:9px}.industry-card img,.industry-card-empty{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:11px;background:#111318;color:#fff;display:grid;place-items:center;font-size:32px}.industry-card-meta{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em}.industry-card h3,.industry-card p{margin:0}.industry-card p{color:#6b7280;font-size:12px}.industry-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-top:16px}.industry-form-grid label,.industry-block label{display:grid;gap:6px;font-size:12px;color:#374151}.industry-form-grid input,.industry-form-grid textarea,.industry-block input,.industry-block textarea{width:100%;border:1px solid #dfe3e8;border-radius:10px;padding:10px;font:inherit}.industry-form-grid textarea,.industry-block textarea{min-height:110px;resize:vertical}.industry-form-grid .full{grid-column:1/-1}.industry-publish{display:flex!important;grid-template-columns:auto 1fr!important;align-items:center;gap:10px;padding:12px;background:#f8fafc;border-radius:12px}.industry-publish input{width:20px!important;height:20px}.industry-publish span{display:grid}.industry-publish small{color:#6b7280}.industry-builder{margin-top:18px}.industry-addbar{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 14px}.industry-block{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:13px;margin-bottom:10px;display:grid;gap:9px}.industry-block-head{display:flex;justify-content:space-between;align-items:center}.industry-block-head>div{display:flex;gap:5px}.industry-file{background:#f8fafc;padding:9px;border-radius:9px}.ib-progress{font-size:11px;color:#4b5563}.industry-media-preview{margin-top:7px;width:160px;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:#eef1f4;display:none}.industry-media-preview.has-image{display:block}.industry-media-preview img{width:100%;height:100%;object-fit:cover;display:block}.industry-file input[type=file]{margin-top:4px}.industry-savebar{position:sticky;bottom:12px;background:#fffffff2;border:1px solid #e5e7eb;border-radius:14px;padding:10px;margin-top:16px;display:flex;justify-content:space-between;z-index:5}.danger{border:0;background:#fee2e2;color:#991b1b;border-radius:10px;padding:9px 12px;font-weight:700}.loading{padding:30px;color:#6b7280}@media(max-width:700px){.industry-form-grid{grid-template-columns:1fr}.industry-form-grid .full{grid-column:auto}}
 `;document.head.appendChild(s)})();
@@ -886,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v14.0 · хмара ✓");
+    setStatus("v15.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -2364,6 +2373,55 @@ async function recoverStudentsFromFirebase(){
   }
 }
 
+
+// v15 — imported professional resumes and casting-ready profile fields.
+const resumeNorm=v=>String(v||"").toLowerCase().replace(/[’ʼ'`]/g,"").replace(/[^a-zа-яіїєґ0-9]+/gi," ").replace(/\s+/g," ").trim();
+const importedResumeProfiles=Array.isArray(window.REMS_RESUME_IMPORT_V15)?window.REMS_RESUME_IMPORT_V15:[];
+const importedResumeForStudent=s=>{
+  if(!s) return null;
+  const n=resumeNorm(s.name);
+  const toks=new Set(n.split(" ").filter(x=>x.length>2));
+  let best=null,bestScore=0;
+  for(const p of importedResumeProfiles){
+    const variants=[p.name,...(p.aliases||[])].map(resumeNorm);
+    let score=0;
+    for(const v of variants){
+      if(!v) continue;
+      if(v===n) score=Math.max(score,100);
+      const vt=v.split(" ").filter(x=>x.length>2);
+      const common=vt.filter(x=>toks.has(x)).length;
+      if(common>=2) score=Math.max(score,70+common);
+      else if(common===1 && vt.length===1) score=Math.max(score,45);
+    }
+    if(score>bestScore){best=p;bestScore=score;}
+  }
+  return bestScore>=70?best:null;
+};
+const studentProfessionalProfile=s=>{
+  const imp=importedResumeForStudent(s)||{};
+  const own=s?.professionalProfile||{};
+  return {
+    summary:own.summary??imp.summary??"",
+    roles:Array.isArray(own.roles)?own.roles:(imp.roles||[]),
+    programs:Array.isArray(own.programs)?own.programs:(imp.programs||[]),
+    skills:Array.isArray(own.skills)?own.skills:[],
+    experience:own.experience??imp.resumeText??"",
+    sourceText:imp.resumeText||"",
+    sources:imp.sources||[],
+    imported:!!imp.name,
+    casting:{
+      playingAge:own.casting?.playingAge||"",
+      height:own.casting?.height||"",
+      type:own.casting?.type||"",
+      hair:own.casting?.hair||"",
+      eyes:own.casting?.eyes||"",
+      special:own.casting?.special||""
+    },
+    importedContacts:{emails:imp.emails||[],phones:imp.phones||[],handles:imp.handles||[]}
+  };
+};
+const profileTagHtml=(items=[])=>items.filter(Boolean).slice(0,18).map(x=>`<span class="resume-tag">${esc(x)}</span>`).join("");
+
 function students(){
   app.innerHTML=`
     <div class="toolbar">
@@ -2483,9 +2541,12 @@ function openStudent(id){
       ? new Date(s.birthDate+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit",year:"numeric"})
       : "";
 
+    const rp=studentProfessionalProfile(s);
+    const fallbackPhone=!s.phone?(rp.importedContacts.phones?.[0]||""):"";
+    const fallbackEmail=!s.email?(rp.importedContacts.emails?.[0]||""):"";
     const contacts=[
-      s.phone ? `<div class="contact-item"><b>Телефон</b><a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></div>` : "",
-      s.email ? `<div class="contact-item"><b>Email</b><a href="mailto:${esc(s.email)}">${esc(s.email)}</a></div>` : "",
+      (s.phone||fallbackPhone) ? `<div class="contact-item"><b>Телефон</b><a href="tel:${esc(s.phone||fallbackPhone)}">${esc(s.phone||fallbackPhone)}</a></div>` : "",
+      (s.email||fallbackEmail) ? `<div class="contact-item"><b>Email</b><a href="mailto:${esc(s.email||fallbackEmail)}">${esc(s.email||fallbackEmail)}</a></div>` : "",
       s.instagram ? `<div class="contact-item"><b>Instagram</b><span>${esc(s.instagram)}</span></div>` : "",
       s.telegram ? `<div class="contact-item"><b>Telegram</b><span>${esc(s.telegram)}</span></div>` : ""
     ].filter(Boolean).join("");
@@ -2531,6 +2592,26 @@ function openStudent(id){
           <div class="profile-stat"><span class="muted">Проєктів</span><strong>${ps.length}</strong></div>
           <div class="profile-stat"><span class="muted">Зайнятих днів</span><strong>${countDays(id)}</strong></div>
           <button type="button" class="profile-stat conflict-stat-button" id="studentConflictStat"><span class="muted">Конфліктів</span><strong>${studentConflicts(id)}</strong><small>Відкрити →</small></button>
+        </div>
+
+        <div class="profile-section">
+          <div class="profile-section-title"><b>Професійний профіль</b><span class="muted">дані для добірок і портфоліо</span></div>
+          ${rp.imported?`<div class="resume-import-note">✓ Знайдено та підключено резюме студента з архіву. Дані можна відредагувати в картці.</div>`:""}
+          <div class="resume-profile-grid">
+            <div class="resume-box full"><h4>Про себе / професійний опис</h4><div>${rp.summary?esc(rp.summary):'<span class="muted">Ще не заповнено</span>'}</div></div>
+            <div class="resume-box"><h4>Ролі та напрями</h4><div class="resume-tags">${profileTagHtml(rp.roles)||'<span class="muted">—</span>'}</div></div>
+            <div class="resume-box"><h4>Програми / інструменти</h4><div class="resume-tags">${profileTagHtml(rp.programs)||'<span class="muted">—</span>'}</div></div>
+            <div class="resume-box full"><h4>Кастингові / зовнішні дані</h4><div class="casting-grid">
+              <div class="casting-item"><b>Ігровий вік</b><span>${esc(rp.casting.playingAge||"—")}</span></div>
+              <div class="casting-item"><b>Зріст</b><span>${esc(rp.casting.height||"—")}</span></div>
+              <div class="casting-item"><b>Типаж</b><span>${esc(rp.casting.type||"—")}</span></div>
+              <div class="casting-item"><b>Волосся</b><span>${esc(rp.casting.hair||"—")}</span></div>
+              <div class="casting-item"><b>Очі</b><span>${esc(rp.casting.eyes||"—")}</span></div>
+              <div class="casting-item"><b>Спецнавички</b><span>${esc(rp.casting.special||"—")}</span></div>
+            </div>
+            ${rp.experience?`<div class="resume-box full"><h4>Досвід із резюме</h4><div class="resume-text">${esc(rp.experience)}</div></div>`:""}
+            ${rp.sources?.length?`<div class="resume-box full"><h4>Джерело</h4><div class="resume-source-list">${rp.sources.map(esc).join("<br>")}</div></div>`:""}
+          </div>
         </div>
 
         <div class="profile-section">
@@ -2899,6 +2980,20 @@ function editStudent(id){
       <label class="full">Резюме — посилання<input id="stResume" value="${esc(s.resumeUrl||"")}" placeholder="https://..."></label>
       <label class="full">Портфоліо — посилання<input id="stPortfolio" value="${esc(s.portfolioUrl||"")}" placeholder="https://..."></label>
       <label class="full">Відео / роботи — посилання<input id="stWorks" value="${esc(s.worksUrl||"")}" placeholder="https://..."></label>
+      ${(()=>{const rp=studentProfessionalProfile(s);return `
+      <div class="resume-edit-section"><b>Професійне резюме</b><div class="muted">Імпортовано з наданих резюме; усе можна змінити вручну.</div></div>
+      <label class="full">Професійний опис<textarea id="stProfSummary">${esc(rp.summary||"")}</textarea></label>
+      <label class="full">Ролі / напрями (через кому)<textarea class="resume-edit-tags" id="stProfRoles">${esc((rp.roles||[]).join(", "))}</textarea></label>
+      <label class="full">Програми / інструменти (через кому)<textarea class="resume-edit-tags" id="stProfPrograms">${esc((rp.programs||[]).join(", "))}</textarea></label>
+      <label class="full">Досвід / проєкти з попереднього резюме<textarea id="stProfExperience" style="min-height:220px">${esc(rp.experience||"")}</textarea></label>
+      <div class="resume-edit-section"><b>Кастингові / зовнішні дані</b><div class="muted">Не визначаються автоматично за фото — заповнюються лише фактичні дані.</div></div>
+      <label>Ігровий вік<input id="stCastAge" value="${esc(rp.casting.playingAge||"")}" placeholder="Напр. 18–24"></label>
+      <label>Зріст<input id="stCastHeight" value="${esc(rp.casting.height||"")}" placeholder="Напр. 178 см"></label>
+      <label>Типаж<input id="stCastType" value="${esc(rp.casting.type||"")}"></label>
+      <label>Волосся<input id="stCastHair" value="${esc(rp.casting.hair||"")}"></label>
+      <label>Очі<input id="stCastEyes" value="${esc(rp.casting.eyes||"")}"></label>
+      <label>Спеціальні навички<input id="stCastSpecial" value="${esc(rp.casting.special||"")}" placeholder="танець, вокал, спорт..."></label>
+      `})()}
       <label class="full">Нотатки<textarea id="stNotes" placeholder="Внутрішні нотатки">${esc(s.notes||"")}</textarea></label>
       <div class="full profile-actions">
         <button type="button" class="danger" id="deleteStudentBtn" style="margin-right:auto">Видалити студента</button>
@@ -2947,7 +3042,21 @@ function editStudent(id){
       resumeUrl:$("#stResume").value.trim(),
       portfolioUrl:$("#stPortfolio").value.trim(),
       worksUrl:$("#stWorks").value.trim(),
-      notes:$("#stNotes").value.trim()
+      notes:$("#stNotes").value.trim(),
+      professionalProfile:{
+        summary:$("#stProfSummary")?.value.trim()||"",
+        roles:($("#stProfRoles")?.value||"").split(/[,\n]/).map(x=>x.trim()).filter(Boolean),
+        programs:($("#stProfPrograms")?.value||"").split(/[,\n]/).map(x=>x.trim()).filter(Boolean),
+        experience:$("#stProfExperience")?.value.trim()||"",
+        casting:{
+          playingAge:$("#stCastAge")?.value.trim()||"",
+          height:$("#stCastHeight")?.value.trim()||"",
+          type:$("#stCastType")?.value.trim()||"",
+          hair:$("#stCastHair")?.value.trim()||"",
+          eyes:$("#stCastEyes")?.value.trim()||"",
+          special:$("#stCastSpecial")?.value.trim()||""
+        }
+      }
     };
 
     const photoFile=$("#studentPhotoFile")?.files?.[0];
@@ -7337,7 +7446,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v14.0 · хмара ✓");
+    setStatus("v15.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -7440,7 +7549,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v14.0 · хмара ✓");
+      setStatus("v15.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
