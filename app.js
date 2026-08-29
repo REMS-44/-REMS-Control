@@ -2054,7 +2054,16 @@ function switchView(v,label){
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
   $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",academic:"Розклад занять",calendar:"Зведений календар",schedule:"Зайнятість",industry:"Зустріч із індустрією"}[v]);
   updateQuickAddForView(v);
-  views[v]();
+  try{
+    if(typeof views?.[v]!=="function") throw new Error(`Немає представлення ${v}`);
+    views[v]();
+  }catch(err){
+    console.error("View render failed:",v,err);
+    // Не залишаємо на екрані попередній розділ. Це особливо важливо для «Студенти»:
+    // навіть якщо один профіль має некоректні імпортовані дані, сам розділ має відкритися.
+    if(v==="students" && typeof renderStudentsSafeV27==="function") renderStudentsSafeV27(err);
+    else app.innerHTML=`<div class="card"><h2>Не вдалося відкрити розділ</h2><div class="muted">Оновіть сторінку. Помилка записана в консолі браузера.</div></div>`;
+  }
 }
 function refreshCurrentView(){
   const v=currentView && views[currentView] ? currentView : (document.querySelector(".nav.active")?.dataset.view||"dashboard");
@@ -2707,6 +2716,51 @@ function students(){
   $("#importQuestionnaireBtn").onclick=importQuestionnaireDataV16;
   $("#recoverStudentsBtn").onclick=recoverStudentsFromFirebase;
   $("#cleanupStudentsBtn").onclick=cleanupStudentDuplicates;
+  render();
+}
+
+
+// v27 — аварійно стійкий розділ «Студенти».
+// Якщо один імпортований профіль/посилання містить неочікувані дані,
+// це більше не може «з'їсти» весь розділ і залишити на екрані попередню вкладку.
+function renderStudentsSafeV27(sourceError){
+  console.warn("Students safe renderer activated",sourceError||"");
+  app.innerHTML=`
+    <div class="toolbar">
+      <input id="studentSearchV27" placeholder="Пошук студента...">
+      <select id="studentGroupV27">${groupOptionsHtml()}</select>
+    </div>
+    <div class="students-grid" id="studentsGridV27"></div>`;
+  const safeProjects=st=>{
+    try{return studentProjects(st.id)||[];}catch(err){console.error("studentProjects failed",st?.id,err);return [];}
+  };
+  const safePhoto=st=>{
+    try{return sharedStudentPhoto(st)||"";}catch(err){console.error("student photo failed",st?.id,err);return "";}
+  };
+  const render=()=>{
+    const q=String($("#studentSearchV27")?.value||"").toLowerCase().trim();
+    const group=String($("#studentGroupV27")?.value||"");
+    const rows=(db.students||[]).filter(st=>(!q||String(st.name||"").toLowerCase().includes(q))&&(!group||String(st.group||"")===group));
+    $("#studentsGridV27").innerHTML=rows.map(st=>{
+      const photo=safePhoto(st), ps=safeProjects(st);
+      return `<button type="button" class="student-card student-open-card-v27" data-student-id="${esc(String(st.id))}">
+        <div class="student-card-main">
+          <div class="student-list-avatar">${photo?`<img src="${esc(photo)}" alt="${esc(st.name||"")}">`:`<span>${esc((st.name||"?").trim().charAt(0).toUpperCase())}</span>`}</div>
+          <div class="student-card-copy">
+            <div class="student-card-title-row"><h3>${esc(st.name||"Без імені")}</h3></div>
+            <div class="muted">${esc(st.group||"")}</div>
+            <div class="chips">${ps.map(p=>`<span class="chip">${esc(p.name||"Проєкт")}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}</div>
+          </div>
+        </div>
+      </button>`;
+    }).join("")||'<div class="empty">Нічого не знайдено.</div>';
+    $$(".student-open-card-v27").forEach(btn=>btn.onclick=()=>{
+      const sid=resolveStudentId(btn.dataset.studentId);
+      if(sid!==undefined) openStudent(sid);
+    });
+  };
+  $("#studentSearchV27").oninput=render;
+  $("#studentGroupV27").onchange=render;
   render();
 }
 
