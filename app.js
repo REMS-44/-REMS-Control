@@ -7504,3 +7504,52 @@ setWriteUiReady(false);
 ensureNewProjectLogoField();
 ensureEventTimeLocationFields();
 bootstrapAuth();
+// V12: unified occupancy Day/Week view for two groups (lessons + projects)
+function openUnifiedOccupancy(mode="day"){
+  const groups=[...new Set((db.students||[]).map(s=>String(s.group||"").trim()).filter(Boolean))].sort();
+  const today=localIsoDate();
+  app.innerHTML=`
+    <div class="schedule-controls unified-occ-controls">
+      <button class="ghost" id="occBack">← Місяць</button>
+      <button class="ghost ${mode==="day"?"active":""}" data-occ-mode="day">День</button>
+      <button class="ghost ${mode==="week"?"active":""}" data-occ-mode="week">Тиждень</button>
+      <input type="date" id="occDate" value="${today}">
+      <select id="occGroup1"><option value="">Група 1 — усі</option>${groups.map(g=>`<option>${esc(g)}</option>`).join("")}</select>
+      <select id="occGroup2"><option value="">Група 2 — не вибрано</option>${groups.map(g=>`<option>${esc(g)}</option>`).join("")}</select>
+      <label class="occ-toggle"><input type="checkbox" id="occLessons" checked> Заняття</label>
+      <label class="occ-toggle"><input type="checkbox" id="occProjects" checked> Проєкти</label>
+      <input id="occSearch" placeholder="Пошук студента…">
+    </div>
+    <div class="calendar-legend"><span class="legend-item">🟢 Вільний</span><span class="legend-item">🎓 Заняття</span><span class="legend-item">🎬 Проєкт</span><span class="legend-item">⚠️ Конфлікт</span></div>
+    <div id="occSummary" class="calendar-summary"></div><div id="occMount"></div>`;
+  const render=()=>{
+    const date=$("#occDate").value||today, g1=$("#occGroup1").value, g2=$("#occGroup2").value;
+    const chosen=new Set([g1,g2].filter(Boolean));
+    const q=$("#occSearch").value.toLowerCase().trim();
+    const students=(db.students||[]).filter(s=>(!chosen.size||chosen.has(String(s.group||"")))&&String(s.name||"").toLowerCase().includes(q));
+    let dates=[date];
+    if(mode==="week"){
+      const d=new Date(date+"T12:00:00"), shift=(d.getDay()+6)%7; d.setDate(d.getDate()-shift);
+      dates=Array.from({length:7},(_,i)=>{const x=new Date(d);x.setDate(d.getDate()+i);return x.toISOString().slice(0,10)});
+    }
+    const raw=combinedAssignments();
+    const acts=(st,d)=>(raw[`${st.id}|${d}`]||[]).filter(a=>(a.source!=="lesson"||$("#occLessons").checked)&&(a.source!=="project"||$("#occProjects").checked));
+    const busy=students.filter(s=>dates.some(d=>acts(s,d).length)).length;
+    $("#occSummary").innerHTML=`<span class="summary-pill">Групи: <b>${[g1,g2].filter(Boolean).join(" + ")||"усі"}</b></span><span class="summary-pill">Студентів: <b>${students.length}</b></span><span class="summary-pill">Мають зайнятість: <b>${busy}</b></span><span class="summary-pill">Повністю вільні: <b>${students.length-busy}</b></span>`;
+    $("#occMount").innerHTML=`<div class="unified-occ-table"><table class="calendar"><thead><tr><th class="name">Студент</th>${dates.map(d=>`<th>${new Date(d+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"short",day:"numeric",month:"short"})}</th>`).join("")}</tr></thead><tbody>${students.map(st=>`<tr><td class="name"><b>${esc(st.name)}</b><div class="muted">${esc(st.group||"")}</div></td>${dates.map(d=>{const a=acts(st,d);if(!a.length)return `<td class="occ-free" data-date="${d}">🟢 <b>Вільний</b></td>`;const conflict=studentDateHasConflict(st.id,d);return `<td class="${conflict?"conflict":""}" data-date="${d}">${conflict?'<div class="occ-conflict">⚠️ КОНФЛІКТ</div>':""}${a.map(x=>x.source==="lesson"?`<div class="academic-calendar-card combined-lesson-card"><b>🎓 ${esc(x.title)}</b><small>${esc([eventTimeText(x),x.location?`ауд. ${x.location}`:""].filter(Boolean).join(" · "))}</small></div>`:(()=>{const p=pBy(x.projectId);return p?`<div class="occ-project">🎬 <b>${esc(p.name)}</b><small>${esc([x.type,eventTimeText(x)].filter(Boolean).join(" · "))}</small></div>`:""})()).join("")}</td>`}).join("")}</tr>`).join("")}</tbody></table></div>`;
+    $$("#occMount td[data-date]").forEach(td=>td.onclick=()=>showDay(td.dataset.date));
+  };
+  $("#occBack").onclick=()=>schedule();
+  $$('[data-occ-mode]').forEach(b=>b.onclick=()=>openUnifiedOccupancy(b.dataset.occMode));
+  ["#occDate","#occGroup1","#occGroup2","#occLessons","#occProjects"].forEach(s=>$(s).onchange=render); $("#occSearch").oninput=render;
+  render();
+}
+
+(function(){
+ const st=document.createElement('style');st.textContent=`
+ .unified-occ-controls .active{background:#111827;color:#fff}.occ-toggle{display:flex!important;align-items:center!important;gap:6px!important;font-size:11px!important}.occ-toggle input{width:auto!important;margin:0!important}
+ .unified-occ-table{overflow:auto;background:#fff;border:1px solid #e5e7eb;border-radius:14px}.unified-occ-table table{min-width:900px}.occ-free{background:#f0fdf4;color:#166534;font-size:11px;text-align:center}.occ-project{border:1px solid #ddd6fe;background:#f5f3ff;border-radius:7px;padding:5px 6px;margin:2px;display:grid;gap:2px;font-size:10px}.occ-project small{font-size:8px;color:#6b7280}.occ-conflict{font-size:9px;font-weight:900;color:#b91c1c;margin:2px 0}
+ `;document.head.appendChild(st);
+ const old=schedule; schedule=function(){ old(); const c=document.querySelector('.schedule-controls'); if(c&&!document.querySelector('#occDayBtn')){const d=document.createElement('button');d.id='occDayBtn';d.className='ghost';d.textContent='День';d.onclick=()=>openUnifiedOccupancy('day');const w=document.createElement('button');w.className='ghost';w.textContent='Тиждень';w.onclick=()=>openUnifiedOccupancy('week');c.append(d,w);}}
+})();
+//test
