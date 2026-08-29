@@ -895,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v15.0 · хмара ✓");
+    setStatus("v16.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -2377,6 +2377,19 @@ async function recoverStudentsFromFirebase(){
 // v15 — imported professional resumes and casting-ready profile fields.
 const resumeNorm=v=>String(v||"").toLowerCase().replace(/[’ʼ'`]/g,"").replace(/[^a-zа-яіїєґ0-9]+/gi," ").replace(/\s+/g," ").trim();
 const importedResumeProfiles=Array.isArray(window.REMS_RESUME_IMPORT_V15)?window.REMS_RESUME_IMPORT_V15:[];
+const importedQuestionnaireProfiles=Array.isArray(window.REMS_QUESTIONNAIRE_IMPORT_V16)?window.REMS_QUESTIONNAIRE_IMPORT_V16:[];
+const importedQuestionnaireForStudent=s=>{
+  if(!s) return null;
+  const n=resumeNorm(s.name); const toks=new Set(n.split(" ").filter(x=>x.length>2));
+  let best=null,bestScore=0;
+  for(const p of importedQuestionnaireProfiles){
+    const v=resumeNorm(p.name); let score=0;
+    if(v===n) score=100;
+    else {const vt=v.split(" ").filter(x=>x.length>2); const common=vt.filter(x=>toks.has(x)).length; if(common>=2) score=70+common;}
+    if(score>bestScore){best=p;bestScore=score;}
+  }
+  return bestScore>=70?best:null;
+};
 const importedResumeForStudent=s=>{
   if(!s) return null;
   const n=resumeNorm(s.name);
@@ -2399,6 +2412,7 @@ const importedResumeForStudent=s=>{
 };
 const studentProfessionalProfile=s=>{
   const imp=importedResumeForStudent(s)||{};
+  const q=importedQuestionnaireForStudent(s)||{};
   const own=s?.professionalProfile||{};
   return {
     summary:own.summary??imp.summary??"",
@@ -2411,16 +2425,44 @@ const studentProfessionalProfile=s=>{
     imported:!!imp.name,
     casting:{
       playingAge:own.casting?.playingAge||"",
-      height:own.casting?.height||"",
+      height:own.casting?.height||q.height||"",
+      weight:own.casting?.weight||q.weight||"",
+      clothingSize:own.casting?.clothingSize||q.clothingSize||"",
+      shoeSize:own.casting?.shoeSize||q.shoeSize||"",
       type:own.casting?.type||"",
       hair:own.casting?.hair||"",
       eyes:own.casting?.eyes||"",
       special:own.casting?.special||""
     },
-    importedContacts:{emails:imp.emails||[],phones:imp.phones||[],handles:imp.handles||[]}
+    questionnaire:q,
+    importedContacts:{emails:[...(imp.emails||[]),...(q.email?[q.email]:[])],phones:[...(imp.phones||[]),...(q.phone?[q.phone]:[])],handles:[...(imp.handles||[]),...(q.instagram?[q.instagram]:[]),...(q.telegram?[q.telegram]:[])]}
   };
 };
 const profileTagHtml=(items=[])=>items.filter(Boolean).slice(0,18).map(x=>`<span class="resume-tag">${esc(x)}</span>`).join("");
+
+async function importQuestionnaireDataV16(){
+  const candidates=(db.students||[]).map(st=>({st,q:importedQuestionnaireForStudent(st)})).filter(x=>x.q);
+  if(!candidates.length){alert("Не знайдено студентів, яких можна зіставити з анкетою.");return;}
+  const ok=confirm(`Знайдено ${candidates.length} студентів із анкети.\n\nБуде заповнено лише порожні поля: дата народження, телефон, email, Instagram, Telegram, зріст, вага, розмір одягу і взуття, форма фінансування. Існуючі значення не перезаписуються.\n\nПродовжити?`);
+  if(!ok) return;
+  let changed=0;
+  db.students=db.students.map(st=>{
+    const q=importedQuestionnaireForStudent(st); if(!q) return st;
+    const pp=st.professionalProfile||{}; const cast=pp.casting||{}; const acad=st.academicProfile||{};
+    const patch={...st}; let any=false;
+    const setBlank=(key,val)=>{if(val&&!String(patch[key]||"").trim()){patch[key]=val;any=true;}};
+    setBlank("birthDate",q.birthDate); setBlank("phone",q.phone); setBlank("email",q.email); setBlank("instagram",q.instagram); setBlank("telegram",q.telegram);
+    const newCast={...cast};
+    for(const [k,v] of [["height",q.height],["weight",q.weight],["clothingSize",q.clothingSize],["shoeSize",q.shoeSize]]) if(v&&!String(newCast[k]||"").trim()){newCast[k]=v;any=true;}
+    patch.professionalProfile={...pp,casting:newCast};
+    if(q.funding&&!String(acad.funding||"").trim()){patch.academicProfile={...acad,funding:q.funding};any=true;}
+    if(any) changed++;
+    return patch;
+  });
+  cache(); const saved=await save();
+  if(saved){alert(`Готово. Дані анкети зіставлено для ${candidates.length} студентів; доповнено ${changed} карток.`);students();}
+  else alert("Дані підготовлено локально, але не вдалося зберегти їх у хмарну базу.");
+}
 
 function students(){
   app.innerHTML=`
@@ -2431,6 +2473,7 @@ function students(){
         ${db.projects.map(p=>`<option value="${esc(String(p.id))}">${esc(p.name)}</option>`).join("")}
       </select>
       <select id="studentGroupFilter">${groupOptionsHtml()}</select>
+      <button type="button" class="ghost" id="importQuestionnaireBtn">Імпортувати анкетні дані (32)</button>
       <button type="button" class="ghost" id="recoverStudentsBtn">Відновити студентів із Firebase</button>
       <button type="button" class="ghost" id="cleanupStudentsBtn">Прибрати дублікати</button>
     </div>
@@ -2483,6 +2526,7 @@ function students(){
   $("#studentSearch").oninput=render;
   $("#studentProjectFilter").onchange=render;
   $("#studentGroupFilter").onchange=render;
+  $("#importQuestionnaireBtn").onclick=importQuestionnaireDataV16;
   $("#recoverStudentsBtn").onclick=recoverStudentsFromFirebase;
   $("#cleanupStudentsBtn").onclick=cleanupStudentDuplicates;
   render();
@@ -2537,18 +2581,19 @@ function openStudent(id){
       ? `<div class="profile-photo"><img src="${photo}" alt="${esc(s.name)}"></div>`
       : `<div class="profile-photo">👤</div>`;
 
-    const birthday=s.birthDate
-      ? new Date(s.birthDate+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit",year:"numeric"})
+    const rp=studentProfessionalProfile(s);
+    const birthValue=s.birthDate||rp.questionnaire?.birthDate||"";
+    const birthday=birthValue
+      ? new Date(birthValue+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit",year:"numeric"})
       : "";
 
-    const rp=studentProfessionalProfile(s);
     const fallbackPhone=!s.phone?(rp.importedContacts.phones?.[0]||""):"";
     const fallbackEmail=!s.email?(rp.importedContacts.emails?.[0]||""):"";
     const contacts=[
       (s.phone||fallbackPhone) ? `<div class="contact-item"><b>Телефон</b><a href="tel:${esc(s.phone||fallbackPhone)}">${esc(s.phone||fallbackPhone)}</a></div>` : "",
       (s.email||fallbackEmail) ? `<div class="contact-item"><b>Email</b><a href="mailto:${esc(s.email||fallbackEmail)}">${esc(s.email||fallbackEmail)}</a></div>` : "",
-      s.instagram ? `<div class="contact-item"><b>Instagram</b><span>${esc(s.instagram)}</span></div>` : "",
-      s.telegram ? `<div class="contact-item"><b>Telegram</b><span>${esc(s.telegram)}</span></div>` : ""
+      (s.instagram||rp.questionnaire?.instagram) ? `<div class="contact-item"><b>Instagram</b><span>${esc(s.instagram||rp.questionnaire?.instagram)}</span></div>` : "",
+      (s.telegram||rp.questionnaire?.telegram) ? `<div class="contact-item"><b>Telegram</b><span>${esc(s.telegram||rp.questionnaire?.telegram)}</span></div>` : ""
     ].filter(Boolean).join("");
 
     const portfolioItems=[
@@ -2577,6 +2622,7 @@ function openStudent(id){
             <div class="profile-meta">
               <span>${esc(s.group||"")}</span>
               ${birthday?`<span>🎂 ${birthday}</span>`:""}
+              ${(s.academicProfile?.funding||rp.questionnaire?.funding)?`<span>${esc(s.academicProfile?.funding||rp.questionnaire?.funding)}</span>`:""}
             </div>
             <div class="profile-project-pills">
               ${ps.map(p=>`<span class="profile-project-pill" style="--pill-color:${p.color||"#4f46e5"}">${esc(p.name||"Проєкт")}</span>`).join("")||'<span class="profile-no-projects">Проєктів поки немає</span>'}
@@ -2596,7 +2642,8 @@ function openStudent(id){
 
         <div class="profile-section">
           <div class="profile-section-title"><b>Професійний профіль</b><span class="muted">дані для добірок і портфоліо</span></div>
-          ${rp.imported?`<div class="resume-import-note">✓ Знайдено та підключено резюме студента з архіву. Дані можна відредагувати в картці.</div>`:""}
+          ${rp.imported?`<div class="resume-import-note">✓ Знайдено та підключено резюме студента з архіву.</div>`:""}
+          ${rp.questionnaire?.name?`<div class="resume-import-note">✓ Підключено анкетні дані студента: контакти та параметри для підбору.</div>`:""}
           <div class="resume-profile-grid">
             <div class="resume-box full"><h4>Про себе / професійний опис</h4><div>${rp.summary?esc(rp.summary):'<span class="muted">Ще не заповнено</span>'}</div></div>
             <div class="resume-box"><h4>Ролі та напрями</h4><div class="resume-tags">${profileTagHtml(rp.roles)||'<span class="muted">—</span>'}</div></div>
@@ -2604,6 +2651,9 @@ function openStudent(id){
             <div class="resume-box full"><h4>Кастингові / зовнішні дані</h4><div class="casting-grid">
               <div class="casting-item"><b>Ігровий вік</b><span>${esc(rp.casting.playingAge||"—")}</span></div>
               <div class="casting-item"><b>Зріст</b><span>${esc(rp.casting.height||"—")}</span></div>
+              <div class="casting-item"><b>Вага</b><span>${esc(rp.casting.weight||"—")}</span></div>
+              <div class="casting-item"><b>Одяг</b><span>${esc(rp.casting.clothingSize||"—")}</span></div>
+              <div class="casting-item"><b>Взуття</b><span>${esc(rp.casting.shoeSize||"—")}</span></div>
               <div class="casting-item"><b>Типаж</b><span>${esc(rp.casting.type||"—")}</span></div>
               <div class="casting-item"><b>Волосся</b><span>${esc(rp.casting.hair||"—")}</span></div>
               <div class="casting-item"><b>Очі</b><span>${esc(rp.casting.eyes||"—")}</span></div>
@@ -2958,15 +3008,16 @@ async function deleteStudentCompletely(id){
 
 function editStudent(id){
   const s=sBy(id); if(!s) return;
+  const q=importedQuestionnaireForStudent(s)||{};
   $("#studentDialogBody").innerHTML=`<div class="student-profile">
     <div class="profile-head"><div><h2>Редагувати картку</h2><div class="muted">${esc(s.name)}</div></div></div>
     <form id="studentEditForm" class="profile-edit-form" style="margin-top:18px">
       <label class="full">Група<input id="stGroup" value="${esc(s.group||"")}" list="studentGroupsList" placeholder="Наприклад: РЕМС-44"><datalist id="studentGroupsList">${availableGroups().map(g=>`<option value="${esc(g)}"></option>`).join("")}</datalist></label>
-      <label>Телефон<input id="stPhone" value="${esc(s.phone||"")}" placeholder="+380..."></label>
-      <label>Email<input id="stEmail" type="email" value="${esc(s.email||"")}"></label>
-      <label>Дата народження<input id="stBirthDate" type="date" value="${esc(s.birthDate||"")}"></label>
-      <label>Instagram<input id="stInstagram" value="${esc(s.instagram||"")}" placeholder="@username або посилання"></label>
-      <label>Telegram<input id="stTelegram" value="${esc(s.telegram||"")}" placeholder="@username"></label>
+      <label>Телефон<input id="stPhone" value="${esc(s.phone||q.phone||"")}" placeholder="+380..."></label>
+      <label>Email<input id="stEmail" type="email" value="${esc(s.email||q.email||"")}"></label>
+      <label>Дата народження<input id="stBirthDate" type="date" value="${esc(s.birthDate||q.birthDate||"")}"></label>
+      <label>Instagram<input id="stInstagram" value="${esc(s.instagram||q.instagram||"")}" placeholder="@username або посилання"></label>
+      <label>Telegram<input id="stTelegram" value="${esc(s.telegram||q.telegram||"")}" placeholder="@username"></label>
       <div class="full shared-photo-editor">
         <div class="shared-photo-preview" id="studentPhotoPreview">${sharedStudentPhoto(s)?`<img src="${sharedStudentPhoto(s)}" alt="${esc(s.name)}">`:'<span>Фото ще немає</span>'}</div>
         <div class="shared-photo-controls">
@@ -2989,6 +3040,10 @@ function editStudent(id){
       <div class="resume-edit-section"><b>Кастингові / зовнішні дані</b><div class="muted">Не визначаються автоматично за фото — заповнюються лише фактичні дані.</div></div>
       <label>Ігровий вік<input id="stCastAge" value="${esc(rp.casting.playingAge||"")}" placeholder="Напр. 18–24"></label>
       <label>Зріст<input id="stCastHeight" value="${esc(rp.casting.height||"")}" placeholder="Напр. 178 см"></label>
+      <label>Вага<input id="stCastWeight" value="${esc(rp.casting.weight||"")}" placeholder="Напр. 60 кг"></label>
+      <label>Розмір одягу<input id="stCastClothing" value="${esc(rp.casting.clothingSize||"")}"></label>
+      <label>Розмір взуття<input id="stCastShoe" value="${esc(rp.casting.shoeSize||"")}"></label>
+      <label>Форма фінансування<input id="stFunding" value="${esc(s.academicProfile?.funding||rp.questionnaire?.funding||"")}" placeholder="Бюджет / Контракт"></label>
       <label>Типаж<input id="stCastType" value="${esc(rp.casting.type||"")}"></label>
       <label>Волосся<input id="stCastHair" value="${esc(rp.casting.hair||"")}"></label>
       <label>Очі<input id="stCastEyes" value="${esc(rp.casting.eyes||"")}"></label>
@@ -3051,12 +3106,16 @@ function editStudent(id){
         casting:{
           playingAge:$("#stCastAge")?.value.trim()||"",
           height:$("#stCastHeight")?.value.trim()||"",
+          weight:$("#stCastWeight")?.value.trim()||"",
+          clothingSize:$("#stCastClothing")?.value.trim()||"",
+          shoeSize:$("#stCastShoe")?.value.trim()||"",
           type:$("#stCastType")?.value.trim()||"",
           hair:$("#stCastHair")?.value.trim()||"",
           eyes:$("#stCastEyes")?.value.trim()||"",
           special:$("#stCastSpecial")?.value.trim()||""
         }
-      }
+      },
+      academicProfile:{...(s.academicProfile||{}),funding:$("#stFunding")?.value.trim()||""}
     };
 
     const photoFile=$("#studentPhotoFile")?.files?.[0];
@@ -7446,7 +7505,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v15.0 · хмара ✓");
+    setStatus("v16.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -7549,7 +7608,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v15.0 · хмара ✓");
+      setStatus("v16.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
