@@ -880,12 +880,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v5.9 · немає з’єднання");
+    setStatus("v31.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v5.9 · збереження…");
+    setStatus("v31.0 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -895,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v28.0 · хмара ✓");
+    setStatus("v31.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -906,7 +906,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v5.9 · помилка хмари");
+    setStatus("v31.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1003,28 +1003,56 @@ const ensureStudentInProjectTeam=(projectId,studentId)=>{
 };
 async function addStudentToProjectDate(projectId,date,studentId){
   const project=pBy(projectId); if(!project) return false;
-  const sid=ensureStudentInProjectTeam(projectId,studentId);
-  const roster=new Set(projectDateRosterIds(project,date));
-  roster.add(String(sid));
-  setProjectDateRosterIds(project,date,[...roster]);
-  (db.events||[]).forEach(e=>{
-    if(String(e.projectId)!==String(projectId)||String(e.date)!==String(date)) return;
-    const ids=new Set((Array.isArray(e.studentIds)?e.studentIds:[]).map(String));
-    ids.add(String(sid));
-    e.studentIds=[...ids].map(x=>resolveStudentId(x)??x);
-  });
-  return await save();
+  // v31: date roster + event rosters + master project team are one atomic edit.
+  // If Firestore rejects the write, restore the exact previous local state.
+  const beforeAssignments=clone(db.assignments||[]);
+  const beforeEvents=clone(db.events||[]);
+  const beforeDateRosters=clone(project.dateRosters||{});
+  try{
+    const sid=ensureStudentInProjectTeam(projectId,studentId);
+    const roster=new Set(projectDateRosterIds(project,date));
+    roster.add(String(sid));
+    setProjectDateRosterIds(project,date,[...roster]);
+    (db.events||[]).forEach(e=>{
+      if(String(e.projectId)!==String(projectId)||String(e.date)!==String(date)) return;
+      const ids=new Set((Array.isArray(e.studentIds)?e.studentIds:[]).map(String));
+      ids.add(String(sid));
+      e.studentIds=[...ids].map(x=>resolveStudentId(x)??x);
+    });
+    const ok=await save();
+    if(!ok) throw new Error("cloud-save-failed");
+    return true;
+  }catch(err){
+    db.assignments=beforeAssignments;
+    db.events=beforeEvents;
+    project.dateRosters=beforeDateRosters;
+    cache();
+    console.error("addStudentToProjectDate rollback",err);
+    return false;
+  }
 }
 async function removeStudentFromProjectDate(projectId,date,studentId){
   const project=pBy(projectId); if(!project) return false;
+  const beforeEvents=clone(db.events||[]);
+  const beforeDateRosters=clone(project.dateRosters||{});
   const sid=String(studentId);
-  setProjectDateRosterIds(project,date,projectDateRosterIds(project,date).filter(x=>String(x)!==sid));
-  (db.events||[]).forEach(e=>{
-    if(String(e.projectId)!==String(projectId)||String(e.date)!==String(date)) return;
-    e.studentIds=(Array.isArray(e.studentIds)?e.studentIds:[]).filter(x=>String(x)!==sid);
-    if(e.studentRoles&&typeof e.studentRoles==="object") delete e.studentRoles[sid];
-  });
-  return await save();
+  try{
+    setProjectDateRosterIds(project,date,projectDateRosterIds(project,date).filter(x=>String(x)!==sid));
+    (db.events||[]).forEach(e=>{
+      if(String(e.projectId)!==String(projectId)||String(e.date)!==String(date)) return;
+      e.studentIds=(Array.isArray(e.studentIds)?e.studentIds:[]).filter(x=>String(x)!==sid);
+      if(e.studentRoles&&typeof e.studentRoles==="object") delete e.studentRoles[sid];
+    });
+    const ok=await save();
+    if(!ok) throw new Error("cloud-save-failed");
+    return true;
+  }catch(err){
+    db.events=beforeEvents;
+    project.dateRosters=beforeDateRosters;
+    cache();
+    console.error("removeStudentFromProjectDate rollback",err);
+    return false;
+  }
 }
 const isTimeUndetermined=e=>{
   const start=String(e?.startTime||"").trim();
@@ -2512,8 +2540,8 @@ const importedResumeForStudent=s=>{
   return bestScore>=70?best:null;
 };
 const importedLinksForStudent=s=>{
-  const bank=window.REMS_RESUME_LINKS_V25||{}; const n=resumeNorm(s?.name||"");
-  for(const [name,rows] of Object.entries(bank)){const nn=resumeNorm(name);if(nn===n||nn.split(" ").filter(Boolean).every(t=>n.includes(t))||n.split(" ").filter(Boolean).every(t=>nn.includes(t))) return clone(rows||[]);}
+  const bank=window.REMS_RESUME_LINKS_V25||{}; const n=normName(s?.name||"");
+  for(const [name,rows] of Object.entries(bank)){const nn=normName(name);if(nn===n||nn.split(" ").filter(Boolean).every(t=>n.includes(t))||n.split(" ").filter(Boolean).every(t=>nn.includes(t))) return clone(rows||[]);}
   return [];
 };
 const studentProfessionalProfile=s=>{
@@ -5129,6 +5157,8 @@ function showDay(date){
 
       const beforeAssignments=clone(db.assignments||[]);
       const beforeEvents=clone(db.events||[]);
+      const projectRef=pBy(projectId);
+      const beforeDateRosters=clone(projectRef?.dateRosters||{});
       const teamBefore=projectStudents(projectId).map(st=>st.id);
 
       // Preserve the old inherited event rosters before extending the project team,
@@ -5148,6 +5178,12 @@ function showDay(date){
         ids.forEach(id=>set.add(String(id)));
         e.studentIds=(db.students||[]).filter(st=>set.has(String(st.id))).map(st=>st.id);
       });
+      // v31: the date-level roster is authoritative too; keep it identical to what was added.
+      if(projectRef){
+        const dateSet=new Set(projectDateRosterIds(projectRef,date));
+        ids.forEach(id=>dateSet.add(String(id)));
+        setProjectDateRosterIds(projectRef,date,[...dateSet]);
+      }
 
       addSelected.disabled=true;
       addSelected.textContent="Збереження…";
@@ -5155,6 +5191,8 @@ function showDay(date){
       if(!ok){
         db.assignments=beforeAssignments;
         db.events=beforeEvents;
+        if(projectRef) projectRef.dateRosters=beforeDateRosters;
+        cache();
         alert("Не вдалося зберегти зміни в хмарі.");
         render();
         return;
@@ -7838,7 +7876,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v28.0 · хмара ✓");
+    setStatus("v31.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -7952,7 +7990,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v28.0 · хмара ✓");
+      setStatus("v31.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;

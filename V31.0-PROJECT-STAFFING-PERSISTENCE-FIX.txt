@@ -1,0 +1,7 @@
+REMS Control v31
+
+Fixed project staffing persistence:
+- date roster, event rosters and project team save together
+- bulk add from Occupancy now updates project.dateRosters too
+- failed cloud writes roll back local changes instead of leaving phantom assignments
+- version/status labels updated to v31
