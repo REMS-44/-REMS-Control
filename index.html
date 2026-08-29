@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111318">
   <title>REMS Control</title>
-  <link rel="stylesheet" href="styles.css?v=9.0">
+  <link rel="stylesheet" href="styles.css?v=11.0">
   <link rel="stylesheet" href="responsive.css?v=11.0.0">
 <style>
 /* REMS Control v4.2 — Personal student schedules */
@@ -36,14 +36,13 @@
       <button class="nav" data-view="students">👥 <span>Студенти</span></button>
       <button class="nav" data-view="projects">🎭 <span>Проєкти</span></button>
       <button class="nav" data-view="academic">🎓 <span>Розклад занять</span></button>
-      <button class="nav" data-view="calendar">📅 <span>Зведений календар</span></button>
       <button class="nav" data-view="schedule">🧭 <span>Зайнятість</span></button>
       <button class="nav" data-view="industry">✦ <span>Зустріч із індустрією</span></button>
     </nav>
     <div class="sidebar-bottom">
       <button class="mini" id="backupBtn">Експорт</button>
       <label class="mini file-btn">Імпорт<input id="restoreInput" type="file" accept=".json"></label>
-      <div class="sidebar-note" id="cloudStatus">v7.0 · підключення…</div>
+      <div class="sidebar-note" id="cloudStatus">v11.0 · підключення…</div>
     </div>
   </aside>
 
@@ -88,13 +87,12 @@
     <button class="nav" data-view="students"><b aria-hidden="true">👥</b><span>Студенти</span></button>
     <button class="nav" data-view="projects"><b aria-hidden="true">🎭</b><span>Проєкти</span></button>
     <button class="nav" data-view="academic"><b aria-hidden="true">🎓</b><span>Заняття</span></button>
-    <button class="nav" data-view="calendar"><b aria-hidden="true">📅</b><span>Календар</span></button>
     <button class="nav" data-view="schedule"><b aria-hidden="true">🧭</b><span>Зайнятість</span></button>
     <button class="nav" data-view="industry"><b aria-hidden="true">✦</b><span>Індустрія</span></button>
   </nav>
 
   <script src="responsive.js?v=11.0.0"></script>
   <script src="firebase-config.js"></script>
-  <script type="module" src="app.js?v=9.0"></script>
+  <script type="module" src="app.js?v=11.0"></script>
 </body>
 </html>

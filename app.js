@@ -1885,7 +1885,8 @@ function openConflictInCalendar(studentId,date){
   conflictCalendarFocus={studentId:String(studentId),date:String(date)};
   document.querySelector("#studentDialog")?.close();
   document.querySelector("#conflictDialog")?.close();
-  switchView("calendar","Зведений календар");
+  switchView("schedule","Зайнятість");
+  setTimeout(()=>openScheduleMatrix(),0);
 }
 function showStudentConflicts(studentId){
   const st=sBy(studentId); if(!st) return;
@@ -1940,6 +1941,14 @@ function updateQuickAddForView(v){
   }
 }
 function switchView(v,label){
+  if(v==="calendar"){
+    currentView="schedule";
+    $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view==="schedule"));
+    $("#pageTitle").textContent="Зайнятість";
+    updateQuickAddForView("schedule");
+    openScheduleMatrix();
+    return;
+  }
   currentView=v;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
   $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",academic:"Розклад занять",calendar:"Зведений календар",schedule:"Зайнятість",industry:"Зустріч із індустрією"}[v]);
@@ -3062,7 +3071,7 @@ const wordProjectSummaryRow=(p,options,allAcks=[])=>{
     evs.forEach(e=>{const s=acknowledgementStats(e,allAcks);const assigned=s.assigned.filter(st=>wordReportStudentAllowed(st,options));const yesNames=new Set(s.yes.map(x=>String(x.id)));yes+=assigned.filter(x=>yesNames.has(String(x.id))).length;total+=assigned.length;});
     ack=total?`${yes}/${total}`:"—";
   }
-  return [p.name,wordProjectStatus(p),dates.length?`${fullfmt(dates[0])} — ${fullfmt(dates[dates.length-1])}`:"—",String(evs.length),String(team.length),String(slots),ack];
+  return [projectReportingTitle(p),wordProjectStatus(p),dates.length?`${fullfmt(dates[0])} — ${fullfmt(dates[dates.length-1])}`:"—",String(evs.length),String(team.length),String(slots),ack];
 };
 
 const wordProjectSections=(p,options,allAcks=[])=>{
@@ -3072,7 +3081,7 @@ const wordProjectSections=(p,options,allAcks=[])=>{
   const dates=wordProjectDatesInRange(p.id,options);
   const groupLabel=options.group||"Усі групи";
 
-  out.push(wordParagraph(p.name,{style:"Heading1",size:30,bold:true,spaceAfter:120}));
+  out.push(wordParagraph(projectReportingTitle(p),{style:"Heading1",size:30,bold:true,spaceAfter:120}));
   if(options.summary){
     out.push(wordParagraph("Загальна інформація",{style:"Heading2",size:24,bold:true}));
     const period=dates.length?`${fullfmt(dates[0])} — ${fullfmt(dates[dates.length-1])}`:"Дати не вказані";
@@ -3085,7 +3094,14 @@ const wordProjectSections=(p,options,allAcks=[])=>{
       ["Задіяностей у робочих блоках",String(evs.reduce((n,e)=>n+wordReportPeopleForEvent(e,options).length,0))],
       ["Розподіл команди по групах",studentGroupSummary(team)||"—"]
     ];
-    if(String(p.description||"").trim()) summaryRows.push(["Опис",String(p.description).trim()]);
+    const reporting=projectReportingData(p);
+    if(String(reporting.type||"").trim()) summaryRows.push(["Тип проєкту",String(reporting.type).trim()]);
+    if(String(reporting.venue||"").trim()||String(reporting.city||"").trim()) summaryRows.push(["Місце проведення",[reporting.venue,reporting.city].filter(Boolean).join(", ")]);
+    if(String(reporting.organizer||"").trim()) summaryRows.push(["Організатор / компанія",String(reporting.organizer).trim()]);
+    if(String(reporting.participation||"").trim()) summaryRows.push(["Характер участі студентів",String(reporting.participation).trim()]);
+    if(String(reporting.description||"").trim()) summaryRows.push(["Опис для звітності",String(reporting.description).trim()]);
+    else if(String(p.description||"").trim()) summaryRows.push(["Опис",String(p.description).trim()]);
+    if(String(reporting.readyText||"").trim()) summaryRows.push(["Готове формулювання для звіту",String(reporting.readyText).trim()]);
     out.push(wordTable(["Показник","Значення"],summaryRows,[3100,10300]));
   }
 
@@ -3502,6 +3518,67 @@ function showProjectDay(projectId,date,availabilityEventIndex=0){
   const search=dialog.querySelector("#projectDayAvailabilitySearch"); if(search) search.oninput=filterAvailability;
 }
 
+
+function projectReportingData(projectOrId){
+  const p=typeof projectOrId==="object"?projectOrId:pBy(projectOrId);
+  return p?.reporting&&typeof p.reporting==="object"?p.reporting:{};
+}
+function projectReportingPeriod(p){
+  const dates=[...new Set([...(p?.plannedDates||[]).map(String),...eventsFor(p?.id).map(e=>String(e.date||""))].filter(Boolean))].sort();
+  return dates.length?`${fullfmt(dates[0])} — ${fullfmt(dates[dates.length-1])}`:"Дати ще не вказані";
+}
+function projectReportingFilledCount(p){
+  const r=projectReportingData(p);
+  return [r.officialName,r.type,r.venue,r.city,r.organizer,r.participation,r.description,r.readyText].filter(v=>String(v||"").trim()).length;
+}
+function projectReportingTitle(p){
+  const r=projectReportingData(p);
+  return String(r.officialName||p?.name||"Проєкт").trim();
+}
+function openProjectReporting(id){
+  const p=pBy(id); if(!p) return;
+  const dialog=ensureProjectCardDialog();
+  const r=projectReportingData(p);
+  dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body reporting-editor-page">
+    <div class="project-section-head"><div><h2 style="margin:0">Дані для звітності</h2><div class="muted">${esc(p.name)} · ці поля необов’язкові й можуть бути заповнені пізніше</div></div><button class="ghost" id="backFromReporting">Назад</button></div>
+    <div class="reporting-note"><b>Робоча назва проєкту лишається короткою.</b><span>Тут зберігається офіційне формулювання для кафедральних, факультетських та інших звітів. Воно не захаращує календар.</span></div>
+    <form id="projectReportingForm" class="project-edit-form reporting-form">
+      <label class="full">Повна офіційна назва проєкту
+        <textarea id="reportOfficialName" rows="2" placeholder="Наприклад: Концертне шоу Тіни Кароль «…»">${esc(r.officialName||"")}</textarea>
+      </label>
+      <label>Тип проєкту<input id="reportType" value="${esc(r.type||"")}" list="reportTypeOptions" placeholder="Концерт / телепроєкт / фестиваль / …"><datalist id="reportTypeOptions"><option value="Концерт"><option value="Телевізійний проєкт"><option value="Фестиваль"><option value="Церемонія"><option value="Зйомка"><option value="Вистава"><option value="Шоу"><option value="Культурно-мистецький захід"></datalist></label>
+      <label>Організатор / компанія / замовник<input id="reportOrganizer" value="${esc(r.organizer||"")}" placeholder="За потреби"></label>
+      <label>Місце проведення<input id="reportVenue" value="${esc(r.venue||"")}" placeholder="Наприклад: Палац спорту"></label>
+      <label>Місто<input id="reportCity" value="${esc(r.city||"")}" placeholder="Наприклад: Київ"></label>
+      <div class="full reporting-auto-period"><span>Період за графіком проєкту</span><b>${esc(projectReportingPeriod(p))}</b><small>Підтягується автоматично з дат проєкту.</small></div>
+      <label class="full">Характер участі студентів<textarea id="reportParticipation" rows="3" placeholder="Наприклад: асистенти режисера, постановочна група, сценічний менеджмент…">${esc(r.participation||"")}</textarea></label>
+      <label class="full">Опис проєкту для звітності<textarea id="reportDescription" rows="5" placeholder="Повний красивий опис: що це за проєкт, де відбувався, у чому полягала участь студентів…">${esc(r.description||"")}</textarea></label>
+      <label class="full">Готове формулювання для звіту<textarea id="reportReadyText" rows="5" placeholder="Готовий абзац, який можна буде без змін підставити у звіт">${esc(r.readyText||"")}</textarea></label>
+      <div class="full profile-actions"><button type="button" class="ghost" id="cancelReporting">Скасувати</button><button type="submit" class="primary">Зберегти дані</button></div>
+    </form>
+  </div>`;
+  dialog.querySelector("#backFromReporting").onclick=()=>openProjectCard(id);
+  dialog.querySelector("#cancelReporting").onclick=()=>openProjectCard(id);
+  dialog.querySelector("#projectReportingForm").onsubmit=async e=>{
+    e.preventDefault();
+    const submit=e.submitter; if(submit){submit.disabled=true;submit.textContent="Збереження…";}
+    p.reporting={
+      officialName:dialog.querySelector("#reportOfficialName").value.trim(),
+      type:dialog.querySelector("#reportType").value.trim(),
+      organizer:dialog.querySelector("#reportOrganizer").value.trim(),
+      venue:dialog.querySelector("#reportVenue").value.trim(),
+      city:dialog.querySelector("#reportCity").value.trim(),
+      participation:dialog.querySelector("#reportParticipation").value.trim(),
+      description:dialog.querySelector("#reportDescription").value.trim(),
+      readyText:dialog.querySelector("#reportReadyText").value.trim(),
+      updatedAt:new Date().toISOString()
+    };
+    const ok=await save();
+    if(!ok){alert("Не вдалося зберегти дані для звітності.");if(submit){submit.disabled=false;submit.textContent="Зберегти дані";}return;}
+    openProjectCard(id);
+  };
+}
+
 function openProjectCard(id){
   const p=pBy(id); if(!p) return;
   const dialog=ensureProjectCardDialog();
@@ -3527,6 +3604,7 @@ function openProjectCard(id){
           <button class="primary" id="introduceProjectBtn">Ознайомити з проєктом</button>
           <button class="ghost" id="projectAcknowledgementsBtn">Ознайомлення <b data-project-ack-count="${esc(String(p.id))}">…</b></button>
           <button class="ghost" id="projectWordReportBtn">Звіт Word</button>
+          <button class="ghost" id="projectReportingBtn">Дані для звітності${projectReportingFilledCount(p)?` · ${projectReportingFilledCount(p)}/8`:""}</button>
           <button class="ghost" id="editProjectBtn">Редагувати</button>
           <button class="ghost" onclick="document.querySelector('#projectCardDialog').close()">Закрити</button>
         </div>
@@ -3538,6 +3616,9 @@ function openProjectCard(id){
         <div class="project-meta"><span>Студентів</span><strong>${assigned.length}</strong></div>
         <div class="project-meta"><span>Період</span><strong style="font-size:14px">${projectDates.length?`${fmt(projectDates[0])} — ${fmt(projectDates[projectDates.length-1])}`:"—"}</strong></div>
       </div>
+      <button type="button" class="project-reporting-card ${projectReportingFilledCount(p)?"filled":"empty"}" id="projectReportingCard">
+        <span><small>ДАНІ ДЛЯ ЗВІТНОСТІ</small><b>${projectReportingFilledCount(p)?esc(projectReportingTitle(p)):"Ще не заповнені"}</b><em>${projectReportingFilledCount(p)?`${projectReportingFilledCount(p)} із 8 полів · можна доповнити будь-коли`:"Проєкт уже можна використовувати. Офіційні дані допишете пізніше."}</em></span><strong>→</strong>
+      </button>
 
       <div class="project-section">
         <div class="project-section-head"><b>Студенти</b><div style="display:flex;align-items:center;gap:8px"><span class="muted">${assigned.length}</span><button type="button" class="ghost" id="projectRosterTemplatesBtn">Шаблони складу</button></div></div>
@@ -3661,6 +3742,10 @@ function openProjectCard(id){
   dialog.querySelector("#projectAcknowledgementsBtn").onclick=()=>openProjectAcknowledgements(id);
   const projectWordReportBtn=dialog.querySelector("#projectWordReportBtn");
   if(projectWordReportBtn) projectWordReportBtn.onclick=()=>openProjectsWordExport([id]);
+  const projectReportingBtn=dialog.querySelector("#projectReportingBtn");
+  if(projectReportingBtn) projectReportingBtn.onclick=()=>openProjectReporting(id);
+  const projectReportingCard=dialog.querySelector("#projectReportingCard");
+  if(projectReportingCard) projectReportingCard.onclick=()=>openProjectReporting(id);
   updateAckIndicators().catch(console.error);
   dialog.querySelector("#editProjectBtn").onclick=()=>editProjectCard(id);
   }catch(err){
@@ -5609,6 +5694,25 @@ function academic(){
   document.head.appendChild(st);
 })();
 
+
+function openScheduleMatrix(){
+  currentView="schedule";
+  $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view==="schedule"));
+  $("#pageTitle").textContent="Зайнятість";
+  calendar();
+  const toolbar=document.querySelector(".calendar-toolbar");
+  if(toolbar&&!document.querySelector("#backToScheduleFromMatrix")){
+    const back=document.createElement("button");
+    back.type="button";back.className="ghost";back.id="backToScheduleFromMatrix";back.textContent="← Календар зайнятості";
+    back.onclick=()=>schedule();
+    toolbar.prepend(back);
+    const hint=document.createElement("div");
+    hint.className="schedule-matrix-hint";
+    hint.innerHTML='<b>Детальна таблиця по студентах</b><span>Це колишній «Зведений календар», перенесений всередину «Зайнятості». Тут лишилися фільтри за проєктом, групою, студентом, типом події та конфліктами.</span>';
+    toolbar.parentNode.insertBefore(hint,toolbar.nextSibling);
+  }
+}
+
 function calendar(){
   const monthNames={
     "2026-08":"Серпень 2026","2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026",
@@ -5787,11 +5891,15 @@ function schedule(){
         <option value="25">25+ вільних</option>
         <option value="20">20+ вільних</option>
       </select>
+      <button type="button" class="ghost" id="schMatrixBtn">Таблиця по студентах</button>
     </div>
     <div id="scheduleKpis" class="schedule-kpis"></div>
     <div id="scheduleRecommended"></div>
     <div id="scheduleMonthTabs" class="schedule-month-tabs"></div>
     <div id="scheduleCalendar"></div>`;
+
+  const matrixBtn=document.querySelector("#schMatrixBtn");
+  if(matrixBtn) matrixBtn.onclick=()=>openScheduleMatrix();
 
   const render=()=>{
     const ranges={
@@ -6449,6 +6557,18 @@ function openNewStudentDialog(){
   };
   if(!dialog.open) dialog.showModal();
 }
+
+
+(function injectV11UnifiedStyles(){
+  if(document.getElementById("remsV11UnifiedStyles")) return;
+  const st=document.createElement("style");st.id="remsV11UnifiedStyles";
+  st.textContent=`
+    .project-reporting-card{width:100%;margin:14px 0 4px;border:1px solid #e5e7eb;border-radius:14px;padding:13px 15px;background:#fff;display:flex;justify-content:space-between;align-items:center;gap:16px;text-align:left;cursor:pointer;font:inherit}.project-reporting-card:hover{border-color:#cbd5e1;background:#f8fafc}.project-reporting-card>span{display:grid;gap:3px}.project-reporting-card small{font-size:9px;letter-spacing:.08em;color:#64748b;font-weight:900}.project-reporting-card b{font-size:13px;color:#111827}.project-reporting-card em{font-style:normal;font-size:10px;color:#64748b}.project-reporting-card>strong{font-size:20px;color:#94a3b8}.project-reporting-card.filled{border-color:#bfdbfe;background:#f8fbff}.project-reporting-card.empty{border-style:dashed}
+    .reporting-editor-page{max-width:1050px;margin:0 auto}.reporting-note{margin:14px 0;border:1px solid #bfdbfe;background:#eff6ff;border-radius:13px;padding:12px 14px;display:grid;gap:4px}.reporting-note span{font-size:11px;color:#475569;line-height:1.5}.reporting-form{margin-top:14px}.reporting-auto-period{border:1px solid #e5e7eb;background:#f8fafc;border-radius:12px;padding:11px 12px;display:grid;gap:3px}.reporting-auto-period span{font-size:10px;color:#64748b;font-weight:800}.reporting-auto-period b{font-size:13px}.reporting-auto-period small{font-size:10px;color:#94a3b8}
+    .schedule-matrix-hint{margin:10px 0 12px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc;display:flex;justify-content:space-between;gap:16px;align-items:center}.schedule-matrix-hint span{font-size:10px;color:#64748b;max-width:760px}.calendar-toolbar #backToScheduleFromMatrix{white-space:nowrap}
+    @media(max-width:760px){.schedule-matrix-hint{align-items:flex-start;flex-direction:column}.project-reporting-card{align-items:flex-start}.reporting-form{grid-template-columns:1fr}.reporting-form .full{grid-column:1}}
+  `;document.head.appendChild(st);
+})();
 
 const views={dashboard,students,projects,academic,calendar,schedule,industry};
 
