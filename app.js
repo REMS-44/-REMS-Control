@@ -886,7 +886,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v7.0 · хмара ✓");
+    setStatus("v8.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -941,6 +941,61 @@ const studentBusyLabelsOnDate=(studentId,date)=>{
   });
   return [...new Set(labels.filter(Boolean))];
 };
+// v8.0 — availability-first staffing for project dates.
+const studentExternalBusyLabelsOnDate=(studentId,date,currentProjectId)=>{
+  const sid=String(studentId), pid=String(currentProjectId||"");
+  const labels=[];
+  (db.events||[]).filter(e=>String(e.date||"")===String(date)&&String(e.projectId)!==pid).forEach(e=>{
+    if(studentsForEvent(e).some(st=>String(st.id)===sid)){
+      const pr=pBy(e.projectId);
+      labels.push(`${pr?.name||"Проєкт"}${eventTimeText(e)?` · ${eventTimeText(e)}`:""}`);
+    }
+  });
+  academicLessons().filter(l=>academicLessonOccursOnDate(l,date)).forEach(l=>{
+    if(lessonStudents(l).some(st=>String(st.id)===sid)) labels.push(`🎓 ${l.subject||l.title||"Заняття"}${eventTimeText(l)?` · ${eventTimeText(l)}`:""}`);
+  });
+  return [...new Set(labels.filter(Boolean))];
+};
+const projectDateRosterIds=(project,date)=>{
+  const raw=project?.dateRosters?.[String(date)];
+  return Array.isArray(raw)?[...new Set(raw.map(x=>String(x)))]:[];
+};
+const setProjectDateRosterIds=(project,date,ids)=>{
+  project.dateRosters=(project.dateRosters&&typeof project.dateRosters==="object")?project.dateRosters:{};
+  project.dateRosters[String(date)]=[...new Set((ids||[]).map(x=>resolveStudentId(x)??x))];
+};
+const ensureStudentInProjectTeam=(projectId,studentId)=>{
+  const sid=resolveStudentId(studentId)??studentId;
+  if(!db.assignments.some(a=>String(a.projectId)===String(projectId)&&String(a.studentId)===String(sid))){
+    db.assignments.push({projectId,studentId:sid});
+  }
+  return sid;
+};
+async function addStudentToProjectDate(projectId,date,studentId){
+  const project=pBy(projectId); if(!project) return false;
+  const sid=ensureStudentInProjectTeam(projectId,studentId);
+  const roster=new Set(projectDateRosterIds(project,date));
+  roster.add(String(sid));
+  setProjectDateRosterIds(project,date,[...roster]);
+  (db.events||[]).forEach(e=>{
+    if(String(e.projectId)!==String(projectId)||String(e.date)!==String(date)) return;
+    const ids=new Set((Array.isArray(e.studentIds)?e.studentIds:[]).map(String));
+    ids.add(String(sid));
+    e.studentIds=[...ids].map(x=>resolveStudentId(x)??x);
+  });
+  return await save();
+}
+async function removeStudentFromProjectDate(projectId,date,studentId){
+  const project=pBy(projectId); if(!project) return false;
+  const sid=String(studentId);
+  setProjectDateRosterIds(project,date,projectDateRosterIds(project,date).filter(x=>String(x)!==sid));
+  (db.events||[]).forEach(e=>{
+    if(String(e.projectId)!==String(projectId)||String(e.date)!==String(date)) return;
+    e.studentIds=(Array.isArray(e.studentIds)?e.studentIds:[]).filter(x=>String(x)!==sid);
+    if(e.studentRoles&&typeof e.studentRoles==="object") delete e.studentRoles[sid];
+  });
+  return await save();
+}
 const isTimeUndetermined=e=>{
   const start=String(e?.startTime||"").trim();
   const end=String(e?.endTime||"").trim();
@@ -3214,17 +3269,20 @@ function showProjectDay(projectId,date){
   const dialog=ensureProjectCardDialog();
   const evs=eventsFor(projectId).filter(e=>e.date===date);
   const pretty=new Date(date+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  const peopleIds=new Set(evs.flatMap(e=>studentsForEvent(e).map(s=>String(s.id))));
-  const people=db.students.filter(s=>peopleIds.has(String(s.id)));
-  const team=projectStudents(projectId);
-  const freePeople=team.filter(s=>!peopleIds.has(String(s.id))&&!studentBusyLabelsOnDate(s.id,date).length);
-  const busyElsewherePeople=team.filter(s=>!peopleIds.has(String(s.id))&&studentBusyLabelsOnDate(s.id,date).length);
+  const eventPeopleIds=new Set(evs.flatMap(e=>studentsForEvent(e).map(s=>String(s.id))));
+  const storedRoster=new Set(projectDateRosterIds(p,date));
+  eventPeopleIds.forEach(id=>storedRoster.add(id));
+  const people=db.students.filter(s=>storedRoster.has(String(s.id)));
+  const freeCandidates=(db.students||[]).filter(s=>!storedRoster.has(String(s.id))&&!studentExternalBusyLabelsOnDate(s.id,date,projectId).length);
+  const busyCandidates=(db.students||[]).filter(s=>!storedRoster.has(String(s.id))&&studentExternalBusyLabelsOnDate(s.id,date,projectId).length);
   const rosterTemplates=projectRosterTemplates(p);
+  const noBlocksNote=!evs.length?'<div class="notice" style="margin:10px 0">Це запланована дата без робочого блоку. Людей уже можна додавати: вони збережуться у складі дати й автоматично підставляться в новий блок, який ти створиш на цю дату.</div>':'';
   dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body">
     <div class="project-section-head">
-      <div><h2 style="margin:0">${pretty}</h2><div class="muted">${esc(p.name)} · ${evs.length} робочих блоків · ${people.length} учасників</div></div>
+      <div><h2 style="margin:0">${pretty}</h2><div class="muted">${esc(p.name)} · ${evs.length} робочих блоків · ${people.length} у складі дати</div></div>
       <div class="planner-toolbar"><button class="ghost" id="addBlockThisDay">+ Блок на цей день</button><button class="ghost" id="openPlannerThisDay">Планування</button><button class="ghost" id="backToProjectCalendar">Назад</button></div>
     </div>
+    ${noBlocksNote}
     <div class="planner-toolbar" style="margin:10px 0 14px;align-items:center">
       <b style="font-size:12px">Швидкий склад на цю дату:</b>
       ${rosterTemplates.map(t=>`<button type="button" class="ghost project-day-template" data-template-id="${esc(String(t.id))}">${esc(t.name||"Шаблон")}</button>`).join("")||'<span class="muted">Шаблонів ще немає.</span>'}
@@ -3240,37 +3298,48 @@ function showProjectDay(projectId,date){
           <button class="ghost danger-inline project-day-delete-event" data-index="${i}">Видалити</button>
           <span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,esc(shortType(e.type)))}</span>
         </div>
-      </div>`).join("")||'<div class="empty">На цю дату подій немає.</div>'}
+      </div>`).join("")||'<div class="empty">На цю дату робочих блоків ще немає.</div>'}
     </div>
-    <div class="availability-grid-two">
-      <div class="availability-card"><div class="availability-title"><b>У ПРОЄКТІ · ${people.length}</b><small>${esc(studentGroupSummary(people)||"—")}</small></div><div class="availability-list">
-        ${people.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s,studentBusyLabelsOnDate(s.id,date).join(" · "))}</button>`).join("")||'<span class="muted">Учасників не призначено.</span>'}
+
+    <div class="availability-picker-head">
+      <div><b>Підібрати людей на цю дату</b><div class="muted">Система перевіряє всі інші проєкти та навчальний розклад саме на ${fmt(date)}.</div></div>
+      <div class="planner-toolbar"><button type="button" class="ghost availability-filter active" data-filter="all">Усі</button><button type="button" class="ghost availability-filter" data-filter="free">Вільні · ${freeCandidates.length}</button><button type="button" class="ghost availability-filter" data-filter="busy">Зайняті · ${busyCandidates.length}</button><input id="projectDayAvailabilitySearch" placeholder="Пошук студента" style="min-width:180px"></div>
+    </div>
+
+    <div class="availability-grid-two project-day-availability-grid">
+      <div class="availability-card" data-availability-kind="selected"><div class="availability-title"><b>СКЛАД ЦІЄЇ ДАТИ · ${people.length}</b><small>${esc(studentGroupSummary(people)||"—")}</small></div><div class="availability-list">
+        ${people.map(s=>`<div class="availability-person-row" data-search="${esc((s.name+' '+studentGroupLabel(s)).toLowerCase())}"><button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s,studentExternalBusyLabelsOnDate(s.id,date,projectId).join(" · "))}</button><button type="button" class="ghost danger-inline remove-date-person" data-id="${s.id}">Прибрати з дати</button></div>`).join("")||'<span class="muted">Ще нікого не додано.</span>'}
       </div></div>
-      <div class="availability-card"><div class="availability-title"><b>ВІЛЬНІ В КОМАНДІ · ${freePeople.length}</b><small>${esc(studentGroupSummary(freePeople)||"—")}</small></div><div class="availability-list">
-        ${freePeople.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s)}</button>`).join("")||'<span class="muted">Вільних учасників команди немає.</span>'}
+      <div class="availability-card" data-availability-kind="free"><div class="availability-title"><b>ВІЛЬНІ · ${freeCandidates.length}</b><small>${esc(studentGroupSummary(freeCandidates)||"—")}</small></div><div class="availability-list">
+        ${freeCandidates.map(s=>`<div class="availability-person-row" data-search="${esc((s.name+' '+studentGroupLabel(s)).toLowerCase())}"><button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s,"Вільний цього дня")}</button><button type="button" class="primary add-date-person" data-id="${s.id}">+ Додати</button></div>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
       </div></div>
-      ${busyElsewherePeople.length?`<div class="availability-card day-busy-elsewhere"><div class="availability-title"><b>ЗАЙНЯТІ В ІНШОМУ · ${busyElsewherePeople.length}</b><small>${esc(studentGroupSummary(busyElsewherePeople)||"—")}</small></div><div class="availability-list">
-        ${busyElsewherePeople.map(s=>`<button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s,studentBusyLabelsOnDate(s.id,date).join(" · "))}</button>`).join("")}
-      </div></div>`:""}
+      <div class="availability-card day-busy-elsewhere" data-availability-kind="busy"><div class="availability-title"><b>ЗАЙНЯТІ · ${busyCandidates.length}</b><small>Показано, де саме людина вже працює або навчається</small></div><div class="availability-list">
+        ${busyCandidates.map(s=>`<div class="availability-person-row" data-search="${esc((s.name+' '+studentGroupLabel(s)).toLowerCase())}"><button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s,studentExternalBusyLabelsOnDate(s.id,date,projectId).join(" · "))}</button><button type="button" class="ghost add-date-person" data-id="${s.id}">Додати попри зайнятість</button></div>`).join("")||'<span class="muted">Зайнятих немає.</span>'}
+      </div></div>
     </div>
   </div>`;
+
   dialog.querySelector("#backToProjectCalendar").onclick=()=>openProjectCard(projectId);
   dialog.querySelector("#openPlannerThisDay").onclick=()=>openProjectPlanner(projectId,[date]);
   const editDayTemplates=dialog.querySelector("#editDayRosterTemplates");
   if(editDayTemplates) editDayTemplates.onclick=()=>openProjectRosterTemplates(projectId);
   dialog.querySelectorAll(".project-day-template").forEach(btn=>btn.onclick=async()=>{
-    const t=rosterTemplateById(projectId,btn.dataset.templateId);
-    if(!t) return;
-    if(!confirm(`Застосувати шаблон «${t.name||"Шаблон"}» до всіх ${evs.length} блоків на ${fmt(date)}? Поточний склад і функції цих блоків буде замінено.`)) return;
-    btn.disabled=true;
-    const ok=await applyRosterTemplateToDate(projectId,date,t.id);
-    if(!ok){btn.disabled=false;alert("Не вдалося зберегти шаблон на цю дату.");return;}
+    const t=rosterTemplateById(projectId,btn.dataset.templateId); if(!t) return;
+    const payload=rosterTemplatePayload(projectId,t);
+    setProjectDateRosterIds(p,date,payload.studentIds);
+    if(evs.length){
+      if(!confirm(`Застосувати шаблон «${t.name||"Шаблон"}» до всіх ${evs.length} блоків на ${fmt(date)}? Поточний склад і функції цих блоків буде замінено.`)) return;
+      btn.disabled=true;
+      const ok=await applyRosterTemplateToDate(projectId,date,t.id);
+      if(!ok){btn.disabled=false;alert("Не вдалося зберегти шаблон на цю дату.");return;}
+    }else{
+      payload.studentIds.forEach(sid=>ensureStudentInProjectTeam(projectId,sid));
+      const ok=await save(); if(!ok){alert("Не вдалося зберегти склад дати.");return;}
+    }
     showProjectDay(projectId,date);
   });
   dialog.querySelector("#addBlockThisDay").onclick=()=>{
-    $("#eventProjectId").value=projectId;
-    $("#eventDate").value=date;
-    $("#eventDialog").showModal();
+    $("#eventProjectId").value=projectId; $("#eventDate").value=date; $("#eventDialog").showModal();
   };
   dialog.querySelectorAll(".project-day-edit-event").forEach(b=>b.onclick=()=>editProjectEvent(projectId,evs[+b.dataset.index]));
   dialog.querySelectorAll(".project-day-people-event").forEach(b=>b.onclick=()=>editEventPeople(projectId,evs[+b.dataset.index]));
@@ -3278,29 +3347,41 @@ function showProjectDay(projectId,date){
     b.onclick=async()=>{
       const ev=evs[+b.dataset.index];
       if(!b.classList.contains("armed")){
-        b.classList.add("armed");
-        b.textContent="Точно видалити?";
-        setTimeout(()=>{
-          if(document.body.contains(b)){
-            b.classList.remove("armed");
-            b.textContent="Видалити";
-          }
-        },3500);
-        return;
+        b.classList.add("armed"); b.textContent="Точно видалити?";
+        setTimeout(()=>{if(document.body.contains(b)){b.classList.remove("armed");b.textContent="Видалити";}},3500); return;
       }
-      const i=db.events.findIndex(x=>x===ev);
-      if(i>=0) db.events.splice(i,1);
-      const ok=await save();
-      if(!ok) return;
-      const remain=eventsFor(projectId).filter(x=>x.date===date);
-      if(remain.length) showProjectDay(projectId,date);
-      else openProjectCard(projectId);
+      const i=db.events.findIndex(x=>x===ev); if(i>=0) db.events.splice(i,1);
+      const ok=await save(); if(!ok) return; showProjectDay(projectId,date);
     };
   });
   dialog.querySelectorAll(".project-day-student").forEach(b=>b.onclick=()=>{
-    const sid=resolveStudentId(b.dataset.id);
-    if(sid!==undefined) openStudent(sid);
+    const sid=resolveStudentId(b.dataset.id); if(sid!==undefined) openStudent(sid);
   });
+  dialog.querySelectorAll(".add-date-person").forEach(b=>b.onclick=async()=>{
+    b.disabled=true; b.textContent="Додаю…";
+    const ok=await addStudentToProjectDate(projectId,date,b.dataset.id);
+    if(!ok){b.disabled=false;b.textContent="Спробувати ще";alert("Не вдалося зберегти склад дати.");return;}
+    showProjectDay(projectId,date);
+  });
+  dialog.querySelectorAll(".remove-date-person").forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    const ok=await removeStudentFromProjectDate(projectId,date,b.dataset.id);
+    if(!ok){b.disabled=false;alert("Не вдалося змінити склад дати.");return;}
+    showProjectDay(projectId,date);
+  });
+  const filterAvailability=()=>{
+    const active=dialog.querySelector(".availability-filter.active")?.dataset.filter||"all";
+    const q=(dialog.querySelector("#projectDayAvailabilitySearch")?.value||"").trim().toLowerCase();
+    dialog.querySelectorAll("[data-availability-kind]").forEach(card=>{
+      const kind=card.dataset.availabilityKind;
+      card.style.display=(active==="all"||kind===active||kind==="selected")?"":"none";
+    });
+    dialog.querySelectorAll(".availability-person-row").forEach(row=>{row.style.display=(!q||String(row.dataset.search||"").includes(q))?"":"none";});
+  };
+  dialog.querySelectorAll(".availability-filter").forEach(btn=>btn.onclick=()=>{
+    dialog.querySelectorAll(".availability-filter").forEach(x=>x.classList.remove("active")); btn.classList.add("active"); filterAvailability();
+  });
+  const search=dialog.querySelector("#projectDayAvailabilitySearch"); if(search) search.oninput=filterAvailability;
 }
 
 function openProjectCard(id){
@@ -3383,7 +3464,11 @@ function openProjectCard(id){
     const sid=resolveStudentId(b.dataset.student);
     if(sid===undefined) return;
     const i=db.assignments.findIndex(a=>String(a.projectId)===String(id)&&String(a.studentId)===String(sid));
-    if(i>=0) db.assignments.splice(i,1); else db.assignments.push({projectId:id,studentId:sid});
+    if(i>=0){
+      db.assignments.splice(i,1);
+      const pr=pBy(id);
+      if(pr?.dateRosters&&typeof pr.dateRosters==="object") Object.keys(pr.dateRosters).forEach(d=>{pr.dateRosters[d]=(pr.dateRosters[d]||[]).filter(x=>String(x)!==String(sid));});
+    }else db.assignments.push({projectId:id,studentId:sid});
     // Видалення з команди чистить людину з усіх дат. Додавання лишає дати незалежними.
     normalizeProjectEventRosters(id);
     await save(); openProjectCard(id);
@@ -6320,7 +6405,8 @@ const createEventFromForm=async(notify=false,sourceBtn=null)=>{
   const endTime=timeUndetermined?"":($("#eventEndTime")?.value||"");
   if(!timeUndetermined&&startTime&&endTime&&timeMinutes(startTime)>=timeMinutes(endTime)){alert("Час завершення має бути пізніше за час початку.");return;}
   const location=$("#eventLocation")?.value.trim()||"";
-  const event={projectId,date,type,startTime,endTime,timeUndetermined,location,studentIds:[],studentRoles:{}};
+  const presetDateRoster=projectDateRosterIds(pBy(projectId),date).map(id=>resolveStudentId(id)??id);
+  const event={projectId,date,type,startTime,endTime,timeUndetermined,location,studentIds:[...presetDateRoster],studentRoles:{}};
 
   if(sourceBtn){
     sourceBtn.disabled=true;
@@ -6998,7 +7084,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v7.0 · хмара ✓");
+    setStatus("v8.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -7101,7 +7187,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v7.0 · хмара ✓");
+      setStatus("v8.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
