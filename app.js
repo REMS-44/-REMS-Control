@@ -1308,6 +1308,11 @@ const ensureNewProjectBlock=date=>{
     .planner-block-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
     .event-person-role-list{display:grid;gap:8px;margin-top:10px}
     .event-person-role-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,1.2fr);gap:8px;align-items:center}
+    #projectDialog{width:min(1120px,96vw);max-height:92vh}#projectDialog form{padding:24px;max-height:88vh;overflow:auto}
+    .new-project-bulkbar{display:grid;grid-template-columns:auto minmax(170px,1.4fr) 115px 115px auto auto;gap:10px;align-items:end;padding:12px;border:1px solid #dbe3ee;border-radius:12px;background:#f8fafc;position:sticky;top:-24px;z-index:3}
+    .new-project-bulkbar label{margin:0!important}.new-project-bulkbar .bulk-check{display:flex!important;align-items:center;gap:6px;white-space:nowrap;padding-bottom:9px}.new-project-bulkbar .bulk-check input{width:auto}
+    .new-project-work-table{display:grid;gap:6px;min-width:760px}.new-project-work-head,.new-project-work-row-v10{display:grid;grid-template-columns:28px 90px minmax(180px,1.35fr) minmax(230px,1fr) 180px;gap:10px;align-items:center}.new-project-work-head{padding:4px 10px;color:#64748b;font-size:11px}.new-project-work-row-v10{padding:9px 10px;border:1px solid #e5e7eb;border-radius:11px;background:#fff}.new-project-work-row-v10>input[type=checkbox]{width:auto}.new-project-time-cell{display:grid;gap:5px}.row-unknown{display:flex!important;align-items:center;gap:5px;margin:0!important;font-size:10px!important}.row-unknown input{width:auto}.row-times{display:grid;grid-template-columns:1fr auto 1fr;gap:5px;align-items:center}.availability-count{border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:8px 10px;display:flex;justify-content:center;gap:8px;cursor:pointer;font:inherit;font-size:11px;font-weight:800}.availability-count.has-busy{border-color:#fed7aa;background:#fff7ed}.free-count{color:#166534}.busy-count{color:#b91c1c}.new-project-availability-dialog{width:min(900px,94vw)!important}.new-project-av-modal{padding:22px}.new-project-av-stats{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}.new-project-av-stats b{padding:8px 11px;border-radius:10px;background:#f8fafc;border:1px solid #e5e7eb}.new-project-table-help{margin:2px 0 8px}
+
     @media(max-width:760px){
       .project-planned-range,.planner-form-grid,.planner-person-row,.event-person-role-row,.planner-block-row,.new-project-work-toolbar,.new-project-work-row{grid-template-columns:1fr}
       .planner-block-actions{justify-content:flex-start}
@@ -1336,65 +1341,66 @@ function newProjectBlockAvailability(date,block){
   return {free:rows.filter(x=>!x.busy.length),busy:rows.filter(x=>x.busy.length)};
 }
 
+function openNewProjectAvailability(date){
+  const b=ensureNewProjectBlock(date), av=newProjectBlockAvailability(date,b);
+  let dlg=document.querySelector('#newProjectAvailabilityDialog');
+  if(!dlg){
+    dlg=document.createElement('dialog'); dlg.id='newProjectAvailabilityDialog'; dlg.className='new-project-availability-dialog';
+    document.body.appendChild(dlg);
+  }
+  dlg.innerHTML=`<div class="new-project-av-modal">
+    <div class="project-section-head"><div><h2 style="margin:0">Доступність студентів</h2><div class="muted">${fmt(date)} · ${esc(b.type||'вид роботи ще не задано')} · ${esc(eventTimeText(b))}</div></div><button type="button" class="ghost" id="closeNewProjectAvailability">Закрити</button></div>
+    <div class="new-project-av-stats"><b>🟢 ${av.free.length} вільні</b><b>🔴 ${av.busy.length} зайняті</b></div>
+    <div class="availability-grid-two">
+      <div class="availability-card"><div class="availability-title"><b>ВІЛЬНІ · ${av.free.length}</b><small>Можна залучати на цей робочий блок</small></div><div class="availability-list">${av.free.map(x=>`<span class="availability-person-mini">${esc(x.st.name)} · ${esc(studentGroupLabel(x.st)||'')}</span>`).join('')||'<span class="muted">Немає</span>'}</div></div>
+      <div class="availability-card"><div class="availability-title"><b>ЗАЙНЯТІ · ${av.busy.length}</b><small>Показано, де саме є конфлікт</small></div><div class="availability-list">${av.busy.map(x=>`<span class="availability-person-mini"><b>${esc(x.st.name)}</b> · ${esc(x.busy.join(' · '))}</span>`).join('')||'<span class="muted">Немає</span>'}</div></div>
+    </div></div>`;
+  dlg.querySelector('#closeNewProjectAvailability').onclick=()=>dlg.close();
+  if(!dlg.open) dlg.showModal();
+}
+
 function renderNewProjectWorkBlocks(){
-  const holder=document.querySelector("#newProjectWorkBlocks");
+  const holder=document.querySelector('#newProjectWorkBlocks');
   if(!holder) return;
   const dates=[...newProjectPlannedDates].sort();
   if(!dates.length){holder.innerHTML='<div class="muted">Спочатку додайте хоча б одну дату.</div>';return;}
   holder.innerHTML=`
-    <div class="new-project-work-toolbar">
-      <label style="display:flex;gap:6px;align-items:center"><input id="newProjectSelectAllDates" type="checkbox" checked style="width:auto"> Усі дати</label>
-      <label>Вид роботи для вибраних<input id="newProjectBulkType" placeholder="Репетиція / монтаж / зйомка"></label>
+    <div class="new-project-bulkbar">
+      <label class="bulk-check"><input id="newProjectSelectAllDates" type="checkbox" checked> <span>Вибрати всі</span></label>
+      <label>Вид роботи<input id="newProjectBulkType" list="newProjectWorkKinds" placeholder="Наприклад: Репетиція"></label>
       <label>Початок<input id="newProjectBulkStart" type="time" disabled></label>
       <label>Завершення<input id="newProjectBulkEnd" type="time" disabled></label>
-      <div style="display:grid;gap:6px"><label style="display:flex;gap:6px;align-items:center"><input id="newProjectBulkUnknown" type="checkbox" checked style="width:auto"> Час не визначено</label><button type="button" class="ghost" id="newProjectApplyBulkWork">Застосувати</button></div>
+      <label class="bulk-check"><input id="newProjectBulkUnknown" type="checkbox" checked> <span>Час не визначено</span></label>
+      <button type="button" class="primary" id="newProjectApplyBulkWork">Застосувати до вибраних</button>
     </div>
-    <div class="muted">Можна відмітити одну, кілька або всі дати й одним разом задати вид роботи та час.</div>
-    <div class="new-project-work-list">${dates.map(d=>{
-      const b=ensureNewProjectBlock(d); const av=newProjectBlockAvailability(d,b);
-      return `<div class="new-project-work-row" data-work-date="${d}">
-        <input type="checkbox" class="new-project-work-pick" data-date="${d}" checked style="width:auto">
-        <span class="date-label">${fmt(d)}</span>
-        <input type="text" class="new-project-work-type" data-date="${d}" value="${esc(b.type||"")}" placeholder="Вид роботи">
-        <input type="time" class="new-project-work-start" data-date="${d}" value="${esc(b.startTime||"")}" ${b.timeUndetermined!==false?'disabled':''}>
-        <input type="time" class="new-project-work-end" data-date="${d}" value="${esc(b.endTime||"")}" ${b.timeUndetermined!==false?'disabled':''}>
-        <div style="display:grid;gap:5px"><label style="display:flex;gap:5px;align-items:center;font-size:11px"><input type="checkbox" class="new-project-work-unknown" data-date="${d}" ${b.timeUndetermined!==false?'checked':''} style="width:auto"> час не визначено</label><button type="button" class="ghost new-project-show-availability" data-date="${d}">Вільні ${av.free.length} / зайняті ${av.busy.length}</button></div>
-      </div><div class="new-project-availability" data-availability-date="${d}" hidden></div>`;
-    }).join("")}</div>`;
-  const syncAll=()=>{
-    holder.querySelectorAll('.new-project-work-pick').forEach(x=>x.checked=holder.querySelector('#newProjectSelectAllDates').checked);
-  };
-  holder.querySelector('#newProjectSelectAllDates').onchange=syncAll;
+    <datalist id="newProjectWorkKinds"><option value="Репетиція"><option value="Монтаж"><option value="Зйомка"><option value="Концерт"><option value="Демонтаж"></datalist>
+    <div class="muted new-project-table-help">Відмітьте потрібні дати. Поля зверху змінять одразу всі вибрані рядки.</div>
+    <div class="new-project-work-table">
+      <div class="new-project-work-head"><span></span><b>Дата</b><b>Вид роботи</b><b>Час</b><b>Доступність</b></div>
+      ${dates.map(d=>{const b=ensureNewProjectBlock(d),av=newProjectBlockAvailability(d,b);return `<div class="new-project-work-row-v10" data-work-date="${d}">
+        <input type="checkbox" class="new-project-work-pick" data-date="${d}" checked>
+        <b class="date-label">${fmt(d)}</b>
+        <input type="text" class="new-project-work-type" data-date="${d}" list="newProjectWorkKinds" value="${esc(b.type||'')}" placeholder="Вид роботи">
+        <div class="new-project-time-cell"><label class="row-unknown"><input type="checkbox" class="new-project-work-unknown" data-date="${d}" ${b.timeUndetermined!==false?'checked':''}> не визначено</label><div class="row-times" ${b.timeUndetermined!==false?'hidden':''}><input type="time" class="new-project-work-start" data-date="${d}" value="${esc(b.startTime||'')}"><span>—</span><input type="time" class="new-project-work-end" data-date="${d}" value="${esc(b.endTime||'')}"></div></div>
+        <button type="button" class="new-project-show-availability availability-count ${av.busy.length?'has-busy':''}" data-date="${d}"><span class="free-count">${av.free.length} вільні</span><span class="busy-count">${av.busy.length} зайняті</span></button>
+      </div>`}).join('')}
+    </div>`;
+  const all=holder.querySelector('#newProjectSelectAllDates');
+  all.onchange=()=>holder.querySelectorAll('.new-project-work-pick').forEach(x=>x.checked=all.checked);
+  holder.querySelectorAll('.new-project-work-pick').forEach(x=>x.onchange=()=>{const picks=[...holder.querySelectorAll('.new-project-work-pick')];all.checked=picks.every(y=>y.checked);all.indeterminate=!all.checked&&picks.some(y=>y.checked)});
   const bulkUnknown=holder.querySelector('#newProjectBulkUnknown');
-  const syncBulkTime=()=>{const u=bulkUnknown.checked;holder.querySelector('#newProjectBulkStart').disabled=u;holder.querySelector('#newProjectBulkEnd').disabled=u;if(u){holder.querySelector('#newProjectBulkStart').value='';holder.querySelector('#newProjectBulkEnd').value='';}};
-  bulkUnknown.onchange=syncBulkTime;
+  bulkUnknown.onchange=()=>{const u=bulkUnknown.checked;holder.querySelector('#newProjectBulkStart').disabled=u;holder.querySelector('#newProjectBulkEnd').disabled=u;if(u){holder.querySelector('#newProjectBulkStart').value='';holder.querySelector('#newProjectBulkEnd').value='';}};
   holder.querySelector('#newProjectApplyBulkWork').onclick=()=>{
-    const type=holder.querySelector('#newProjectBulkType').value.trim();
-    const unknown=bulkUnknown.checked;
-    const start=unknown?'':holder.querySelector('#newProjectBulkStart').value;
-    const end=unknown?'':holder.querySelector('#newProjectBulkEnd').value;
+    const type=holder.querySelector('#newProjectBulkType').value.trim(),unknown=bulkUnknown.checked,start=unknown?'':holder.querySelector('#newProjectBulkStart').value,end=unknown?'':holder.querySelector('#newProjectBulkEnd').value;
     if(!unknown&&start&&end&&timeMinutes(start)>=timeMinutes(end)){alert('Час завершення має бути пізніше за час початку.');return;}
-    holder.querySelectorAll('.new-project-work-pick:checked').forEach(ch=>{
-      const d=ch.dataset.date,b=ensureNewProjectBlock(d); if(type)b.type=type; b.timeUndetermined=unknown;b.startTime=start;b.endTime=end;
-    });
-    renderNewProjectWorkBlocks();
+    const chosen=[...holder.querySelectorAll('.new-project-work-pick:checked')]; if(!chosen.length){alert('Виберіть хоча б одну дату.');return;}
+    chosen.forEach(ch=>{const b=ensureNewProjectBlock(ch.dataset.date);if(type)b.type=type;b.timeUndetermined=unknown;b.startTime=start;b.endTime=end;}); renderNewProjectWorkBlocks();
   };
-  holder.querySelectorAll('.new-project-work-type').forEach(inp=>inp.oninput=()=>{ensureNewProjectBlock(inp.dataset.date).type=inp.value;});
-  holder.querySelectorAll('.new-project-work-start').forEach(inp=>inp.onchange=()=>{ensureNewProjectBlock(inp.dataset.date).startTime=inp.value;});
-  holder.querySelectorAll('.new-project-work-end').forEach(inp=>inp.onchange=()=>{ensureNewProjectBlock(inp.dataset.date).endTime=inp.value;});
-  holder.querySelectorAll('.new-project-work-unknown').forEach(ch=>ch.onchange=()=>{
-    const b=ensureNewProjectBlock(ch.dataset.date);b.timeUndetermined=ch.checked;if(ch.checked){b.startTime='';b.endTime='';}renderNewProjectWorkBlocks();
-  });
-  holder.querySelectorAll('.new-project-show-availability').forEach(btn=>btn.onclick=()=>{
-    const d=btn.dataset.date,b=ensureNewProjectBlock(d),av=newProjectBlockAvailability(d,b),panel=holder.querySelector(`[data-availability-date="${CSS.escape(d)}"]`);
-    const wasHidden=panel.hidden;
-    holder.querySelectorAll('.new-project-availability').forEach(x=>x.hidden=true);
-    if(!wasHidden)return;
-    panel.innerHTML=`<div class="new-project-availability-summary"><b>${fmt(d)} · ${esc(b.type||'вид роботи ще не задано')} · ${esc(eventTimeText(b))}</b><span>Вільні: ${av.free.length}</span><span>Зайняті: ${av.busy.length}</span></div>
-      <div class="availability-card"><b>ВІЛЬНІ</b><div class="availability-list">${av.free.map(x=>`<span class="availability-person-mini">${esc(x.st.name)} · ${esc(studentGroupLabel(x.st)||'')}</span>`).join('')||'<span class="muted">Немає</span>'}</div></div>
-      <div class="availability-card"><b>ЗАЙНЯТІ</b><div class="availability-list">${av.busy.map(x=>`<span class="availability-person-mini">${esc(x.st.name)} · ${esc(x.busy.join(' · '))}</span>`).join('')||'<span class="muted">Немає</span>'}</div></div>`;
-    panel.hidden=false;
-  });
+  holder.querySelectorAll('.new-project-work-type').forEach(inp=>inp.oninput=()=>ensureNewProjectBlock(inp.dataset.date).type=inp.value);
+  holder.querySelectorAll('.new-project-work-start').forEach(inp=>inp.onchange=()=>ensureNewProjectBlock(inp.dataset.date).startTime=inp.value);
+  holder.querySelectorAll('.new-project-work-end').forEach(inp=>inp.onchange=()=>ensureNewProjectBlock(inp.dataset.date).endTime=inp.value);
+  holder.querySelectorAll('.new-project-work-unknown').forEach(ch=>ch.onchange=()=>{const b=ensureNewProjectBlock(ch.dataset.date);b.timeUndetermined=ch.checked;if(ch.checked){b.startTime='';b.endTime='';}renderNewProjectWorkBlocks();});
+  holder.querySelectorAll('.new-project-show-availability').forEach(btn=>btn.onclick=()=>openNewProjectAvailability(btn.dataset.date));
 }
 
 function ensureNewProjectPlanningFields(){
