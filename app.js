@@ -1496,7 +1496,15 @@ const autoPublicProfessionalData=s=>{
       project:String(x?.project||"").trim(), role:String(x?.role||"").trim(), period:String(x?.period||"").trim(),
       category:String(x?.category||"").trim()
     })).filter(x=>x.project),
-    links:(rp.links||[]).filter(x=>x?.public!==false&&String(x?.url||"").trim()).map(x=>({label:String(x.label||"").trim(),url:String(x.url||"").trim()})),
+    links:[
+      ...(rp.links||[]).filter(x=>x?.public!==false&&String(x?.url||"").trim()).map(x=>({label:String(x.label||"").trim(),url:String(x.url||"").trim()})),
+      ...[["Резюме",s?.resumeUrl],["Портфоліо",s?.portfolioUrl],["Відео / роботи",s?.worksUrl]]
+        .filter(([,url])=>String(url||"").trim()).map(([label,url])=>({label,url:String(url).trim()}))
+    ].filter((x,i,a)=>a.findIndex(y=>String(y.url)===String(x.url))===i),
+    projects:studentProjects(s?.id).map(p=>({
+      id:String(p?.id||""),name:String(p?.name||"Проєкт").trim(),
+      role:String((db.assignments||[]).find(a=>String(a.studentId)===String(s?.id)&&String(a.projectId)===String(p?.id))?.role||"").trim()
+    })).filter(x=>x.name),
     customSections:(rp.customSections||[]).filter(x=>x?.public!==false&&String(x?.title||"").trim()).map(x=>({
       title:String(x.title||"").trim(),
       items:(Array.isArray(x.items)?x.items:[]).map(v=>String(v||"").trim()).filter(Boolean),
@@ -1569,6 +1577,7 @@ const sanitizePublicProfile=(s,profile)=>{
     roles:uniquePublicList(profile?.roles),skills:uniquePublicList(profile?.skills),programs:visibility.programs?uniquePublicList(profile?.programs):[],
     structuredExperience:visibility.experience?(Array.isArray(profile?.structuredExperience)?profile.structuredExperience.map(x=>({project:String(x?.project||"").trim(),role:String(x?.role||"").trim(),period:String(x?.period||"").trim(),category:String(x?.category||"").trim()})).filter(x=>x.project):[]):[],
     links:Array.isArray(profile?.links)?profile.links.map(x=>({label:String(x?.label||"").trim(),url:String(x?.url||"").trim()})).filter(x=>x.url):[],
+    projects:Array.isArray(profile?.projects)?profile.projects.map(x=>({id:String(x?.id||"").trim(),name:String(x?.name||"").trim(),role:String(x?.role||"").trim()})).filter(x=>x.name):[],
     customSections:Array.isArray(profile?.customSections)?profile.customSections.map(x=>({title:String(x?.title||"").trim(),items:(Array.isArray(x?.items)?x.items:[]).map(v=>String(v||"").trim()).filter(Boolean),text:String(x?.text||"").trim()})).filter(x=>x.title):[],
     achievements:Array.isArray(profile?.achievements)?profile.achievements.map(x=>String(x).trim()).filter(Boolean):[],
     publicFacts:{

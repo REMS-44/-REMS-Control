@@ -1,0 +1,1 @@
+v26: Public profile sync now includes REMS project membership and the student card Resume/Portfolio/Works URLs, in addition to professional-profile links.
