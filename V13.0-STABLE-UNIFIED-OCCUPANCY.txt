@@ -1,0 +1,6 @@
+REMS Control v13
+
+Built from stable v11, not v12.
+Occupancy Day/Week views use the same studentActivitiesOnDate() pipeline as the stable matrix, so both academic lessons and project work are shown together.
+Month view remains the original stable v11 Occupancy screen.
+Two-group filtering is available in Day and Week views.
