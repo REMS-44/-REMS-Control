@@ -1,0 +1,7 @@
+v32.0
+- restored direct staffing from availability during project creation
+- per-date draft rosters
+- copy roster from another project date
+- add only free students from copied roster
+- reusable base project team
+- save date rosters, events and project assignments atomically

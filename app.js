@@ -880,12 +880,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v31.0 · немає з’єднання");
+    setStatus("v32.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v31.0 · збереження…");
+    setStatus("v32.0 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -895,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v31.0 · хмара ✓");
+    setStatus("v32.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -906,7 +906,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v31.0 · помилка хмари");
+    setStatus("v32.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1298,6 +1298,9 @@ function ensureNewProjectLogoField(){
 // v5.0: bulk project dates and work-block planning.
 const newProjectPlannedDates=new Set();
 const newProjectWorkBlocks=new Map(); // date -> {type,startTime,endTime,timeUndetermined}
+const newProjectDateRosters=new Map(); // date -> Set(studentId) for draft project staffing
+const newProjectBaseTeam=new Set(); // reusable base team while creating a project
+const ensureNewProjectRoster=date=>{ const d=String(date||""); if(!newProjectDateRosters.has(d)) newProjectDateRosters.set(d,new Set()); return newProjectDateRosters.get(d); };
 const defaultNewProjectBlock=()=>({type:"",startTime:"",endTime:"",timeUndetermined:true});
 const ensureNewProjectBlock=date=>{
   const d=String(date||"");
@@ -1348,7 +1351,7 @@ const ensureNewProjectBlock=date=>{
     #projectDialog{width:min(1120px,96vw);max-height:92vh}#projectDialog form{padding:24px;max-height:88vh;overflow:auto}
     .new-project-bulkbar{display:grid;grid-template-columns:auto minmax(170px,1.4fr) 115px 115px auto auto;gap:10px;align-items:end;padding:12px;border:1px solid #dbe3ee;border-radius:12px;background:#f8fafc;position:sticky;top:-24px;z-index:3}
     .new-project-bulkbar label{margin:0!important}.new-project-bulkbar .bulk-check{display:flex!important;align-items:center;gap:6px;white-space:nowrap;padding-bottom:9px}.new-project-bulkbar .bulk-check input{width:auto}
-    .new-project-work-table{display:grid;gap:6px;min-width:760px}.new-project-work-head,.new-project-work-row-v10{display:grid;grid-template-columns:28px 90px minmax(180px,1.35fr) minmax(230px,1fr) 180px;gap:10px;align-items:center}.new-project-work-head{padding:4px 10px;color:#64748b;font-size:11px}.new-project-work-row-v10{padding:9px 10px;border:1px solid #e5e7eb;border-radius:11px;background:#fff}.new-project-work-row-v10>input[type=checkbox]{width:auto}.new-project-time-cell{display:grid;gap:5px}.row-unknown{display:flex!important;align-items:center;gap:5px;margin:0!important;font-size:10px!important}.row-unknown input{width:auto}.row-times{display:grid;grid-template-columns:1fr auto 1fr;gap:5px;align-items:center}.availability-count{border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:8px 10px;display:flex;justify-content:center;gap:8px;cursor:pointer;font:inherit;font-size:11px;font-weight:800}.availability-count.has-busy{border-color:#fed7aa;background:#fff7ed}.free-count{color:#166534}.busy-count{color:#b91c1c}.new-project-availability-dialog{width:min(900px,94vw)!important}.new-project-av-modal{padding:22px}.new-project-av-stats{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}.new-project-av-stats b{padding:8px 11px;border-radius:10px;background:#f8fafc;border:1px solid #e5e7eb}.new-project-table-help{margin:2px 0 8px}
+    .new-project-work-table{display:grid;gap:6px;min-width:760px}.new-project-work-head,.new-project-work-row-v10{display:grid;grid-template-columns:28px 90px minmax(180px,1.35fr) minmax(230px,1fr) 180px;gap:10px;align-items:center}.new-project-work-head{padding:4px 10px;color:#64748b;font-size:11px}.new-project-work-row-v10{padding:9px 10px;border:1px solid #e5e7eb;border-radius:11px;background:#fff}.new-project-work-row-v10>input[type=checkbox]{width:auto}.new-project-time-cell{display:grid;gap:5px}.row-unknown{display:flex!important;align-items:center;gap:5px;margin:0!important;font-size:10px!important}.row-unknown input{width:auto}.row-times{display:grid;grid-template-columns:1fr auto 1fr;gap:5px;align-items:center}.availability-count{border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:8px 10px;display:flex;justify-content:center;gap:8px;cursor:pointer;font:inherit;font-size:11px;font-weight:800}.availability-count.has-busy{border-color:#fed7aa;background:#fff7ed}.free-count{color:#166534}.busy-count{color:#b91c1c}.new-project-availability-dialog{width:min(900px,94vw)!important}.new-project-av-modal{padding:22px}.new-project-av-stats{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}.new-project-av-stats b{padding:8px 11px;border-radius:10px;background:#f8fafc;border:1px solid #e5e7eb}.new-project-table-help{margin:2px 0 8px}.new-project-roster-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin:12px 0}.new-project-roster-tools label{margin:0;min-width:220px}.new-project-roster-tools select{width:100%}.new-project-roster-selected{display:flex;flex-wrap:wrap;gap:6px}.new-project-person-select{border:1px solid #d1d5db;background:#fff;border-radius:999px;padding:6px 9px;cursor:pointer;font:inherit;font-size:11px}.new-project-person-select.selected{background:#111827;color:#fff;border-color:#111827}.new-project-busy-select{border-color:#fecaca;background:#fff7f7}.new-project-roster-summary{border:1px solid #dbe3ee;border-radius:12px;background:#fff;padding:10px 12px;margin-top:12px}.new-project-roster-summary b{display:block;margin-bottom:6px}.new-project-copy-conflicts{font-size:10px;color:#b91c1c;margin-top:6px}
 
     @media(max-width:760px){
       .project-planned-range,.planner-form-grid,.planner-person-row,.event-person-role-row,.planner-block-row,.new-project-work-toolbar,.new-project-work-row{grid-template-columns:1fr}
@@ -1368,6 +1371,7 @@ function renderNewProjectDates(){
     const d=b.dataset.newProjectDate;
     newProjectPlannedDates.delete(d);
     newProjectWorkBlocks.delete(d);
+    newProjectDateRosters.delete(d);
     renderNewProjectDates();
   });
   renderNewProjectWorkBlocks();
@@ -1380,19 +1384,54 @@ function newProjectBlockAvailability(date,block){
 
 function openNewProjectAvailability(date){
   const b=ensureNewProjectBlock(date), av=newProjectBlockAvailability(date,b);
+  const roster=ensureNewProjectRoster(date);
+  const dates=[...newProjectPlannedDates].sort();
+  const studentById=id=>(db.students||[]).find(st=>String(st.id)===String(id));
+  const currentSelected=()=>[...roster].map(studentById).filter(Boolean);
   let dlg=document.querySelector('#newProjectAvailabilityDialog');
   if(!dlg){
     dlg=document.createElement('dialog'); dlg.id='newProjectAvailabilityDialog'; dlg.className='new-project-availability-dialog';
     document.body.appendChild(dlg);
   }
-  dlg.innerHTML=`<div class="new-project-av-modal">
-    <div class="project-section-head"><div><h2 style="margin:0">Доступність студентів</h2><div class="muted">${fmt(date)} · ${esc(b.type||'вид роботи ще не задано')} · ${esc(eventTimeText(b))}</div></div><button type="button" class="ghost" id="closeNewProjectAvailability">Закрити</button></div>
-    <div class="new-project-av-stats"><b>🟢 ${av.free.length} вільні</b><b>🔴 ${av.busy.length} зайняті</b></div>
-    <div class="availability-grid-two">
-      <div class="availability-card"><div class="availability-title"><b>ВІЛЬНІ · ${av.free.length}</b><small>Можна залучати на цей робочий блок</small></div><div class="availability-list">${av.free.map(x=>`<span class="availability-person-mini">${esc(x.st.name)} · ${esc(studentGroupLabel(x.st)||'')}</span>`).join('')||'<span class="muted">Немає</span>'}</div></div>
-      <div class="availability-card"><div class="availability-title"><b>ЗАЙНЯТІ · ${av.busy.length}</b><small>Показано, де саме є конфлікт</small></div><div class="availability-list">${av.busy.map(x=>`<span class="availability-person-mini"><b>${esc(x.st.name)}</b> · ${esc(x.busy.join(' · '))}</span>`).join('')||'<span class="muted">Немає</span>'}</div></div>
-    </div></div>`;
-  dlg.querySelector('#closeNewProjectAvailability').onclick=()=>dlg.close();
+  const render=()=>{
+    const selected=currentSelected();
+    const otherDates=dates.filter(d=>d!==date && ensureNewProjectRoster(d).size);
+    dlg.innerHTML=`<div class="new-project-av-modal">
+      <div class="project-section-head"><div><h2 style="margin:0">Доступність студентів</h2><div class="muted">${fmt(date)} · ${esc(b.type||'вид роботи ще не задано')} · ${esc(eventTimeText(b))}</div></div><button type="button" class="ghost" id="closeNewProjectAvailability">Закрити</button></div>
+      <div class="new-project-av-stats"><b>🟢 ${av.free.length} вільні</b><b>🔴 ${av.busy.length} зайняті</b><b>👥 ${selected.length} вибрано</b></div>
+      <div class="new-project-roster-tools">
+        <button type="button" class="ghost" id="useBaseTeam" ${newProjectBaseTeam.size?'':'disabled'}>Взяти постійну команду · ${newProjectBaseTeam.size}</button>
+        <button type="button" class="ghost" id="saveAsBaseTeam" ${selected.length?'':'disabled'}>Зробити цей склад постійною командою</button>
+        <label>Скопіювати склад з іншої дати<select id="copyRosterDate"><option value="">Оберіть дату…</option>${otherDates.map(d=>`<option value="${d}">${fmt(d)} · ${ensureNewProjectRoster(d).size} ос.</option>`).join('')}</select></label>
+        <button type="button" class="ghost" id="copyRosterAll" disabled>Додати всіх</button>
+        <button type="button" class="ghost" id="copyRosterFree" disabled>Додати тільки вільних</button>
+      </div>
+      <div class="new-project-roster-summary"><b>СКЛАД ЦІЄЇ ДАТИ · ${selected.length}</b><div class="new-project-roster-selected">${selected.map(st=>`<button type="button" class="new-project-person-select selected" data-selected-id="${esc(String(st.id))}" title="Натисніть, щоб прибрати">✓ ${esc(st.name)} · ${esc(studentGroupLabel(st)||'')}</button>`).join('')||'<span class="muted">Ще нікого не вибрано.</span>'}</div></div>
+      <div class="availability-grid-two">
+        <div class="availability-card"><div class="availability-title"><b>ВІЛЬНІ · ${av.free.length}</b><small>Натискайте на людей, яких треба залучити на цю дату</small></div><div class="availability-list">${av.free.map(x=>`<button type="button" class="new-project-person-select ${roster.has(String(x.st.id))||roster.has(x.st.id)?'selected':''}" data-free-id="${esc(String(x.st.id))}">${roster.has(String(x.st.id))||roster.has(x.st.id)?'✓ ':'+ '}${esc(x.st.name)} · ${esc(studentGroupLabel(x.st)||'')}</button>`).join('')||'<span class="muted">Немає</span>'}</div></div>
+        <div class="availability-card"><div class="availability-title"><b>ЗАЙНЯТІ · ${av.busy.length}</b><small>Можна додати попри конфлікт — система покаже, де людина зайнята</small></div><div class="availability-list">${av.busy.map(x=>`<button type="button" class="new-project-person-select new-project-busy-select ${roster.has(String(x.st.id))||roster.has(x.st.id)?'selected':''}" data-busy-id="${esc(String(x.st.id))}" title="${esc(x.busy.join(' · '))}">${roster.has(String(x.st.id))||roster.has(x.st.id)?'✓ ':'+ '}${esc(x.st.name)} · ${esc(x.busy.join(' · '))}</button>`).join('')||'<span class="muted">Немає</span>'}</div></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button type="button" class="primary" id="doneNewProjectRoster">Готово · ${selected.length}</button></div>
+    </div>`;
+    const close=()=>dlg.close();
+    dlg.querySelector('#closeNewProjectAvailability').onclick=close;
+    dlg.querySelector('#doneNewProjectRoster').onclick=close;
+    const toggle=id=>{ const key=String(id); if(roster.has(key)) roster.delete(key); else roster.add(key); render(); renderNewProjectWorkBlocks(); };
+    dlg.querySelectorAll('[data-free-id]').forEach(el=>el.onclick=()=>toggle(el.dataset.freeId));
+    dlg.querySelectorAll('[data-busy-id]').forEach(el=>el.onclick=()=>toggle(el.dataset.busyId));
+    dlg.querySelectorAll('[data-selected-id]').forEach(el=>el.onclick=()=>toggle(el.dataset.selectedId));
+    dlg.querySelector('#saveAsBaseTeam').onclick=()=>{newProjectBaseTeam.clear(); [...roster].forEach(id=>newProjectBaseTeam.add(String(id))); render();};
+    dlg.querySelector('#useBaseTeam').onclick=()=>{[...newProjectBaseTeam].forEach(id=>roster.add(String(id))); render(); renderNewProjectWorkBlocks();};
+    const sel=dlg.querySelector('#copyRosterDate'), allBtn=dlg.querySelector('#copyRosterAll'), freeBtn=dlg.querySelector('#copyRosterFree');
+    sel.onchange=()=>{allBtn.disabled=!sel.value;freeBtn.disabled=!sel.value;};
+    allBtn.onclick=()=>{ const source=ensureNewProjectRoster(sel.value); [...source].forEach(id=>roster.add(String(id))); render(); renderNewProjectWorkBlocks(); };
+    freeBtn.onclick=()=>{
+      const source=ensureNewProjectRoster(sel.value);
+      [...source].forEach(id=>{ const st=studentById(id); if(st && !studentBusyLabelsForSlot(st.id,date,b?.startTime||'',b?.endTime||'',b?.timeUndetermined!==false,'').length) roster.add(String(id)); });
+      render(); renderNewProjectWorkBlocks();
+    };
+  };
+  render();
   if(!dlg.open) dlg.showModal();
 }
 
@@ -1419,7 +1458,7 @@ function renderNewProjectWorkBlocks(){
         <b class="date-label">${fmt(d)}</b>
         <input type="text" class="new-project-work-type" data-date="${d}" list="newProjectWorkKinds" value="${esc(b.type||'')}" placeholder="Вид роботи">
         <div class="new-project-time-cell"><label class="row-unknown"><input type="checkbox" class="new-project-work-unknown" data-date="${d}" ${b.timeUndetermined!==false?'checked':''}> не визначено</label><div class="row-times" ${b.timeUndetermined!==false?'hidden':''}><input type="time" class="new-project-work-start" data-date="${d}" value="${esc(b.startTime||'')}"><span>—</span><input type="time" class="new-project-work-end" data-date="${d}" value="${esc(b.endTime||'')}"></div></div>
-        <button type="button" class="new-project-show-availability availability-count ${av.busy.length?'has-busy':''}" data-date="${d}"><span class="free-count">${av.free.length} вільні</span><span class="busy-count">${av.busy.length} зайняті</span></button>
+        <button type="button" class="new-project-show-availability availability-count ${av.busy.length?'has-busy':''}" data-date="${d}"><span class="free-count">${av.free.length} вільні</span><span class="busy-count">${av.busy.length} зайняті</span><span>👥 ${ensureNewProjectRoster(d).size}</span></button>
       </div>`}).join('')}
     </div>`;
   const all=holder.querySelector('#newProjectSelectAllDates');
@@ -7144,6 +7183,8 @@ if($("#cancelProjectCreate")) $("#cancelProjectCreate").onclick=()=>{
   $("#projectForm").reset();
   newProjectPlannedDates.clear();
   newProjectWorkBlocks.clear();
+  newProjectDateRosters.clear();
+  newProjectBaseTeam.clear();
   renderNewProjectDates();
 };
 
@@ -7160,26 +7201,31 @@ $("#saveProject").onclick=async e=>{
       if(!String(b.type||"").trim()) throw new Error(`Вкажіть вид роботи для ${fmt(d)}.`);
       if(b.timeUndetermined===false&&b.startTime&&b.endTime&&timeMinutes(b.startTime)>=timeMinutes(b.endTime)) throw new Error(`Некоректний час для ${fmt(d)}.`);
     }
-    const project={id:"p_"+Date.now(),name,color:$("#projectColor").value,emoji:$("#projectEmoji").value||"◆",plannedDates:dates,createdAt:new Date().toISOString(),dateRosters:{}};
+    const project={id:"p_"+Date.now(),name,color:$("#projectColor").value,emoji:$("#projectEmoji").value||"◆",plannedDates:dates,createdAt:new Date().toISOString(),dateRosters:Object.fromEntries(dates.map(d=>[d,[...ensureNewProjectRoster(d)].map(String)]))};
     const logoFile=$("#projectLogoFile")?.files?.[0];
     if(logoFile) project.logoData=await compressProjectLogo(logoFile);
     db.projects.push(project);
     const createdEvents=dates.map(date=>{
       const b=ensureNewProjectBlock(date);
-      return {projectId:project.id,date,type:String(b.type||"").trim(),startTime:b.timeUndetermined===false?(b.startTime||""):"",endTime:b.timeUndetermined===false?(b.endTime||""):"",timeUndetermined:b.timeUndetermined!==false,location:"",note:"",studentIds:[],studentRoles:{}};
+      return {projectId:project.id,date,type:String(b.type||"").trim(),startTime:b.timeUndetermined===false?(b.startTime||""):"",endTime:b.timeUndetermined===false?(b.endTime||""):"",timeUndetermined:b.timeUndetermined!==false,location:"",note:"",studentIds:[...ensureNewProjectRoster(date)].map(String),studentRoles:{}};
     });
     db.events.push(...createdEvents);
+    const allDraftIds=[...new Set(dates.flatMap(d=>[...ensureNewProjectRoster(d)].map(String)))];
+    allDraftIds.forEach(studentId=>{ if(!(db.assignments||[]).some(a=>String(a.projectId)===String(project.id)&&String(a.studentId)===String(studentId))) db.assignments.push({projectId:project.id,studentId,role:""}); });
 
     const ok=await save();
     if(!ok){
       db.projects=db.projects.filter(x=>x.id!==project.id);
       db.events=db.events.filter(x=>String(x.projectId)!==String(project.id));
+      db.assignments=(db.assignments||[]).filter(x=>String(x.projectId)!==String(project.id));
       throw new Error("Не вдалося зберегти проєкт у хмарі.");
     }
     $("#projectDialog").close();
     $("#projectForm").reset();
     newProjectPlannedDates.clear();
     newProjectWorkBlocks.clear();
+    newProjectDateRosters.clear();
+    newProjectBaseTeam.clear();
     renderNewProjectDates();
     switchView("projects","Проєкти");
   }catch(err){
@@ -7876,7 +7922,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v31.0 · хмара ✓");
+    setStatus("v32.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -7990,7 +8036,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v31.0 · хмара ✓");
+      setStatus("v32.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
