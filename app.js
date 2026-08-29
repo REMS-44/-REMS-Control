@@ -886,7 +886,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v8.0 · хмара ✓");
+    setStatus("v14.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -7337,7 +7337,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v8.0 · хмара ✓");
+    setStatus("v14.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -7440,7 +7440,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v8.0 · хмара ✓");
+      setStatus("v14.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
@@ -7598,16 +7598,23 @@ function openUnifiedOccupancyV13(mode="day",seed={}){
     @media(max-width:900px){.occ13-controls{display:grid!important;grid-template-columns:1fr 1fr}.occ13-modes{grid-column:1/-1}.occ13-table{min-width:1000px}}
   `; document.head.appendChild(st);
   const stableMonthSchedule=schedule;
-  schedule=function(){
+  const enhancedScheduleV14=function(){
     stableMonthSchedule();
     const controls=document.querySelector(".schedule-controls");
     if(!controls||document.querySelector("#occ13DayBtn")) return;
-    const modes=document.createElement("div"); modes.className="occ13-modes"; modes.innerHTML=`<button type="button" class="ghost" id="occ13DayBtn">День</button><button type="button" class="ghost" id="occ13WeekBtn">Тиждень</button><button type="button" class="ghost active">Місяць</button>`;
+    const modes=document.createElement("div");
+    modes.className="occ13-modes";
+    modes.innerHTML=`<button type="button" class="ghost" id="occ13DayBtn">День</button><button type="button" class="ghost" id="occ13WeekBtn">Тиждень</button><button type="button" class="ghost active">Місяць</button>`;
     controls.prepend(modes);
     $("#occ13DayBtn").onclick=()=>openUnifiedOccupancyV13("day",{group1:$("#schGroup")?.value||""});
     $("#occ13WeekBtn").onclick=()=>openUnifiedOccupancyV13("week",{group1:$("#schGroup")?.value||""});
   };
+  // ВАЖЛИВО: views було створено раніше і зберегло посилання на стару schedule().
+  // Оновлюємо і саму функцію, і роутер, щоб кнопки День / Тиждень / Місяць
+  // реально з'являлися при переході у вкладку «Зайнятість».
+  schedule=enhancedScheduleV14;
+  if(typeof views!=="undefined") views.schedule=enhancedScheduleV14;
 })();
-// ===== /REMS Control v13 =====
+// ===== /REMS Control v14 =====
 
 bootstrapAuth();
