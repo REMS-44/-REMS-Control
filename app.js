@@ -895,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v16.0 · хмара ✓");
+    setStatus("v22.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -1473,30 +1473,103 @@ const publicProfileUrlFor=s=>{
 };
 
 const REMS44_PUBLIC_SEED={"vintsiuk-andrii":{"id":"vintsiuk-andrii","name":"Вінцюк Андрій","role":"Режисер естради і шоу","photo":"images/Вінцюк Андрій.jpeg","bio":["Андрій Вінцюк — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться режисурою концертів, музичних шоу, сценічних номерів і сучасних перформативних форматів."],"skills":["Режисура","Сценарна робота","Робота з виконавцями","Концертні програми"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[{"title":"Відеоробота","youtube":"https://www.youtube.com/watch?v=58ZgRSbX6tU"}],"gallery":[]},"vlasenko-dasha":{"id":"vlasenko-dasha","name":"Власенко Даша","role":"Режисерка естради і шоу","photo":"images/Власенко Даша.jpeg","bio":["Даша Власенко — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює зі сценічними образами, музикою, пластикою, світлом і візуальним оформленням творчих проєктів."],"skills":["Режисура","Сценічний образ","Музична драматургія","Візуальна концепція"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"hostryk-katya":{"id":"hostryk-katya","name":"Гострик Катя","role":"Режисерка естради і шоу","photo":"images/Гострик Катя.jpeg","bio":["Катя Гострик — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться створенням сценічних номерів, перформансів, концертних програм і культурно-мистецьких подій."],"skills":["Режисура","Перформанс","Сценаристика","Організація подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"davydova-svitlana":{"id":"davydova-svitlana","name":"Давидова Світлана","role":"Режисерка естради і шоу","photo":"images/Давидова Світлана.jpeg","bio":["Світлана Давидова — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У своїх роботах досліджує взаємодію виконавця, музики, сценічного простору та емоційного контакту з глядачем."],"skills":["Робота з виконавцями","Режисура номера","Сценічна композиція","Музичне шоу"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"zholudenko-polina":{"id":"zholudenko-polina","name":"Жолуденко Поліна","role":"Режисерка естради і шоу","photo":"images/Жолуденко Поліна.jpeg","bio":["Поліна Жолуденко — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться образною режисурою, сучасними музичними форматами, сценічною пластикою та візуальною драматургією."],"skills":["Образна режисура","Сценічна пластика","Музичні формати","Візуальна драматургія"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"kasieiev-danylo":{"id":"kasieiev-danylo","name":"Касєєв Данило","role":"Режисер естради і шоу","photo":"images/Касєєв Данило.jpeg","bio":["Данило Касєєв — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з концертними постановками, сценічною дією, музичним матеріалом і сучасними видовищними форматами."],"skills":["Концертна режисура","Сценаристика","Робота з музичним матеріалом","Постановка номерів"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"kolyshkin-andrii":{"id":"kolyshkin-andrii","name":"Колишкін Андрій","role":"Режисер естради і шоу","photo":"images/Колишкін Андрій.jpeg","bio":["Андрій Колишкін — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться режисурою концертів, сценічних номерів, телевізійних форматів і великих культурно-мистецьких подій."],"skills":["Концертна режисура","Телеверсія шоу","Сценічна композиція","Організація подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"koshelieva-myroslava":{"id":"koshelieva-myroslava","name":"Кошелєва Мирослава","role":"Режисерка естради і шоу","photo":"images/Кошелєва Мирослава.jpeg","bio":["Мирослава Кошелєва — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У центрі її творчих інтересів — атмосфера події, робота з виконавцем, музикою, світлом і сценічним простором."],"skills":["Робота з виконавцями","Сценічна атмосфера","Світлове рішення","Режисура подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"maksimova-samira":{"id":"maksimova-samira","name":"Максімова Саміра","role":"Режисерка естради і шоу","photo":"images/Максімова Саміра.jpeg","bio":["Саміра Максімова — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться сценічною драматургією, сучасним перформансом, роботою з музикою та візуальними технологіями."],"skills":["Сценічна драматургія","Перформанс","Музичні проєкти","Візуальна концепція"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"milenina-mariia":{"id":"milenina-mariia","name":"Міленіна Марія","role":"Режисерка естради і шоу","photo":"images/Міленіна Марія.jpeg","bio":["Марія Міленіна — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з музичними номерами, сценічною композицією, образністю та емоційною побудовою видовища."],"skills":["Музичний номер","Композиція","Образне рішення","Робота з артистами"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"oleinykov-daniil":{"id":"oleinykov-daniil","name":"Олейников Даніїл","role":"Режисер естради і шоу","photo":"images/Олейников Даніїл.jpeg","bio":["Даніїл Олейников — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться концертними постановками, сучасними шоу, сценічними технологіями та роботою з виконавцями."],"skills":["Режисура шоу","Сценічні технології","Концертна постановка","Робота з артистами"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"pozniak-artur":{"id":"pozniak-artur","name":"Позняк Артур","role":"Режисер естради і шоу","photo":"images/Позняк Артур.jpeg","bio":["Артур Позняк — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з музичними шоу, сценічними номерами, сценарною структурою та сучасними форматами видовищ."],"skills":["Музичне шоу","Сценарна структура","Постановка номерів","Режисура подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"tashuta-artem":{"id":"tashuta-artem","name":"Ташута Артем","role":"Режисер естради і шоу","photo":"images/Ташута Артем.jpeg","bio":["Артем Ташута — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться постановкою концертних програм, роботою з музикою, світлом, відео та сценічним простором."],"skills":["Концертна програма","Світло","Відеоконтент","Сценічний простір"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"chynionova-dasha":{"id":"chynionova-dasha","name":"Чиньонова Даша","role":"Режисерка естради і шоу","photo":"images/Чиньонова Даша.jpeg","bio":["Даша Чиньонова — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У своїх роботах досліджує сценічний образ, музичну драматургію, атмосферу та сучасні візуальні рішення."],"skills":["Сценічний образ","Музична драматургія","Атмосфера події","Візуальні рішення"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]}};
+const uniquePublicList=items=>[...new Set((Array.isArray(items)?items:[]).map(x=>String(x||"").trim()).filter(Boolean))];
+const socialUrl=(kind,value)=>{
+  const v=String(value||"").trim(); if(!v) return "";
+  if(/^https?:\/\//i.test(v)||/^mailto:/i.test(v)) return v;
+  const h=v.replace(/^@/,"");
+  if(kind==="instagram") return `https://instagram.com/${h}`;
+  if(kind==="telegram") return `https://t.me/${h}`;
+  if(kind==="tiktok") return `https://tiktok.com/@${h}`;
+  if(kind==="email") return v.replace(/^mailto:/i,"");
+  return v;
+};
+const autoPublicProfessionalData=s=>{
+  const rp=studentProfessionalProfile(s);
+  const q=rp.questionnaire||{};
+  return {
+    bio:String(rp.summary||"").trim()?[String(rp.summary||"").trim()]:[],
+    roles:uniquePublicList(rp.roles),
+    skills:uniquePublicList(rp.skills),
+    programs:uniquePublicList(rp.programs),
+    structuredExperience:(rp.structuredExperience||[]).map(x=>({
+      project:String(x?.project||"").trim(), role:String(x?.role||"").trim(), period:String(x?.period||"").trim(),
+      category:String(x?.category||"").trim()
+    })).filter(x=>x.project),
+    contacts:{
+      instagram:String(s?.instagram||q.instagram||"").trim(), telegram:String(s?.telegram||q.telegram||"").trim(),
+      email:String(s?.email||q.email||"").trim()
+    },
+    facts:{
+      birthDate:String(s?.birthDate||q.birthDate||"").trim(), height:String(rp.casting?.height||"").trim(),
+      clothingSize:String(rp.casting?.clothingSize||"").trim(), shoeSize:String(rp.casting?.shoeSize||"").trim(),
+      playingAge:String(rp.casting?.playingAge||"").trim(), type:String(rp.casting?.type||"").trim(),
+      hair:String(rp.casting?.hair||"").trim(), eyes:String(rp.casting?.eyes||"").trim(), special:String(rp.casting?.special||"").trim()
+    }
+  };
+};
 const publicProfileFor=s=>{
   const pid=publicProfileIdFor(s);
   if(!pid) return null;
-  const existing=s?.publicProfile||REMS44_PUBLIC_SEED[pid];
-  return clone(existing||{
-    id:pid,name:s?.name||"",role:"Режисер/ка естради і шоу",
-    photo:"",
-    bio:[],skills:[],achievements:[],
-    socials:{instagram:"",tiktok:"",youtube:"",telegram:"",facebook:"",email:""},
-    videos:[],gallery:[],published:false
+  const existing=clone(s?.publicProfile||REMS44_PUBLIC_SEED[pid]||{
+    id:pid,name:s?.name||"",role:"Режисер/ка естради і шоу",photo:"",bio:[],skills:[],achievements:[],
+    socials:{instagram:"",tiktok:"",youtube:"",telegram:"",facebook:"",email:""},videos:[],gallery:[],published:false
   });
+  const auto=autoPublicProfessionalData(s);
+  const visibility={
+    experience:existing?.visibility?.experience!==false,
+    programs:existing?.visibility?.programs!==false,
+    age:existing?.visibility?.age!==false,
+    height:existing?.visibility?.height!==false,
+    clothing:existing?.visibility?.clothing===true,
+    shoe:existing?.visibility?.shoe===true,
+    instagram:existing?.visibility?.instagram!==false,
+    telegram:existing?.visibility?.telegram===true,
+    email:existing?.visibility?.email===true
+  };
+  const autoProfessional=existing?.autoProfessional!==false;
+  if(autoProfessional){
+    if(auto.bio.length) existing.bio=auto.bio;
+    existing.roles=auto.roles;
+    existing.skills=uniquePublicList([...(auto.roles||[]),...(auto.skills||[])]);
+    existing.programs=auto.programs;
+    existing.structuredExperience=auto.structuredExperience;
+    existing.publicFacts=auto.facts;
+    existing.socials={...(existing.socials||{})};
+    if(auto.contacts.instagram) existing.socials.instagram=socialUrl("instagram",auto.contacts.instagram);
+    if(auto.contacts.telegram) existing.socials.telegram=socialUrl("telegram",auto.contacts.telegram);
+    if(auto.contacts.email) existing.socials.email=auto.contacts.email;
+  }
+  return {...existing,id:pid,studentId:String(s?.id||""),group:String(s?.group||""),autoProfessional,visibility};
 };
 const sanitizePublicProfile=(s,profile)=>{
   const pid=publicProfileIdFor(s)||profile?.id;
   if(!pid) return null;
+  const visibility={
+    experience:profile?.visibility?.experience!==false, programs:profile?.visibility?.programs!==false,
+    age:profile?.visibility?.age!==false, height:profile?.visibility?.height!==false,
+    clothing:profile?.visibility?.clothing===true, shoe:profile?.visibility?.shoe===true,
+    instagram:profile?.visibility?.instagram!==false, telegram:profile?.visibility?.telegram===true,
+    email:profile?.visibility?.email===true
+  };
+  const facts=profile?.publicFacts||{};
   return {
-    id:pid,name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),published:profile?.published===true,
+    id:pid,studentId:String(s?.id||profile?.studentId||""),group:String(s?.group||profile?.group||"").trim(),
+    name:String(profile?.name||s?.name||"").trim(),role:String(profile?.role||"").trim(),photo:String(profile?.photo||"").trim(),published:profile?.published===true,
+    autoProfessional:profile?.autoProfessional!==false,visibility,
     bio:Array.isArray(profile?.bio)?profile.bio.map(x=>String(x).trim()).filter(Boolean):[],
-    skills:Array.isArray(profile?.skills)?profile.skills.map(x=>String(x).trim()).filter(Boolean):[],
+    roles:uniquePublicList(profile?.roles),skills:uniquePublicList(profile?.skills),programs:visibility.programs?uniquePublicList(profile?.programs):[],
+    structuredExperience:visibility.experience?(Array.isArray(profile?.structuredExperience)?profile.structuredExperience.map(x=>({project:String(x?.project||"").trim(),role:String(x?.role||"").trim(),period:String(x?.period||"").trim(),category:String(x?.category||"").trim()})).filter(x=>x.project):[]):[],
     achievements:Array.isArray(profile?.achievements)?profile.achievements.map(x=>String(x).trim()).filter(Boolean):[],
+    publicFacts:{
+      birthDate:visibility.age?String(facts.birthDate||"").trim():"",height:visibility.height?String(facts.height||"").trim():"",
+      clothingSize:visibility.clothing?String(facts.clothingSize||"").trim():"",shoeSize:visibility.shoe?String(facts.shoeSize||"").trim():"",
+      playingAge:String(facts.playingAge||"").trim(),type:String(facts.type||"").trim(),hair:String(facts.hair||"").trim(),eyes:String(facts.eyes||"").trim(),special:String(facts.special||"").trim()
+    },
     socials:{
-      instagram:String(profile?.socials?.instagram||"").trim(),tiktok:String(profile?.socials?.tiktok||"").trim(),
-      youtube:String(profile?.socials?.youtube||"").trim(),telegram:String(profile?.socials?.telegram||"").trim(),
-      facebook:String(profile?.socials?.facebook||"").trim(),email:String(profile?.socials?.email||"").trim()
+      instagram:visibility.instagram?socialUrl("instagram",profile?.socials?.instagram):"",tiktok:String(profile?.socials?.tiktok||"").trim(),
+      youtube:String(profile?.socials?.youtube||"").trim(),telegram:visibility.telegram?socialUrl("telegram",profile?.socials?.telegram):"",
+      facebook:String(profile?.socials?.facebook||"").trim(),email:visibility.email?String(profile?.socials?.email||"").trim():""
     },
     videos:Array.isArray(profile?.videos)?profile.videos.map(v=>({title:String(v?.title||"Відеоробота").trim(),youtube:String(v?.youtube||"").trim()})).filter(v=>v.youtube):[],
     gallery:Array.isArray(profile?.gallery)?profile.gallery.map(x=>String(x).trim()).filter(Boolean):[]
@@ -2376,7 +2449,7 @@ async function recoverStudentsFromFirebase(){
 
 // v15 — imported professional resumes and casting-ready profile fields.
 const resumeNorm=v=>String(v||"").toLowerCase().replace(/[’ʼ'`]/g,"").replace(/[^a-zа-яіїєґ0-9]+/gi," ").replace(/\s+/g," ").trim();
-const importedResumeProfiles=Array.isArray(window.REMS_RESUME_IMPORT_V15)?window.REMS_RESUME_IMPORT_V15:[];
+const importedResumeProfiles=Array.isArray(window.REMS_RESUME_STRUCTURED_V20)?window.REMS_RESUME_STRUCTURED_V20:(Array.isArray(window.REMS_RESUME_STRUCTURED_V17)?window.REMS_RESUME_STRUCTURED_V17:(Array.isArray(window.REMS_RESUME_IMPORT_V15)?window.REMS_RESUME_IMPORT_V15:[]));
 const importedQuestionnaireProfiles=Array.isArray(window.REMS_QUESTIONNAIRE_IMPORT_V16)?window.REMS_QUESTIONNAIRE_IMPORT_V16:[];
 const importedQuestionnaireForStudent=s=>{
   if(!s) return null;
@@ -2420,6 +2493,7 @@ const studentProfessionalProfile=s=>{
     programs:Array.isArray(own.programs)?own.programs:(imp.programs||[]),
     skills:Array.isArray(own.skills)?own.skills:[],
     experience:own.experience??imp.resumeText??"",
+    structuredExperience:Array.isArray(own.structuredExperience)?own.structuredExperience:(imp.structuredExperience||[]),
     sourceText:imp.resumeText||"",
     sources:imp.sources||[],
     imported:!!imp.name,
@@ -2439,6 +2513,34 @@ const studentProfessionalProfile=s=>{
   };
 };
 const profileTagHtml=(items=[])=>items.filter(Boolean).slice(0,18).map(x=>`<span class="resume-tag">${esc(x)}</span>`).join("");
+const structuredExperienceHtml=(items=[])=>{
+  if(!items.length) return '<div class="profile-empty">Структурованих записів поки немає</div>';
+  return `<div class="pro-exp-list">${items.map((x,i)=>`<div class="pro-exp-row"><div class="pro-exp-main"><b>${esc(x.project||"Проєкт")}</b><span>${esc(x.role||"Роль не визначена")}</span></div><div class="pro-exp-meta">${x.period?`<span>${esc(x.period)}</span>`:""}${x.category?`<span>${esc(x.category)}</span>`:""}</div></div>`).join("")}</div>`;
+};
+
+// v19 — контроль повноти професійних профілів.
+const professionalProfileAudit=s=>{
+  const imp=importedResumeForStudent(s);
+  const q=importedQuestionnaireForStudent(s);
+  const rp=studentProfessionalProfile(s);
+  const textParsed=!!(imp&&imp.textParsed);
+  const structuredCount=Array.isArray(rp.structuredExperience)?rp.structuredExperience.length:0;
+  const hasResume=!!imp;
+  const hasQuestionnaire=!!q;
+  const missing=[];
+  if(!hasQuestionnaire) missing.push("немає анкети");
+  if(!hasResume) missing.push("немає резюме");
+  else if(!textParsed) missing.push("резюме треба розібрати вручну");
+  if(hasResume&&textParsed&&!structuredCount) missing.push("досвід ще не структуровано");
+  if(hasResume&&textParsed&&!String(rp.summary||"").trim()) missing.push("немає професійного опису");
+  if(hasResume&&textParsed&&!(rp.roles||[]).length) missing.push("не визначені професійні напрями");
+  let status="ready",label="Готовий",tone="ready";
+  if(!hasResume){status="no-resume";label="Немає резюме";tone="missing";}
+  else if(!textParsed||!structuredCount){status="needs-review";label="Треба дорозібрати";tone="review";}
+  else if(!hasQuestionnaire){status="partial";label="Неповний";tone="partial";}
+  return {status,label,tone,hasResume,hasQuestionnaire,textParsed,structuredCount,manualReviewed:!!(imp&&imp.manualReviewed),reviewNote:imp?.reviewNote||"",missing,rp};
+};
+const professionalAuditBadge=a=>`<span class="profile-audit-badge ${a.tone}">${esc(a.label)}</span>`;
 
 async function importQuestionnaireDataV16(){
   const candidates=(db.students||[]).map(st=>({st,q:importedQuestionnaireForStudent(st)})).filter(x=>x.q);
@@ -2465,7 +2567,22 @@ async function importQuestionnaireDataV16(){
 }
 
 function students(){
+  const allAudits=(db.students||[]).map(s=>({s,a:professionalProfileAudit(s)}));
+  const totals={
+    all:allAudits.length,
+    ready:allAudits.filter(x=>x.a.status==="ready").length,
+    review:allAudits.filter(x=>x.a.status==="needs-review").length,
+    noResume:allAudits.filter(x=>x.a.status==="no-resume").length,
+    partial:allAudits.filter(x=>x.a.status==="partial").length
+  };
   app.innerHTML=`
+    <div class="profile-audit-summary">
+      <button type="button" class="audit-summary-card active" data-audit-status=""><b>${totals.all}</b><span>Усі студенти</span></button>
+      <button type="button" class="audit-summary-card ready" data-audit-status="ready"><b>${totals.ready}</b><span>Готові профілі</span></button>
+      <button type="button" class="audit-summary-card review" data-audit-status="needs-review"><b>${totals.review}</b><span>Треба дорозібрати</span></button>
+      <button type="button" class="audit-summary-card missing" data-audit-status="no-resume"><b>${totals.noResume}</b><span>Немає резюме</span></button>
+      ${totals.partial?`<button type="button" class="audit-summary-card partial" data-audit-status="partial"><b>${totals.partial}</b><span>Неповні</span></button>`:""}
+    </div>
     <div class="toolbar">
       <input id="studentSearch" placeholder="Пошук студента...">
       <select id="studentProjectFilter">
@@ -2473,27 +2590,51 @@ function students(){
         ${db.projects.map(p=>`<option value="${esc(String(p.id))}">${esc(p.name)}</option>`).join("")}
       </select>
       <select id="studentGroupFilter">${groupOptionsHtml()}</select>
+      <select id="profileStatusFilter">
+        <option value="">Усі стани профілю</option>
+        <option value="ready">Готовий</option>
+        <option value="needs-review">Треба дорозібрати</option>
+        <option value="no-resume">Немає резюме</option>
+        <option value="partial">Неповний</option>
+      </select>
+      <button type="button" class="ghost" id="profileAuditModeBtn">Контроль профілів</button>
       <button type="button" class="ghost" id="importQuestionnaireBtn">Імпортувати анкетні дані (32)</button>
       <button type="button" class="ghost" id="recoverStudentsBtn">Відновити студентів із Firebase</button>
       <button type="button" class="ghost" id="cleanupStudentsBtn">Прибрати дублікати</button>
     </div>
+    <div id="profileAuditInfo" class="profile-audit-info" hidden></div>
     <div class="students-grid" id="studentsGrid"></div>`;
 
+  let auditMode=false;
   const render=()=>{
     const q=($("#studentSearch").value||"").toLowerCase().trim();
     const pf=$("#studentProjectFilter").value;
     const gf=$("#studentGroupFilter").value;
+    const sf=$("#profileStatusFilter").value;
 
     const rows=db.students.filter(s=>{
       if(!String(s.name||"").toLowerCase().includes(q)) return false;
       if(gf && String(s.group||"")!==gf) return false;
+      if(sf && professionalProfileAudit(s).status!==sf) return false;
       if(!pf) return true;
       return studentProjects(s.id).some(p=>String(p.id)===String(pf));
     });
 
+    const info=$("#profileAuditInfo");
+    if(auditMode){
+      info.hidden=false;
+      info.innerHTML=`<b>Контроль повноти профілів</b><span>Зелений — резюме прочитано і досвід структуровано. Жовтий — резюме є, але його ще треба дорозібрати. Червоний — резюме для студента не знайдено.</span>`;
+      $("#studentsGrid").classList.add("audit-grid-mode");
+    }else{
+      info.hidden=true;
+      $("#studentsGrid").classList.remove("audit-grid-mode");
+    }
+
     $("#studentsGrid").innerHTML=rows.map(s=>{
       const ps=studentProjects(s.id);
-      return `<button type="button" class="student-card student-open-card" data-student-id="${esc(String(s.id))}">
+      const a=professionalProfileAudit(s);
+      const missing=a.missing.length?a.missing.join(" · "):"основні дані зібрані";
+      return `<button type="button" class="student-card student-open-card ${auditMode?"audit-card":""}" data-student-id="${esc(String(s.id))}">
         <div class="student-card-main">
           <div class="student-list-avatar">
             ${sharedStudentPhoto(s)
@@ -2501,11 +2642,14 @@ function students(){
               : `<span>${esc((s.name||"?").trim().charAt(0).toUpperCase())}</span>`}
           </div>
           <div class="student-card-copy">
-            <h3>${esc(s.name)}</h3>
+            <div class="student-card-title-row"><h3>${esc(s.name)}</h3>${professionalAuditBadge(a)}</div>
             <div class="muted">${esc(s.group||"")} · ${countDays(s.id)} зайнятих днів</div>
-            <div class="chips">
-              ${ps.map(p=>`<span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,esc(p.name))}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}
-            </div>
+            ${auditMode?`<div class="audit-card-details">
+              <span class="audit-mini ${a.hasQuestionnaire?"ok":"no"}">${a.hasQuestionnaire?"✓":"×"} анкета</span>
+              <span class="audit-mini ${a.hasResume?"ok":"no"}">${a.hasResume?"✓":"×"} резюме</span>
+              <span class="audit-mini ${a.textParsed?"ok":"warn"}">${a.textParsed?"✓":"!"} текст</span>
+              <span class="audit-mini ${a.structuredCount?"ok":"warn"}">${a.structuredCount?"✓":"!"} досвід ${a.structuredCount||0}</span>
+            </div><div class="audit-missing"><b>Потрібно:</b> ${esc(missing)}</div>`:`<div class="chips">${ps.map(p=>`<span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,esc(p.name))}</span>`).join("")||'<span class="muted">Проєктів ще немає</span>'}</div>`}
           </div>
         </div>
       </button>`;
@@ -2514,10 +2658,7 @@ function students(){
     $$(".student-open-card").forEach(btn=>{
       btn.onclick=()=>{
         const sid=resolveStudentId(btn.dataset.studentId);
-        if(sid===undefined){
-          console.error("Student not found:",btn.dataset.studentId);
-          return;
-        }
+        if(sid===undefined){console.error("Student not found:",btn.dataset.studentId);return;}
         openStudent(sid);
       };
     });
@@ -2526,6 +2667,17 @@ function students(){
   $("#studentSearch").oninput=render;
   $("#studentProjectFilter").onchange=render;
   $("#studentGroupFilter").onchange=render;
+  $("#profileStatusFilter").onchange=()=>{
+    const val=$("#profileStatusFilter").value;
+    $$(".audit-summary-card").forEach(b=>b.classList.toggle("active",b.dataset.auditStatus===val));
+    render();
+  };
+  $$(".audit-summary-card").forEach(btn=>btn.onclick=()=>{
+    $("#profileStatusFilter").value=btn.dataset.auditStatus||"";
+    $$(".audit-summary-card").forEach(b=>b.classList.toggle("active",b===btn));
+    render();
+  });
+  $("#profileAuditModeBtn").onclick=()=>{auditMode=!auditMode;$("#profileAuditModeBtn").classList.toggle("active",auditMode);render();};
   $("#importQuestionnaireBtn").onclick=importQuestionnaireDataV16;
   $("#recoverStudentsBtn").onclick=recoverStudentsFromFirebase;
   $("#cleanupStudentsBtn").onclick=cleanupStudentDuplicates;
@@ -2586,6 +2738,20 @@ function openStudent(id){
     const birthday=birthValue
       ? new Date(birthValue+"T12:00:00").toLocaleDateString("uk-UA",{day:"2-digit",month:"2-digit",year:"numeric"})
       : "";
+    const ageParts=(()=>{
+      if(!birthValue) return null;
+      const parts=String(birthValue).split("-").map(Number);
+      if(parts.length!==3||parts.some(Number.isNaN)) return null;
+      const [by,bm,bd]=parts;
+      const now=new Date();
+      let years=now.getFullYear()-by;
+      let months=now.getMonth()+1-bm;
+      if(now.getDate()<bd) months--;
+      if(months<0){ years--; months+=12; }
+      if(years<0) return null;
+      return {years,months};
+    })();
+    const ageBadge=ageParts ? `<span class="student-age" title="${ageParts.years} повних років, ${ageParts.months} повних місяців">${ageParts.years}<small>(${ageParts.months})</small></span>` : "";
 
     const fallbackPhone=!s.phone?(rp.importedContacts.phones?.[0]||""):"";
     const fallbackEmail=!s.email?(rp.importedContacts.emails?.[0]||""):"";
@@ -2621,7 +2787,7 @@ function openStudent(id){
             <h2>${esc(s.name)}</h2>
             <div class="profile-meta">
               <span>${esc(s.group||"")}</span>
-              ${birthday?`<span>🎂 ${birthday}</span>`:""}
+              ${birthday?`<span>🎂 ${birthday}${ageBadge?` · ${ageBadge}`:""}</span>`:""}
               ${(s.academicProfile?.funding||rp.questionnaire?.funding)?`<span>${esc(s.academicProfile?.funding||rp.questionnaire?.funding)}</span>`:""}
             </div>
             <div class="profile-project-pills">
@@ -2642,6 +2808,7 @@ function openStudent(id){
 
         <div class="profile-section">
           <div class="profile-section-title"><b>Професійний профіль</b><span class="muted">дані для добірок і портфоліо</span></div>
+          ${(()=>{const a=professionalProfileAudit(s);return `<div class="profile-audit-inline ${a.tone}">${professionalAuditBadge(a)}<div><b>${a.structuredCount?`${a.structuredCount} структурованих записів досвіду`:"Структурований досвід ще не готовий"}</b><span>${esc(a.missing.length?a.missing.join(" · "):"Основні дані профілю зібрані")}</span></div></div>`;})()}
           ${rp.imported?`<div class="resume-import-note">✓ Знайдено та підключено резюме студента з архіву.</div>`:""}
           ${rp.questionnaire?.name?`<div class="resume-import-note">✓ Підключено анкетні дані студента: контакти та параметри для підбору.</div>`:""}
           <div class="resume-profile-grid">
@@ -2659,7 +2826,8 @@ function openStudent(id){
               <div class="casting-item"><b>Очі</b><span>${esc(rp.casting.eyes||"—")}</span></div>
               <div class="casting-item"><b>Спецнавички</b><span>${esc(rp.casting.special||"—")}</span></div>
             </div>
-            ${rp.experience?`<div class="resume-box full"><h4>Досвід із резюме</h4><div class="resume-text">${esc(rp.experience)}</div></div>`:""}
+            ${rp.structuredExperience?.length?`<div class="resume-box full"><h4>Професійний досвід · ${rp.structuredExperience.length} структурованих записів</h4>${structuredExperienceHtml(rp.structuredExperience)}</div>`:""}
+            ${rp.experience?`<details class="resume-box full"><summary><b>Оригінальний текст резюме</b></summary><div class="resume-text">${esc(rp.experience)}</div></details>`:""}
             ${rp.sources?.length?`<div class="resume-box full"><h4>Джерело</h4><div class="resume-source-list">${rp.sources.map(esc).join("<br>")}</div></div>`:""}
           </div>
         </div>
@@ -2833,8 +3001,20 @@ function editPublicProfile(id){
           <input id="pubPhoto" value="${esc(profile.photo||"")}" placeholder="Або старий шлях images/...">
         </div>
       </div>
+      <label class="full public-publish-toggle"><input id="pubAutoProfessional" type="checkbox" ${profile.autoProfessional!==false?"checked":""}><span><b>Автоматично брати професійні дані з REMS Control</b><small>Опис, напрями, програми та структурований досвід оновлюватимуться на сайті після збереження картки студента.</small></span></label>
+      <div class="full resume-box"><h4>Що показувати на сайті</h4><div class="resume-tags" style="gap:12px">
+        <label><input id="pubShowExperience" type="checkbox" ${profile.visibility?.experience!==false?"checked":""}> досвід</label>
+        <label><input id="pubShowPrograms" type="checkbox" ${profile.visibility?.programs!==false?"checked":""}> програми</label>
+        <label><input id="pubShowAge" type="checkbox" ${profile.visibility?.age!==false?"checked":""}> вік</label>
+        <label><input id="pubShowHeight" type="checkbox" ${profile.visibility?.height!==false?"checked":""}> зріст</label>
+        <label><input id="pubShowClothing" type="checkbox" ${profile.visibility?.clothing===true?"checked":""}> одяг</label>
+        <label><input id="pubShowShoe" type="checkbox" ${profile.visibility?.shoe===true?"checked":""}> взуття</label>
+        <label><input id="pubShowInstagram" type="checkbox" ${profile.visibility?.instagram!==false?"checked":""}> Instagram</label>
+        <label><input id="pubShowTelegram" type="checkbox" ${profile.visibility?.telegram===true?"checked":""}> Telegram</label>
+        <label><input id="pubShowEmail" type="checkbox" ${profile.visibility?.email===true?"checked":""}> email</label>
+      </div></div>
       <label class="full">Про себе — один абзац на рядок<textarea id="pubBio" rows="6">${esc(lines(profile.bio))}</textarea></label>
-      <label class="full">Навички — одна на рядок<textarea id="pubSkills" rows="5">${esc(lines(profile.skills))}</textarea></label>
+      <label class="full">Навички / напрями — одна на рядок<textarea id="pubSkills" rows="5">${esc(lines(profile.skills))}</textarea></label>
       <label class="full">Досягнення — одне на рядок<textarea id="pubAchievements" rows="5">${esc(lines(profile.achievements))}</textarea></label>
       <label>Instagram<input id="pubInstagram" value="${esc(profile.socials?.instagram||"")}"></label>
       <label>TikTok<input id="pubTiktok" value="${esc(profile.socials?.tiktok||"")}"></label>
@@ -2844,7 +3024,7 @@ function editPublicProfile(id){
       <label>Email<input id="pubEmail" value="${esc(profile.socials?.email||"")}"></label>
       <label class="full">Відеороботи — Назва | YouTube-посилання<textarea id="pubVideos" rows="6">${esc(videos)}</textarea></label>
       <label class="full">Галерея — одне посилання/шлях на рядок<textarea id="pubGallery" rows="5">${esc(lines(profile.gallery))}</textarea></label>
-      <div class="full notice ok">Публікуються тільки поля з цієї форми. Телефон, календар, внутрішні нотатки та зайнятість сюди не потрапляють.</div>
+      <div class="full notice ok">На сайт передаються тільки дозволені публічні поля. Телефон, вага, адреса, дані батьків, форма фінансування, календар, нотатки та зайнятість не публікуються.</div>
       <div class="full profile-actions">
         <button type="button" class="ghost" id="cancelPublicEdit">Скасувати</button>
         <button type="submit" class="primary">Зберегти й опублікувати</button>
@@ -2871,8 +3051,16 @@ function editPublicProfile(id){
     }).filter(v=>v.youtube);
     const pubPhotoFile=$("#pubPhotoFile")?.files?.[0];
     const sharedPhotoData=pubPhotoFile?await compressStudentPhoto(pubPhotoFile):null;
-    const next={...profile,published:$("#pubPublished").checked,name:$("#pubName").value.trim(),role:$("#pubRole").value.trim(),photo:$("#pubPhoto").value.trim(),
-      bio:splitLines($("#pubBio").value),skills:splitLines($("#pubSkills").value),achievements:splitLines($("#pubAchievements").value),
+    const autoNow=autoPublicProfessionalData(s);
+    const next={...profile,published:$("#pubPublished").checked,autoProfessional:$("#pubAutoProfessional").checked,name:$("#pubName").value.trim(),role:$("#pubRole").value.trim(),photo:$("#pubPhoto").value.trim(),
+      visibility:{experience:$("#pubShowExperience").checked,programs:$("#pubShowPrograms").checked,age:$("#pubShowAge").checked,height:$("#pubShowHeight").checked,clothing:$("#pubShowClothing").checked,shoe:$("#pubShowShoe").checked,instagram:$("#pubShowInstagram").checked,telegram:$("#pubShowTelegram").checked,email:$("#pubShowEmail").checked},
+      bio:$("#pubAutoProfessional").checked&&autoNow.bio.length?autoNow.bio:splitLines($("#pubBio").value),
+      roles:$("#pubAutoProfessional").checked?autoNow.roles:(profile.roles||[]),
+      skills:$("#pubAutoProfessional").checked?uniquePublicList([...(autoNow.roles||[]),...(autoNow.skills||[])]):splitLines($("#pubSkills").value),
+      programs:$("#pubAutoProfessional").checked?autoNow.programs:(profile.programs||[]),
+      structuredExperience:$("#pubAutoProfessional").checked?autoNow.structuredExperience:(profile.structuredExperience||[]),
+      publicFacts:$("#pubAutoProfessional").checked?autoNow.facts:(profile.publicFacts||{}),
+      achievements:splitLines($("#pubAchievements").value),
       socials:{instagram:$("#pubInstagram").value.trim(),tiktok:$("#pubTiktok").value.trim(),youtube:$("#pubYoutube").value.trim(),
         telegram:$("#pubTelegram").value.trim(),facebook:$("#pubFacebook").value.trim(),email:$("#pubEmail").value.trim()},
       videos:parsedVideos,gallery:splitLines($("#pubGallery").value)};
@@ -3103,6 +3291,7 @@ function editStudent(id){
         roles:($("#stProfRoles")?.value||"").split(/[,\n]/).map(x=>x.trim()).filter(Boolean),
         programs:($("#stProfPrograms")?.value||"").split(/[,\n]/).map(x=>x.trim()).filter(Boolean),
         experience:$("#stProfExperience")?.value.trim()||"",
+        structuredExperience:rp.structuredExperience||[],
         casting:{
           playingAge:$("#stCastAge")?.value.trim()||"",
           height:$("#stCastHeight")?.value.trim()||"",
@@ -7505,7 +7694,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v16.0 · хмара ✓");
+    setStatus("v22.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -7533,6 +7722,17 @@ functions=getFunctions(firebaseApp,"europe-west1");
         }
         localStorage.setItem("rems_public_docs_seed_v37","1");
       }catch(err){console.error("Public profile seeding failed:",err);}
+    }
+
+    // v22 — one-time refresh of every already published profile so the public site
+    // immediately receives the structured professional data without opening students one by one.
+    if(!localStorage.getItem("rems_public_professional_sync_v22")){
+      try{
+        for(const s of db.students){
+          if(publicProfileFor(s)?.published===true) await publishOnePublicProfile(s);
+        }
+        localStorage.setItem("rems_public_professional_sync_v22","1");
+      }catch(err){ console.error("v22 public professional sync failed:",err); }
     }
 
     if(!localStorage.getItem("rems_student_media_migrated_v38")){
@@ -7608,7 +7808,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v16.0 · хмара ✓");
+      setStatus("v22.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
