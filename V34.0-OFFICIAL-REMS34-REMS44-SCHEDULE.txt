@@ -1,0 +1,8 @@
+REMS Control v34.0
+
+Imported official timetable from: 3 курс ФТКЕ.docx
+Scope: РЕМС-34 and РЕМС-44 only.
+Semester: V, 2026–2027.
+Rows: 297 (139 РЕМС-34; 158 РЕМС-44).
+
+On first cloud load, previous REMS-РОЗКЛАД imported lessons for these two groups are replaced. Manual lessons and all other groups are preserved.
