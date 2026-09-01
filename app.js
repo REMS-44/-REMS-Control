@@ -880,12 +880,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v39.2 · немає з’єднання");
+    setStatus("v39.3 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v39.2 · збереження…");
+    setStatus("v39.3 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -895,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v39.2 · хмара ✓");
+    setStatus("v39.3 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -906,7 +906,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v39.2 · помилка хмари");
+    setStatus("v39.3 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -8256,7 +8256,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v39.2 · хмара ✓");
+    setStatus("v39.3 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -8365,7 +8365,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v39.2 · хмара ✓");
+      setStatus("v39.3 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
@@ -8543,7 +8543,7 @@ function openUnifiedOccupancyV13(mode="day",seed={}){
 // ===== /REMS Control v14 =====
 
 
-// ===== REMS Control v39.2: safe schedule editor + filters =====
+// ===== REMS Control v39.3: safe schedule editor + filters =====
 const academicV39State={month:null,group:"both",teacher:""};
 const academicV39TeacherNorm=v=>academicImportNameNorm(v);
 const academicV39AllTeachers=()=>[...new Set(academicLessons().map(l=>String(l.teacher||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"uk"));
@@ -8556,14 +8556,14 @@ const academicV39IsBothGroups=ids=>{
 };
 async function saveAcademicV39(){
   normalizeUndeterminedTimes(db);cache();
-  if(!cloudReady||!cloudDb||!currentUser){setStatus("v39.2 · немає з’єднання");return false;}
+  if(!cloudReady||!cloudDb||!currentUser){setStatus("v39.3 · немає з’єднання");return false;}
   try{
-    cloudWriting=true;setStatus("v39.2 · збереження розкладу…");
+    cloudWriting=true;setStatus("v39.3 · збереження розкладу…");
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{
       lessons:db.lessons||[],settings:db.settings||{},academicImport:db.academicImport||null,updatedAt:new Date().toISOString()
     },{merge:true});
-    cache();setStatus("v39.2 · хмара ✓");return true;
-  }catch(err){console.error(err);setStatus("v39.2 · помилка хмари");return false;}
+    cache();setStatus("v39.3 · хмара ✓");return true;
+  }catch(err){console.error(err);setStatus("v39.3 · помилка хмари");return false;}
   finally{setTimeout(()=>{cloudWriting=false;},250);}
 }
 function ensureAcademicV39Dialog(){
@@ -8646,7 +8646,7 @@ function academicV39(){
     if(academicV39State.group!=="both") rows=rows.filter(l=>String(l.group||"")===academicV39State.group);
     if(academicV39State.teacher){const n=academicV39TeacherNorm(academicV39State.teacher);rows=rows.filter(l=>academicV39TeacherNorm(l.teacher)===n);}
     const firstIndex=workDates.length?new Date(workDates[0]+"T12:00:00").getDay()-1:0,blanks=Array.from({length:firstIndex},()=>'<div class="academic-dual-cal-day empty"></div>').join("");
-    const card=(items,shared=false)=>{const l=items[0];return `<button type="button" class="academic-dual-card ${academicTeacherClass(l.teacher,l.subject)} ${shared?"shared":""}" data-ids="${esc(items.map(x=>String(x.id)).join(","))}" data-date="${esc(l.date||"")}">${shared?'<em class="academic-together">РАЗОМ · РЕМС-34 + РЕМС-44</em>':""}<strong>${esc(l.subject||"Заняття")}</strong><span class="academic-kind">${esc(academicDisplayLessonType(l.lessonType))}</span><span class="academic-teacher">${esc(l.teacher||"Викладача не вказано")}</span><b class="academic-room">ауд. ${esc(String(l.room||"").trim()||"не вказана")}</b></button>`;};
+    const card=(items,shared=false)=>{const l=items[0];return `<button type="button" class="academic-dual-card academic-v393-card ${academicTeacherClass(l.teacher,l.subject)} ${shared?"shared":""}" data-ids="${esc(items.map(x=>String(x.id)).join(","))}" data-date="${esc(l.date||"")}">${shared?'<div class="academic-v393-together">РАЗОМ · РЕМС-34 + РЕМС-44</div>':""}<div class="academic-v393-subject">${esc(l.subject||"Заняття")}</div><div class="academic-v393-kind">${esc(academicDisplayLessonType(l.lessonType))}</div><div class="academic-v393-teacher">${esc(l.teacher||"Викладача не вказано")}</div><div class="academic-v393-room">ауд. ${esc(String(l.room||"").trim()||"не вказана")}</div></button>`;};
     const cell=date=>{const dt=new Date(date+"T12:00:00"),dayRows=rows.filter(l=>academicLessonOccursOnDate(l,date)),pairs=[...new Set(dayRows.map(academicV39Pair).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
       return `<div class="academic-dual-cal-day ${localIsoDate()===date?"today-date":""}"><div class="academic-dual-cal-date"><div><b>${dt.getDate()}</b><span>${dt.toLocaleDateString("uk-UA",{weekday:"short"})}</span></div><button type="button" class="academic-v39-plus" data-add-date="${date}" title="Додати заняття">+</button></div>${pairs.map(pair=>{const all=dayRows.filter(l=>academicV39Pair(l)===pair);const time=academicV39TimeForPair(pair);let body="";
         if(academicV39State.group==="both"){
@@ -8674,7 +8674,7 @@ function academicV39(){
   const st=document.createElement("style");st.textContent=`
     .academic-v39-topbar{align-items:flex-start}.academic-v39-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 14px}.academic-v39-group-switch{display:flex;border:1px solid #dbe2ea;border-radius:12px;overflow:hidden;background:#fff}.academic-v39-group-switch button{border:0;border-right:1px solid #e5e7eb;background:#fff;padding:10px 13px;font-weight:800;cursor:pointer}.academic-v39-group-switch button:last-child{border-right:0}.academic-v39-group-switch button.active{background:#111827;color:#fff}.academic-v39-filters select{min-width:220px;padding:10px 12px;border:1px solid #dbe2ea;border-radius:10px;background:#fff}
     .academic-dual-cal-date>div{display:flex;align-items:baseline;gap:6px}.academic-v39-plus,.academic-v39-pair-plus{border:1px solid #cbd5e1;background:#fff;border-radius:7px;cursor:pointer;font-weight:900;color:#334155;flex:0 0 auto}.academic-v39-plus{width:25px;height:25px}.academic-v39-pair-plus{width:20px;height:20px;padding:0;line-height:16px;margin-left:3px}.academic-dual-cal-pair-head{align-items:center}.academic-dual-cal-pair-head span{margin-left:auto}.academic-dual-cal-single{display:grid;gap:5px}.academic-dual-cal-single i{display:block;text-align:center;color:#cbd5e1;font-style:normal;padding:8px}
-    /* v39.2 — keep the approved calendar grid; fix only the inside of lesson cards */
+    /* v39.3 — keep the approved calendar grid; fix only the inside of lesson cards */
     .academic-dual-cal-day .academic-dual-card{
       display:flex!important;flex-direction:column!important;align-items:stretch!important;
       width:100%!important;height:auto!important;min-height:0!important;
@@ -8703,11 +8703,24 @@ function academicV39(){
       .academic-dual-cal-day .academic-dual-card .academic-kind{font-size:11px!important}
       .academic-dual-cal-day .academic-dual-card .academic-teacher,.academic-dual-cal-day .academic-dual-card .academic-room{font-size:12px!important}
     }
+    /* v39.3 — bulletproof vertical content in narrow cards; grid geometry unchanged */
+    .academic-dual-cal-day .academic-v393-card{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important;padding:9px 10px!important;white-space:normal!important;text-align:left!important}
+    .academic-dual-cal-day .academic-v393-card>.academic-v393-together,
+    .academic-dual-cal-day .academic-v393-card>.academic-v393-subject,
+    .academic-dual-cal-day .academic-v393-card>.academic-v393-kind,
+    .academic-dual-cal-day .academic-v393-card>.academic-v393-teacher,
+    .academic-dual-cal-day .academic-v393-card>.academic-v393-room{display:block!important;position:relative!important;inset:auto!important;float:none!important;width:auto!important;max-width:none!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;transform:none!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:break-word!important;word-break:normal!important;text-align:left!important;line-height:1.28!important}
+    .academic-dual-cal-day .academic-v393-card>.academic-v393-together{font-size:8px!important;font-weight:900!important;letter-spacing:.03em!important;margin-bottom:4px!important}
+    .academic-dual-cal-day .academic-v393-card>.academic-v393-subject{font-size:12px!important;font-weight:850!important;margin-bottom:4px!important}
+    .academic-dual-cal-day .academic-v393-card>.academic-v393-kind{font-size:10px!important;font-weight:750!important;margin-bottom:4px!important}
+    .academic-dual-cal-day .academic-v393-card>.academic-v393-teacher{font-size:11px!important;font-weight:900!important;margin-bottom:3px!important}
+    .academic-dual-cal-day .academic-v393-card>.academic-v393-room{font-size:11px!important;font-weight:900!important}
+    @media(max-width:900px){.academic-dual-cal-day .academic-v393-card>.academic-v393-subject{font-size:13px!important}.academic-dual-cal-day .academic-v393-card>.academic-v393-kind{font-size:11px!important}.academic-dual-cal-day .academic-v393-card>.academic-v393-teacher,.academic-dual-cal-day .academic-v393-card>.academic-v393-room{font-size:12px!important}}
     .academic-v39-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.academic-v39-form label{display:grid;gap:5px;font-size:12px;font-weight:700}.academic-v39-form input,.academic-v39-form select{padding:10px;border:1px solid #d9dee6;border-radius:9px;background:#fff}.academic-v39-form .full{grid-column:1/-1}.academic-v39-dialog{max-width:min(760px,96vw)}
     @media(max-width:650px){.academic-v39-filters{align-items:stretch;display:grid;grid-template-columns:1fr}.academic-v39-group-switch{width:100%}.academic-v39-group-switch button{flex:1}.academic-v39-filters select{width:100%;min-width:0}.academic-v39-form{grid-template-columns:1fr}.academic-v39-form .full{grid-column:1}}
   `;document.head.appendChild(st);
   academic=academicV39;if(typeof views!=="undefined")views.academic=academicV39;
 })();
-// ===== /REMS Control v39.2 =====
+// ===== /REMS Control v39.3 =====
 
 bootstrapAuth();
