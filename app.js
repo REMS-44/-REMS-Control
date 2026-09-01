@@ -880,12 +880,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v39.0 · немає з’єднання");
+    setStatus("v39.1 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v39.0 · збереження…");
+    setStatus("v39.1 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -895,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v39.0 · хмара ✓");
+    setStatus("v39.1 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -906,7 +906,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v39.0 · помилка хмари");
+    setStatus("v39.1 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -8256,7 +8256,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v39.0 · хмара ✓");
+    setStatus("v39.1 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -8365,7 +8365,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v39.0 · хмара ✓");
+      setStatus("v39.1 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
@@ -8543,7 +8543,7 @@ function openUnifiedOccupancyV13(mode="day",seed={}){
 // ===== /REMS Control v14 =====
 
 
-// ===== REMS Control v39: safe schedule editor + filters =====
+// ===== REMS Control v39.1: safe schedule editor + filters =====
 const academicV39State={month:null,group:"both",teacher:""};
 const academicV39TeacherNorm=v=>academicImportNameNorm(v);
 const academicV39AllTeachers=()=>[...new Set(academicLessons().map(l=>String(l.teacher||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"uk"));
@@ -8556,14 +8556,14 @@ const academicV39IsBothGroups=ids=>{
 };
 async function saveAcademicV39(){
   normalizeUndeterminedTimes(db);cache();
-  if(!cloudReady||!cloudDb||!currentUser){setStatus("v39.0 · немає з’єднання");return false;}
+  if(!cloudReady||!cloudDb||!currentUser){setStatus("v39.1 · немає з’єднання");return false;}
   try{
-    cloudWriting=true;setStatus("v39.0 · збереження розкладу…");
+    cloudWriting=true;setStatus("v39.1 · збереження розкладу…");
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{
       lessons:db.lessons||[],settings:db.settings||{},academicImport:db.academicImport||null,updatedAt:new Date().toISOString()
     },{merge:true});
-    cache();setStatus("v39.0 · хмара ✓");return true;
-  }catch(err){console.error(err);setStatus("v39.0 · помилка хмари");return false;}
+    cache();setStatus("v39.1 · хмара ✓");return true;
+  }catch(err){console.error(err);setStatus("v39.1 · помилка хмари");return false;}
   finally{setTimeout(()=>{cloudWriting=false;},250);}
 }
 function ensureAcademicV39Dialog(){
@@ -8645,14 +8645,21 @@ function academicV39(){
     let rows=academicLessons().filter(l=>academicLessonDates(l).some(d=>d.startsWith(academicV39State.month))&&OFFICIAL_REMS_GROUPS.includes(String(l.group||"")));
     if(academicV39State.group!=="both") rows=rows.filter(l=>String(l.group||"")===academicV39State.group);
     if(academicV39State.teacher){const n=academicV39TeacherNorm(academicV39State.teacher);rows=rows.filter(l=>academicV39TeacherNorm(l.teacher)===n);}
-    const firstIndex=workDates.length?new Date(workDates[0]+"T12:00:00").getDay()-1:0,blanks=Array.from({length:firstIndex},()=>'<div class="academic-v39-day empty"></div>').join("");
-    const card=(items,shared=false)=>{const l=items[0];const groups=[...new Set(items.map(x=>String(x.group||"")))];return `<button type="button" class="academic-v39-card ${academicTeacherClass(l.teacher,l.subject)}" data-ids="${esc(items.map(x=>String(x.id)).join(","))}" data-date="${esc(l.date||"")}">${shared?'<span class="academic-v39-shared">РЕМС-34 + РЕМС-44</span>':`<span class="academic-v39-group">${esc(groups.join(" + "))}</span>`}<strong>${esc(l.subject||"Заняття")}</strong><span class="academic-v39-kind">${esc(academicDisplayLessonType(l.lessonType))}</span><span class="academic-v39-teacher">${esc(l.teacher||"Викладача не вказано")}</span><b class="academic-v39-room">ауд. ${esc(String(l.room||"").trim()||"не вказана")}</b></button>`;};
+    const firstIndex=workDates.length?new Date(workDates[0]+"T12:00:00").getDay()-1:0,blanks=Array.from({length:firstIndex},()=>'<div class="academic-dual-cal-day empty"></div>').join("");
+    const card=(items,shared=false)=>{const l=items[0];return `<button type="button" class="academic-dual-card ${academicTeacherClass(l.teacher,l.subject)} ${shared?"shared":""}" data-ids="${esc(items.map(x=>String(x.id)).join(","))}" data-date="${esc(l.date||"")}">${shared?'<em class="academic-together">РАЗОМ · РЕМС-34 + РЕМС-44</em>':""}<strong>${esc(l.subject||"Заняття")}</strong><span class="academic-kind">${esc(academicDisplayLessonType(l.lessonType))}</span><span class="academic-teacher">${esc(l.teacher||"Викладача не вказано")}</span><b class="academic-room">ауд. ${esc(String(l.room||"").trim()||"не вказана")}</b></button>`;};
     const cell=date=>{const dt=new Date(date+"T12:00:00"),dayRows=rows.filter(l=>academicLessonOccursOnDate(l,date)),pairs=[...new Set(dayRows.map(academicV39Pair).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
-      return `<div class="academic-v39-day ${localIsoDate()===date?"today-date":""}"><div class="academic-v39-date"><div><b>${dt.getDate()}</b><span>${dt.toLocaleDateString("uk-UA",{weekday:"short"})}</span></div><button type="button" class="academic-v39-plus" data-add-date="${date}">+</button></div>${pairs.map(pair=>{const all=dayRows.filter(l=>academicV39Pair(l)===pair);const time=academicV39TimeForPair(pair);let cards=[];
-        if(academicV39State.group==="both"){const a=all.filter(l=>l.group==="РЕМС-34"),b=all.filter(l=>l.group==="РЕМС-44"),used=new Set();a.forEach(x=>{const j=b.findIndex((y,i)=>!used.has(i)&&academicV39Same(x,y));if(j>=0){used.add(j);cards.push(card([x,b[j]],true));}else cards.push(card([x],false));});b.forEach((x,i)=>{if(!used.has(i))cards.push(card([x],false));});}else cards=all.map(x=>card([x],false));
-        return `<div class="academic-v39-pair"><div class="academic-v39-pair-head"><b>${pair} пара</b><span>${time[0]}–${time[1]}</span><button type="button" class="academic-v39-pair-plus" data-add-date="${date}" data-add-pair="${pair}">+</button></div><div class="academic-v39-cards">${cards.join("")}</div></div>`;}).join("")||'<div class="academic-v39-none">—</div>'}</div>`;};
-    document.querySelector("#academicV39Mount").innerHTML=`<div class="academic-v39-calendar"><div class="academic-v39-weekdays">${["Понеділок","Вівторок","Середа","Четвер","П’ятниця"].map(x=>`<b>${x}</b>`).join("")}</div><div class="academic-v39-grid">${blanks}${workDates.map(cell).join("")}</div></div>`;
-    document.querySelectorAll(".academic-v39-card[data-ids]").forEach(b=>b.onclick=()=>openAcademicV39Editor({ids:b.dataset.ids.split(","),date:b.dataset.date}));
+      return `<div class="academic-dual-cal-day ${localIsoDate()===date?"today-date":""}"><div class="academic-dual-cal-date"><div><b>${dt.getDate()}</b><span>${dt.toLocaleDateString("uk-UA",{weekday:"short"})}</span></div><button type="button" class="academic-v39-plus" data-add-date="${date}" title="Додати заняття">+</button></div>${pairs.map(pair=>{const all=dayRows.filter(l=>academicV39Pair(l)===pair);const time=academicV39TimeForPair(pair);let body="";
+        if(academicV39State.group==="both"){
+          const a=all.filter(l=>l.group==="РЕМС-34"),b=all.filter(l=>l.group==="РЕМС-44"),used=new Set(),shared=[],onlyA=[];
+          a.forEach(x=>{const j=b.findIndex((y,i)=>!used.has(i)&&academicV39Same(x,y));if(j>=0){used.add(j);shared.push([x,b[j]]);}else onlyA.push(x);});
+          const onlyB=b.filter((x,i)=>!used.has(i));
+          body=`${shared.map(x=>`<div class="academic-dual-cal-shared">${card(x,true)}</div>`).join("")}${(onlyA.length||onlyB.length)?`<div class="academic-dual-cal-two"><div><small>РЕМС-34</small>${onlyA.map(x=>card([x],false)).join("")||'<i>—</i>'}</div><div><small>РЕМС-44</small>${onlyB.map(x=>card([x],false)).join("")||'<i>—</i>'}</div></div>`:""}`;
+        }else{
+          body=`<div class="academic-dual-cal-single">${all.map(x=>card([x],false)).join("")||'<i>—</i>'}</div>`;
+        }
+        return `<div class="academic-dual-cal-pair"><div class="academic-dual-cal-pair-head"><b>${pair} пара</b><span>${time[0]}–${time[1]}</span><button type="button" class="academic-v39-pair-plus" data-add-date="${date}" data-add-pair="${pair}" title="Додати заняття на цю пару">+</button></div>${body}</div>`;}).join("")||'<div class="academic-dual-cal-none">—</div>'}</div>`;};
+    document.querySelector("#academicV39Mount").innerHTML=`<div class="academic-dual-calendar"><div class="academic-dual-cal-weekdays">${["Понеділок","Вівторок","Середа","Четвер","П’ятниця"].map(x=>`<b>${x}</b>`).join("")}</div><div class="academic-dual-cal-grid">${blanks}${workDates.map(cell).join("")}</div></div>`;
+    document.querySelectorAll(".academic-dual-card[data-ids]").forEach(b=>b.onclick=()=>openAcademicV39Editor({ids:b.dataset.ids.split(","),date:b.dataset.date}));
     document.querySelectorAll("[data-add-date]").forEach(b=>b.onclick=e=>{e.stopPropagation();openAcademicV39Editor({date:b.dataset.addDate,pair:b.dataset.addPair||"1"});});
   };
   document.querySelectorAll(".academic-v39-group-switch [data-g]").forEach(b=>b.onclick=()=>{academicV39State.group=b.dataset.g;academicV39();});
@@ -8666,12 +8673,12 @@ function academicV39(){
 (function installAcademicV39(){
   const st=document.createElement("style");st.textContent=`
     .academic-v39-topbar{align-items:flex-start}.academic-v39-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 14px}.academic-v39-group-switch{display:flex;border:1px solid #dbe2ea;border-radius:12px;overflow:hidden;background:#fff}.academic-v39-group-switch button{border:0;border-right:1px solid #e5e7eb;background:#fff;padding:10px 13px;font-weight:800;cursor:pointer}.academic-v39-group-switch button:last-child{border-right:0}.academic-v39-group-switch button.active{background:#111827;color:#fff}.academic-v39-filters select{min-width:220px;padding:10px 12px;border:1px solid #dbe2ea;border-radius:10px;background:#fff}
-    .academic-v39-calendar{overflow-x:auto}.academic-v39-weekdays,.academic-v39-grid{display:grid;grid-template-columns:repeat(5,minmax(205px,1fr));min-width:1025px}.academic-v39-weekdays{gap:1px;background:#dbe2ea;border:1px solid #dbe2ea;border-radius:14px 14px 0 0;overflow:hidden}.academic-v39-weekdays b{background:#111827;color:#fff;padding:10px;text-align:center;font-size:13px}.academic-v39-grid{gap:1px;background:#dbe2ea;border:1px solid #dbe2ea;border-top:0;border-radius:0 0 14px 14px;overflow:hidden}.academic-v39-day{background:#fff;min-height:170px;padding:10px}.academic-v39-day.empty{background:#f4f6f8}.academic-v39-date{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}.academic-v39-date>div{display:flex;align-items:baseline;gap:6px}.academic-v39-date b{font-size:18px}.academic-v39-date span{font-size:11px;color:#64748b}.academic-v39-plus,.academic-v39-pair-plus{border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer;font-weight:900}.academic-v39-plus{width:28px;height:28px}.academic-v39-pair-plus{width:23px;height:23px;line-height:18px}.academic-v39-pair{border-top:1px solid #eef2f6;padding-top:8px;margin-top:8px}.academic-v39-pair-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}.academic-v39-pair-head b{font-size:12px}.academic-v39-pair-head span{font-size:10px;color:#64748b;margin-left:auto}.academic-v39-cards{display:grid;gap:7px}.academic-v39-card{display:grid;grid-template-columns:1fr;gap:3px;width:100%;text-align:left;border:1px solid #d9dee6;border-radius:10px;padding:10px 11px;background:#f8fafc;cursor:pointer;overflow:visible;min-width:0}.academic-v39-card strong{font-size:14px;line-height:1.25;overflow-wrap:anywhere}.academic-v39-kind{font-size:12px;font-weight:700}.academic-v39-teacher{font-size:13px;font-weight:900;line-height:1.2;overflow-wrap:anywhere}.academic-v39-room{font-size:13px;line-height:1.2}.academic-v39-group,.academic-v39-shared{font-size:9px;font-weight:900;letter-spacing:.03em;color:#64748b}.academic-v39-shared{color:#1e40af}.academic-v39-card.teacher-fisher{background:#dbeafe;border-color:#60a5fa}.academic-v39-card.teacher-krykunenko{background:#f3e8ff;border-color:#c084fc}.academic-v39-card.teacher-kucher{background:#ffedd5;border-color:#fb923c}.academic-v39-none{font-size:12px;color:#cbd5e1;padding:10px 0}.academic-v39-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.academic-v39-form label{display:grid;gap:5px;font-size:12px;font-weight:700}.academic-v39-form input,.academic-v39-form select{padding:10px;border:1px solid #d9dee6;border-radius:9px;background:#fff}.academic-v39-form .full{grid-column:1/-1}.academic-v39-dialog{max-width:min(760px,96vw)}
-    @media(max-width:900px){.academic-v39-weekdays,.academic-v39-grid{grid-template-columns:repeat(5,minmax(190px,1fr));min-width:950px}.academic-v39-card strong{font-size:15px}.academic-v39-kind{font-size:13px}.academic-v39-teacher,.academic-v39-room{font-size:14px}}
-    @media(max-width:650px){.academic-v39-filters{align-items:stretch;display:grid;grid-template-columns:1fr}.academic-v39-group-switch{width:100%}.academic-v39-group-switch button{flex:1}.academic-v39-filters select{width:100%;min-width:0}.academic-v39-weekdays,.academic-v39-grid{grid-template-columns:repeat(5,minmax(175px,1fr));min-width:875px}.academic-v39-day{padding:8px}.academic-v39-card{padding:10px}.academic-v39-card strong{font-size:15px}.academic-v39-teacher,.academic-v39-room{font-size:14px}.academic-v39-form{grid-template-columns:1fr}.academic-v39-form .full{grid-column:1}}
+    .academic-dual-cal-date>div{display:flex;align-items:baseline;gap:6px}.academic-v39-plus,.academic-v39-pair-plus{border:1px solid #cbd5e1;background:#fff;border-radius:7px;cursor:pointer;font-weight:900;color:#334155;flex:0 0 auto}.academic-v39-plus{width:25px;height:25px}.academic-v39-pair-plus{width:20px;height:20px;padding:0;line-height:16px;margin-left:3px}.academic-dual-cal-pair-head{align-items:center}.academic-dual-cal-pair-head span{margin-left:auto}.academic-dual-cal-single{display:grid;gap:5px}.academic-dual-cal-single i{display:block;text-align:center;color:#cbd5e1;font-style:normal;padding:8px}
+    .academic-v39-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.academic-v39-form label{display:grid;gap:5px;font-size:12px;font-weight:700}.academic-v39-form input,.academic-v39-form select{padding:10px;border:1px solid #d9dee6;border-radius:9px;background:#fff}.academic-v39-form .full{grid-column:1/-1}.academic-v39-dialog{max-width:min(760px,96vw)}
+    @media(max-width:650px){.academic-v39-filters{align-items:stretch;display:grid;grid-template-columns:1fr}.academic-v39-group-switch{width:100%}.academic-v39-group-switch button{flex:1}.academic-v39-filters select{width:100%;min-width:0}.academic-v39-form{grid-template-columns:1fr}.academic-v39-form .full{grid-column:1}}
   `;document.head.appendChild(st);
   academic=academicV39;if(typeof views!=="undefined")views.academic=academicV39;
 })();
-// ===== /REMS Control v39 =====
+// ===== /REMS Control v39.1 =====
 
 bootstrapAuth();
