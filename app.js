@@ -880,12 +880,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v38.0 · немає з’єднання");
+    setStatus("v39.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v38.0 · збереження…");
+    setStatus("v39.0 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -895,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v38.0 · хмара ✓");
+    setStatus("v39.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -906,7 +906,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v38.0 · помилка хмари");
+    setStatus("v39.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -6249,7 +6249,8 @@ async function installOfficialRemsSchedule(force=false){
   const replaceableSource=l=>OFFICIAL_REMS_GROUPS.includes(String(l?.group||"")) &&
     (l?.source===OFFICIAL_REMS_SCHEDULE_SOURCE || l?.source===ACADEMIC_IMPORT_SOURCE || String(l?.source||"").startsWith("official-docx-rems34-44"));
   const keep=before.filter(l=>!replaceableSource(l));
-  const official=OFFICIAL_REMS_SCHEDULE.map(officialScheduleLesson);
+  const protectedIds=new Set(keep.map(l=>String(l?.id||"")).filter(Boolean));
+  const official=OFFICIAL_REMS_SCHEDULE.map(officialScheduleLesson).filter(l=>!protectedIds.has(String(l.id)));
   db.lessons=[...keep,...official];
   db.settings={...db.settings,officialRemsScheduleVersion:OFFICIAL_REMS_SCHEDULE_VERSION,officialRemsScheduleUpdatedAt:new Date().toISOString()};
   db.academicImport={
@@ -8230,8 +8231,8 @@ functions=getFunctions(firebaseApp,"europe-west1");
       const rosterMigrationChanged=normalizeAllProjectEventRosters();
       cache();
       if(timeMigrationChanged || rosterMigrationChanged){
-        try{await setDoc(ref,{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});}
-        catch(err){console.error("Data migration save failed:",err);}
+        // v39 SAFE BOOT: normalize only in memory. Persist only after an explicit user edit.
+        console.info("Safe boot: in-memory normalization applied; cloud data was not rewritten.");
       }
     }else{
       await setDoc(ref,{...coreDbSnapshot(),updatedAt:new Date().toISOString()},{merge:false});
@@ -8240,10 +8241,8 @@ functions=getFunctions(firebaseApp,"europe-west1");
     cloudReady=true;
     setWriteUiReady(true);
 
-    // v36: install/update ONLY the official REMS-34/REMS-44 lesson layer.
-    // This deliberately does not write projects, events, assignments or students.
-    const officialScheduleResult=await installOfficialRemsSchedule(false);
-    if(officialScheduleResult?.changed) console.info(`Official REMS schedule updated: ${officialScheduleResult.count}`);
+    // v39 SAFE BOOT: do not auto-install/replace any schedule data on application update.
+    // The official schedule is refreshed only by an explicit user action in “Розклад занять”.
 
     // One-time acknowledgement reset. Only old confirmations are removed;
     // projects, events, assignments and students remain untouched.
@@ -8257,7 +8256,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v38.0 · хмара ✓");
+    setStatus("v39.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -8327,15 +8326,8 @@ functions=getFunctions(firebaseApp,"europe-west1");
 
     await loadAllStudentMedia();
 
-    // v1.3.4: repair/seed project calendars in the actual cloud document.
-    if(!localStorage.getItem("rems_voice14_seed_v2")){
-      const seededVoice=await ensureVoice14();
-      if(seededVoice) localStorage.setItem("rems_voice14_seed_v2","1");
-    }
-    if(!localStorage.getItem("rems_jesc_seed_v2")){
-      const seededJesc=await ensureJescDates();
-      if(seededJesc) localStorage.setItem("rems_jesc_seed_v2","1");
-    }
+    // v39 SAFE BOOT: never seed or repair project calendars automatically.
+    // Existing project data in Firebase is authoritative and is not changed by code updates.
 
     currentView="dashboard";
     try{
@@ -8373,7 +8365,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v38.0 · хмара ✓");
+      setStatus("v39.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
@@ -8549,5 +8541,137 @@ function openUnifiedOccupancyV13(mode="day",seed={}){
   if(typeof views!=="undefined") views.schedule=enhancedScheduleV14;
 })();
 // ===== /REMS Control v14 =====
+
+
+// ===== REMS Control v39: safe schedule editor + filters =====
+const academicV39State={month:null,group:"both",teacher:""};
+const academicV39TeacherNorm=v=>academicImportNameNorm(v);
+const academicV39AllTeachers=()=>[...new Set(academicLessons().map(l=>String(l.teacher||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"uk"));
+const academicV39Pair=(l)=>String(academicPairNumberForLesson(l)||l?.pairNumber||"");
+const academicV39TimeForPair=p=>ACADEMIC_PAIR_TIMES[String(p)]||["",""];
+const academicV39Same=(a,b)=>["subject","lessonType","teacher","room","startTime","endTime"].every(k=>String(a?.[k]||"").trim()===String(b?.[k]||"").trim());
+const academicV39IsBothGroups=ids=>{
+  const rows=(ids||[]).map(id=>academicLessons().find(l=>String(l.id)===String(id))).filter(Boolean);
+  return new Set(rows.map(l=>String(l.group||""))).size>1;
+};
+async function saveAcademicV39(){
+  normalizeUndeterminedTimes(db);cache();
+  if(!cloudReady||!cloudDb||!currentUser){setStatus("v39.0 · немає з’єднання");return false;}
+  try{
+    cloudWriting=true;setStatus("v39.0 · збереження розкладу…");
+    await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{
+      lessons:db.lessons||[],settings:db.settings||{},academicImport:db.academicImport||null,updatedAt:new Date().toISOString()
+    },{merge:true});
+    cache();setStatus("v39.0 · хмара ✓");return true;
+  }catch(err){console.error(err);setStatus("v39.0 · помилка хмари");return false;}
+  finally{setTimeout(()=>{cloudWriting=false;},250);}
+}
+function ensureAcademicV39Dialog(){
+  let d=document.querySelector("#academicV39Dialog");
+  if(d)return d;
+  d=document.createElement("dialog");d.id="academicV39Dialog";d.className="student-dialog academic-dialog academic-v39-dialog";
+  d.innerHTML='<div id="academicV39DialogBody"></div>';document.body.appendChild(d);return d;
+}
+function openAcademicV39Editor({ids=[],date="",pair=""}={}){
+  ids=[...new Set((ids||[]).map(String).filter(Boolean))];
+  const rows=ids.map(id=>academicLessons().find(l=>String(l.id)===id)).filter(Boolean);
+  const first=rows[0]||null;
+  const initialDate=date||first?.date||localIsoDate();
+  const initialPair=String(pair||academicV39Pair(first)||"1");
+  const initialGroups=rows.length?new Set(rows.map(r=>String(r.group||""))):new Set();
+  const initialGroup=initialGroups.has("РЕМС-34")&&initialGroups.has("РЕМС-44")?"both":(first?.group?String(first.group):(academicV39State.group==="РЕМС-44"?"РЕМС-44":"РЕМС-34"));
+  const d=ensureAcademicV39Dialog(),body=d.querySelector("#academicV39DialogBody");
+  const base={subject:first?.subject||"",lessonType:first?.lessonType||"Практичне заняття",teacher:first?.teacher||"",room:first?.room||""};
+  body.innerHTML=`<div class="academic-editor academic-v39-editor">
+    <div class="project-section-head"><div><h2 style="margin:0">${first?"Редагувати заняття":"Додати заняття"}</h2><div class="muted">Зміни зберігаються тільки в розкладі. Проєкти не перезаписуються.</div></div><button type="button" class="ghost" id="academicV39Close">Закрити</button></div>
+    <form id="academicV39Form" class="academic-v39-form">
+      <label>Дата<input id="academicV39Date" type="date" required value="${esc(initialDate)}"></label>
+      <label>Пара<select id="academicV39Pair">${Object.keys(ACADEMIC_PAIR_TIMES).map(p=>`<option value="${p}" ${p===initialPair?"selected":""}>${p} пара · ${ACADEMIC_PAIR_TIMES[p][0]}–${ACADEMIC_PAIR_TIMES[p][1]}</option>`).join("")}</select></label>
+      <label>Група<select id="academicV39Group"><option value="РЕМС-34" ${initialGroup==="РЕМС-34"?"selected":""}>РЕМС-34</option><option value="РЕМС-44" ${initialGroup==="РЕМС-44"?"selected":""}>РЕМС-44</option><option value="both" ${initialGroup==="both"?"selected":""}>РЕМС-34 + РЕМС-44</option></select></label>
+      <label>Вид заняття<select id="academicV39Type">${academicLessonTypes.map(t=>`<option value="${esc(t)}" ${String(base.lessonType)===t?"selected":""}>${esc(academicDisplayLessonType(t))}</option>`).join("")}</select></label>
+      <label class="full">Дисципліна<input id="academicV39Subject" required value="${esc(base.subject)}"></label>
+      <label>Викладач<input id="academicV39Teacher" value="${esc(base.teacher)}" list="academicV39TeacherList"><datalist id="academicV39TeacherList">${academicV39AllTeachers().map(t=>`<option value="${esc(t)}"></option>`).join("")}</datalist></label>
+      <label>Аудиторія<input id="academicV39Room" value="${esc(base.room)}" placeholder="Обов’язково вкажіть або залиште порожнім"></label>
+      ${first?`<label class="full">Застосувати<select id="academicV39Scope"><option value="one">Тільки до цього заняття / цієї дати</option><option value="similar">До всіх таких занять цього викладача й дисципліни</option></select></label>`:""}
+      <div class="dialog-actions academic-actions full">${first?'<button type="button" class="danger ghost" id="academicV39Delete">Видалити</button>':""}<button type="button" class="ghost" id="academicV39Cancel">Скасувати</button><button type="submit" class="primary">Зберегти</button></div>
+    </form></div>`;
+  body.querySelector("#academicV39Close").onclick=()=>d.close();body.querySelector("#academicV39Cancel").onclick=()=>d.close();
+  if(first) body.querySelector("#academicV39Delete").onclick=async()=>{
+    const scope=body.querySelector("#academicV39Scope")?.value||"one";
+    if(!confirm(scope==="similar"?"Видалити всі такі заняття цього викладача й дисципліни?":"Видалити це заняття?"))return;
+    const before=clone(academicLessons());
+    if(scope==="similar"){
+      const subj=academicV39TeacherNorm(first.subject),teach=academicV39TeacherNorm(first.teacher);
+      const groups=new Set(rows.map(r=>String(r.group||"")));
+      db.lessons=academicLessons().filter(l=>!(academicV39TeacherNorm(l.subject)===subj&&academicV39TeacherNorm(l.teacher)===teach&&groups.has(String(l.group||""))));
+    }else db.lessons=academicLessons().filter(l=>!ids.includes(String(l.id)));
+    if(!await saveAcademicV39()){db.lessons=before;alert("Не вдалося зберегти зміни.");return;}d.close();academic();
+  };
+  body.querySelector("#academicV39Form").onsubmit=async e=>{
+    e.preventDefault();
+    const newDate=body.querySelector("#academicV39Date").value,pn=body.querySelector("#academicV39Pair").value,g=body.querySelector("#academicV39Group").value;
+    const subject=body.querySelector("#academicV39Subject").value.trim(),teacher=body.querySelector("#academicV39Teacher").value.trim(),room=body.querySelector("#academicV39Room").value.trim(),type=body.querySelector("#academicV39Type").value;
+    if(!newDate||!subject){alert("Вкажіть дату і дисципліну.");return;}
+    const [startTime,endTime]=academicV39TimeForPair(pn);const targetGroups=g==="both"?["РЕМС-34","РЕМС-44"]:[g];const before=clone(academicLessons());
+    const scope=first?(body.querySelector("#academicV39Scope")?.value||"one"):"one";
+    if(first&&scope==="similar"){
+      const subj0=academicV39TeacherNorm(first.subject),teach0=academicV39TeacherNorm(first.teacher);const groups0=new Set(rows.map(r=>String(r.group||"")));
+      academicLessons().forEach(l=>{if(academicV39TeacherNorm(l.subject)===subj0&&academicV39TeacherNorm(l.teacher)===teach0&&groups0.has(String(l.group||""))){l.subject=subject;l.lessonType=type;l.teacher=teacher;l.room=room;l.pairNumber=pn;l.startTime=startTime;l.endTime=endTime;l.source="manual";l.manualEditedAt=new Date().toISOString();}});
+    }else{
+      const oldByGroup=new Map(rows.map(r=>[String(r.group||""),r]));
+      if(ids.length) db.lessons=academicLessons().filter(l=>!ids.includes(String(l.id)));
+      targetGroups.forEach(groupName=>{const old=oldByGroup.get(groupName);db.lessons.push({
+        id:old?String(old.id):academicLessonId(),source:"manual",manualEditedAt:new Date().toISOString(),mode:"once",date:newDate,pairNumber:pn,subject,lessonType:type,group:groupName,startTime,endTime,timeUndetermined:false,room,teacher,note:"Ручне редагування в календарі",scope:"group",studentIds:[]
+      });});
+    }
+    const submit=e.submitter;if(submit){submit.disabled=true;submit.textContent="Збереження…";}
+    if(!await saveAcademicV39()){db.lessons=before;if(submit){submit.disabled=false;submit.textContent="Зберегти";}alert("Не вдалося зберегти зміни в хмару.");return;}d.close();academic();
+  };
+  if(!d.open)d.showModal();
+}
+function academicV39(){
+  academicMainMode="dual";
+  const monthNames={"2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026","2026-12":"Грудень 2026"};
+  const monthKeys=Object.keys(monthNames);if(!academicV39State.month){const cur=localIsoDate().slice(0,7);academicV39State.month=monthKeys.includes(cur)?cur:"2026-09";}
+  const teacherOptions=academicV39AllTeachers();
+  app.innerHTML=`<div class="academic-page academic-v39-page"><div class="academic-topbar academic-v39-topbar"><div><h2>Розклад занять</h2><p>Календар РЕМС-34 / РЕМС-44. Натисніть на заняття для редагування або «+» для додавання.</p></div><div class="academic-filter-actions"><button type="button" class="primary" id="academicV39Add">+ Додати заняття</button><button type="button" class="ghost" id="academicRefreshOfficial">↻ Офіційний розклад</button></div></div>
+    <div class="academic-v39-filters"><div class="academic-v39-group-switch"><button data-g="both" class="${academicV39State.group==="both"?"active":""}">Обидві групи</button><button data-g="РЕМС-34" class="${academicV39State.group==="РЕМС-34"?"active":""}">РЕМС-34</button><button data-g="РЕМС-44" class="${academicV39State.group==="РЕМС-44"?"active":""}">РЕМС-44</button></div><select id="academicV39Teacher"><option value="">Усі викладачі</option>${teacherOptions.map(t=>`<option value="${esc(t)}" ${academicV39State.teacher===t?"selected":""}>${esc(t)}</option>`).join("")}</select><button type="button" class="ghost" id="academicV39Mine">Мій розклад · Фішер</button><button type="button" class="ghost" id="academicV39Clear">Скинути</button></div>
+    <div id="academicDualMonthTabs" class="schedule-month-tabs academic-month-tabs"></div><div id="academicV39Mount"></div></div>`;
+  const render=()=>{
+    document.querySelector("#academicDualMonthTabs").innerHTML=monthKeys.map(m=>`<button type="button" class="schedule-month-tab ${m===academicV39State.month?"active":""}" data-month="${m}">${monthNames[m]}</button>`).join("");
+    document.querySelectorAll("#academicDualMonthTabs [data-month]").forEach(b=>b.onclick=()=>{academicV39State.month=b.dataset.month;render();});
+    const [yy,mm]=academicV39State.month.split("-").map(Number),lastDay=new Date(yy,mm,0).getDate();
+    const allDates=Array.from({length:lastDay},(_,i)=>`${academicV39State.month}-${String(i+1).padStart(2,"0")}`),workDates=allDates.filter(d=>{const x=new Date(d+"T12:00:00").getDay();return x>=1&&x<=5;});
+    let rows=academicLessons().filter(l=>academicLessonDates(l).some(d=>d.startsWith(academicV39State.month))&&OFFICIAL_REMS_GROUPS.includes(String(l.group||"")));
+    if(academicV39State.group!=="both") rows=rows.filter(l=>String(l.group||"")===academicV39State.group);
+    if(academicV39State.teacher){const n=academicV39TeacherNorm(academicV39State.teacher);rows=rows.filter(l=>academicV39TeacherNorm(l.teacher)===n);}
+    const firstIndex=workDates.length?new Date(workDates[0]+"T12:00:00").getDay()-1:0,blanks=Array.from({length:firstIndex},()=>'<div class="academic-v39-day empty"></div>').join("");
+    const card=(items,shared=false)=>{const l=items[0];const groups=[...new Set(items.map(x=>String(x.group||"")))];return `<button type="button" class="academic-v39-card ${academicTeacherClass(l.teacher,l.subject)}" data-ids="${esc(items.map(x=>String(x.id)).join(","))}" data-date="${esc(l.date||"")}">${shared?'<span class="academic-v39-shared">РЕМС-34 + РЕМС-44</span>':`<span class="academic-v39-group">${esc(groups.join(" + "))}</span>`}<strong>${esc(l.subject||"Заняття")}</strong><span class="academic-v39-kind">${esc(academicDisplayLessonType(l.lessonType))}</span><span class="academic-v39-teacher">${esc(l.teacher||"Викладача не вказано")}</span><b class="academic-v39-room">ауд. ${esc(String(l.room||"").trim()||"не вказана")}</b></button>`;};
+    const cell=date=>{const dt=new Date(date+"T12:00:00"),dayRows=rows.filter(l=>academicLessonOccursOnDate(l,date)),pairs=[...new Set(dayRows.map(academicV39Pair).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
+      return `<div class="academic-v39-day ${localIsoDate()===date?"today-date":""}"><div class="academic-v39-date"><div><b>${dt.getDate()}</b><span>${dt.toLocaleDateString("uk-UA",{weekday:"short"})}</span></div><button type="button" class="academic-v39-plus" data-add-date="${date}">+</button></div>${pairs.map(pair=>{const all=dayRows.filter(l=>academicV39Pair(l)===pair);const time=academicV39TimeForPair(pair);let cards=[];
+        if(academicV39State.group==="both"){const a=all.filter(l=>l.group==="РЕМС-34"),b=all.filter(l=>l.group==="РЕМС-44"),used=new Set();a.forEach(x=>{const j=b.findIndex((y,i)=>!used.has(i)&&academicV39Same(x,y));if(j>=0){used.add(j);cards.push(card([x,b[j]],true));}else cards.push(card([x],false));});b.forEach((x,i)=>{if(!used.has(i))cards.push(card([x],false));});}else cards=all.map(x=>card([x],false));
+        return `<div class="academic-v39-pair"><div class="academic-v39-pair-head"><b>${pair} пара</b><span>${time[0]}–${time[1]}</span><button type="button" class="academic-v39-pair-plus" data-add-date="${date}" data-add-pair="${pair}">+</button></div><div class="academic-v39-cards">${cards.join("")}</div></div>`;}).join("")||'<div class="academic-v39-none">—</div>'}</div>`;};
+    document.querySelector("#academicV39Mount").innerHTML=`<div class="academic-v39-calendar"><div class="academic-v39-weekdays">${["Понеділок","Вівторок","Середа","Четвер","П’ятниця"].map(x=>`<b>${x}</b>`).join("")}</div><div class="academic-v39-grid">${blanks}${workDates.map(cell).join("")}</div></div>`;
+    document.querySelectorAll(".academic-v39-card[data-ids]").forEach(b=>b.onclick=()=>openAcademicV39Editor({ids:b.dataset.ids.split(","),date:b.dataset.date}));
+    document.querySelectorAll("[data-add-date]").forEach(b=>b.onclick=e=>{e.stopPropagation();openAcademicV39Editor({date:b.dataset.addDate,pair:b.dataset.addPair||"1"});});
+  };
+  document.querySelectorAll(".academic-v39-group-switch [data-g]").forEach(b=>b.onclick=()=>{academicV39State.group=b.dataset.g;academicV39();});
+  document.querySelector("#academicV39Teacher").onchange=e=>{academicV39State.teacher=e.target.value;academicV39();};
+  document.querySelector("#academicV39Mine").onclick=()=>{academicV39State.teacher=teacherOptions.find(t=>academicV39TeacherNorm(t).includes("фішер"))||"Фішер В.М.";academicV39();};
+  document.querySelector("#academicV39Clear").onclick=()=>{academicV39State.group="both";academicV39State.teacher="";academicV39();};
+  document.querySelector("#academicV39Add").onclick=()=>openAcademicV39Editor({date:localIsoDate(),pair:"1"});
+  document.querySelector("#academicRefreshOfficial").onclick=async()=>{if(!confirm("Оновити офіційний розклад? Ручні записи з source=manual залишаться, але офіційні записи будуть замінені."))return;const r=await installOfficialRemsSchedule(true);if(!r.ok)alert("Не вдалося оновити: "+(r.error||"помилка"));else academicV39();};
+  render();
+}
+(function installAcademicV39(){
+  const st=document.createElement("style");st.textContent=`
+    .academic-v39-topbar{align-items:flex-start}.academic-v39-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 14px}.academic-v39-group-switch{display:flex;border:1px solid #dbe2ea;border-radius:12px;overflow:hidden;background:#fff}.academic-v39-group-switch button{border:0;border-right:1px solid #e5e7eb;background:#fff;padding:10px 13px;font-weight:800;cursor:pointer}.academic-v39-group-switch button:last-child{border-right:0}.academic-v39-group-switch button.active{background:#111827;color:#fff}.academic-v39-filters select{min-width:220px;padding:10px 12px;border:1px solid #dbe2ea;border-radius:10px;background:#fff}
+    .academic-v39-calendar{overflow-x:auto}.academic-v39-weekdays,.academic-v39-grid{display:grid;grid-template-columns:repeat(5,minmax(205px,1fr));min-width:1025px}.academic-v39-weekdays{gap:1px;background:#dbe2ea;border:1px solid #dbe2ea;border-radius:14px 14px 0 0;overflow:hidden}.academic-v39-weekdays b{background:#111827;color:#fff;padding:10px;text-align:center;font-size:13px}.academic-v39-grid{gap:1px;background:#dbe2ea;border:1px solid #dbe2ea;border-top:0;border-radius:0 0 14px 14px;overflow:hidden}.academic-v39-day{background:#fff;min-height:170px;padding:10px}.academic-v39-day.empty{background:#f4f6f8}.academic-v39-date{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}.academic-v39-date>div{display:flex;align-items:baseline;gap:6px}.academic-v39-date b{font-size:18px}.academic-v39-date span{font-size:11px;color:#64748b}.academic-v39-plus,.academic-v39-pair-plus{border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer;font-weight:900}.academic-v39-plus{width:28px;height:28px}.academic-v39-pair-plus{width:23px;height:23px;line-height:18px}.academic-v39-pair{border-top:1px solid #eef2f6;padding-top:8px;margin-top:8px}.academic-v39-pair-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}.academic-v39-pair-head b{font-size:12px}.academic-v39-pair-head span{font-size:10px;color:#64748b;margin-left:auto}.academic-v39-cards{display:grid;gap:7px}.academic-v39-card{display:grid;grid-template-columns:1fr;gap:3px;width:100%;text-align:left;border:1px solid #d9dee6;border-radius:10px;padding:10px 11px;background:#f8fafc;cursor:pointer;overflow:visible;min-width:0}.academic-v39-card strong{font-size:14px;line-height:1.25;overflow-wrap:anywhere}.academic-v39-kind{font-size:12px;font-weight:700}.academic-v39-teacher{font-size:13px;font-weight:900;line-height:1.2;overflow-wrap:anywhere}.academic-v39-room{font-size:13px;line-height:1.2}.academic-v39-group,.academic-v39-shared{font-size:9px;font-weight:900;letter-spacing:.03em;color:#64748b}.academic-v39-shared{color:#1e40af}.academic-v39-card.teacher-fisher{background:#dbeafe;border-color:#60a5fa}.academic-v39-card.teacher-krykunenko{background:#f3e8ff;border-color:#c084fc}.academic-v39-card.teacher-kucher{background:#ffedd5;border-color:#fb923c}.academic-v39-none{font-size:12px;color:#cbd5e1;padding:10px 0}.academic-v39-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.academic-v39-form label{display:grid;gap:5px;font-size:12px;font-weight:700}.academic-v39-form input,.academic-v39-form select{padding:10px;border:1px solid #d9dee6;border-radius:9px;background:#fff}.academic-v39-form .full{grid-column:1/-1}.academic-v39-dialog{max-width:min(760px,96vw)}
+    @media(max-width:900px){.academic-v39-weekdays,.academic-v39-grid{grid-template-columns:repeat(5,minmax(190px,1fr));min-width:950px}.academic-v39-card strong{font-size:15px}.academic-v39-kind{font-size:13px}.academic-v39-teacher,.academic-v39-room{font-size:14px}}
+    @media(max-width:650px){.academic-v39-filters{align-items:stretch;display:grid;grid-template-columns:1fr}.academic-v39-group-switch{width:100%}.academic-v39-group-switch button{flex:1}.academic-v39-filters select{width:100%;min-width:0}.academic-v39-weekdays,.academic-v39-grid{grid-template-columns:repeat(5,minmax(175px,1fr));min-width:875px}.academic-v39-day{padding:8px}.academic-v39-card{padding:10px}.academic-v39-card strong{font-size:15px}.academic-v39-teacher,.academic-v39-room{font-size:14px}.academic-v39-form{grid-template-columns:1fr}.academic-v39-form .full{grid-column:1}}
+  `;document.head.appendChild(st);
+  academic=academicV39;if(typeof views!=="undefined")views.academic=academicV39;
+})();
+// ===== /REMS Control v39 =====
 
 bootstrapAuth();
