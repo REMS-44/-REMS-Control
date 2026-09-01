@@ -1,0 +1,11 @@
+REMS Control v36.0
+
+- Updated official schedule from “3 курс ФТКЕ (1).docx” for REMS-34 and REMS-44 only.
+- Dual-group schedule is the default view; identical lessons merge as “РАЗОМ”.
+- Teacher colors: Фішер / Крикуненко / Кучер / others.
+- Display names: Лекція / Практичні / Лабораторні / Семінарські.
+- Auditorium is always shown; missing source value is shown as “ауд. не вказана”.
+- Deployment/data safety: official schedule migration updates only lessons/settings/academicImport with Firestore merge=true. Projects/events/assignments/students are not written by the migration.
+- Cloud loader now preserves unknown root fields instead of dropping them.
+- Main save uses merge=true at root level.
+- Browser-local backup of lessons is created before official schedule replacement.
