@@ -1,0 +1,10 @@
+REMS Control v37.0
+
+- Project people management simplified to one global team manager.
+- Add/remove globally synchronizes assignments, all dateRosters and all event studentIds.
+- Date-level edits synchronize all blocks on the selected date.
+- Event people save now synchronizes the whole date roster.
+- Planner-created blocks also synchronize date roster and master project team.
+- Academic schedule primary dual-group view is a Monday-Friday month calendar table.
+- Academic legacy calendar also hides Saturday and Sunday.
+- Combined Projects + Lessons calendar remains unchanged and keeps weekends.

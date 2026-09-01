@@ -880,12 +880,12 @@ const save=async()=>{
   cache();
   if(applyingRemote) return true;
   if(!cloudReady||!cloudDb){
-    setStatus("v36.0 · немає з’єднання");
+    setStatus("v37.0 · немає з’єднання");
     return false;
   }
   try{
     cloudWriting=true;
-    setStatus("v36.0 · збереження…");
+    setStatus("v37.0 · збереження…");
     const payload={...coreDbSnapshot(),updatedAt:new Date().toISOString()};
     await setDoc(
       doc(cloudDb,"rems_control",CLOUD_DOC),
@@ -895,7 +895,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v36.0 · хмара ✓");
+    setStatus("v37.0 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -906,7 +906,7 @@ const save=async()=>{
     return true;
   }catch(err){
     console.error(err);
-    setStatus("v36.0 · помилка хмари");
+    setStatus("v37.0 · помилка хмари");
     return false;
   }finally{
     setTimeout(()=>{ cloudWriting=false; },250);
@@ -1054,6 +1054,72 @@ async function removeStudentFromProjectDate(projectId,date,studentId){
     return false;
   }
 }
+
+// v37.0 — one source of truth for project participation.
+// Global team edits propagate to assignments, every date roster and every work block.
+// Date edits propagate to the date roster and ALL work blocks on that date.
+const projectAllDates=(projectId)=>{
+  const p=pBy(projectId);
+  return [...new Set([...(p?.plannedDates||[]).map(String),...eventsFor(projectId).map(e=>String(e.date||""))])].filter(Boolean).sort();
+};
+const normalizeRosterIds=(ids=[])=>[...new Set((ids||[]).map(x=>String(resolveStudentId(x)??x)).filter(Boolean))];
+const applyProjectTeamEverywhere=(projectId,ids=[])=>{
+  const p=pBy(projectId); if(!p) return [];
+  const wanted=normalizeRosterIds(ids);
+  const wantedSet=new Set(wanted);
+  db.assignments=(db.assignments||[]).filter(a=>String(a.projectId)!==String(projectId));
+  wanted.forEach(sid=>db.assignments.push({projectId,studentId:resolveStudentId(sid)??sid,role:""}));
+  projectAllDates(projectId).forEach(date=>setProjectDateRosterIds(p,date,wanted));
+  (db.events||[]).forEach(e=>{
+    if(String(e.projectId)!==String(projectId)) return;
+    e.studentIds=wanted.map(x=>resolveStudentId(x)??x);
+    if(e.studentRoles&&typeof e.studentRoles==="object"){
+      Object.keys(e.studentRoles).forEach(k=>{if(!wantedSet.has(String(k))) delete e.studentRoles[k];});
+    }
+  });
+  return wanted;
+};
+const applyProjectDateRosterEverywhere=(projectId,date,ids=[])=>{
+  const p=pBy(projectId); if(!p) return [];
+  const wanted=normalizeRosterIds(ids), wantedSet=new Set(wanted);
+  wanted.forEach(sid=>ensureStudentInProjectTeam(projectId,sid));
+  setProjectDateRosterIds(p,date,wanted);
+  (db.events||[]).forEach(e=>{
+    if(String(e.projectId)!==String(projectId)||String(e.date)!==String(date)) return;
+    e.studentIds=wanted.map(x=>resolveStudentId(x)??x);
+    if(e.studentRoles&&typeof e.studentRoles==="object"){
+      Object.keys(e.studentRoles).forEach(k=>{if(!wantedSet.has(String(k))) delete e.studentRoles[k];});
+    }
+  });
+  return wanted;
+};
+async function setProjectPersonEverywhere(projectId,studentId,present){
+  const current=new Set(projectStudents(projectId).map(st=>String(st.id)));
+  const sid=String(resolveStudentId(studentId)??studentId);
+  if(present) current.add(sid); else current.delete(sid);
+  const before={assignments:clone(db.assignments||[]),events:clone(db.events||[]),dateRosters:clone(pBy(projectId)?.dateRosters||{})};
+  try{
+    applyProjectTeamEverywhere(projectId,[...current]);
+    const ok=await save(); if(!ok) throw new Error("cloud-save-failed");
+    return true;
+  }catch(err){
+    db.assignments=before.assignments; db.events=before.events; const p=pBy(projectId); if(p)p.dateRosters=before.dateRosters; cache();
+    console.error("setProjectPersonEverywhere rollback",err); return false;
+  }
+}
+async function setProjectDatePeopleEverywhere(projectId,date,ids=[]){
+  const p=pBy(projectId); if(!p) return false;
+  const before={assignments:clone(db.assignments||[]),events:clone(db.events||[]),dateRosters:clone(p.dateRosters||{})};
+  try{
+    applyProjectDateRosterEverywhere(projectId,date,ids);
+    const ok=await save(); if(!ok) throw new Error("cloud-save-failed");
+    return true;
+  }catch(err){
+    db.assignments=before.assignments; db.events=before.events; p.dateRosters=before.dateRosters; cache();
+    console.error("setProjectDatePeopleEverywhere rollback",err); return false;
+  }
+}
+
 const isTimeUndetermined=e=>{
   const start=String(e?.startTime||"").trim();
   const end=String(e?.endTime||"").trim();
@@ -3967,6 +4033,34 @@ function projectCalendarMonthHtml(projectId,month){
   </div>`;
 }
 
+
+function openProjectTeamManager(projectId){
+  const p=pBy(projectId); if(!p) return;
+  const dialog=ensureProjectCardDialog();
+  const current=new Set(projectStudents(projectId).map(st=>String(st.id)));
+  const people=[...(db.students||[])].sort((a,b)=>String(a.group||"").localeCompare(String(b.group||""),"uk")||String(a.name||"").localeCompare(String(b.name||""),"uk"));
+  const render=()=>{
+    const selected=people.filter(st=>current.has(String(st.id)));
+    const available=people.filter(st=>!current.has(String(st.id)));
+    dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body project-team-manager">
+      <div class="project-section-head"><div><h2 style="margin:0">Люди в проєкті</h2><div class="muted">${esc(p.name)} · тут одна головна команда. Додавання або видалення синхронізується з усіма датами й робочими блоками.</div></div><button class="ghost" id="teamManagerBack">Назад</button></div>
+      <div class="project-team-manager-toolbar"><input id="teamManagerSearch" placeholder="Пошук за ім’ям або групою"><span><b>${selected.length}</b> у проєкті</span></div>
+      <div class="project-team-manager-grid">
+        <section><h3>У проєкті · ${selected.length}</h3><div class="project-team-manager-list">${selected.map(st=>`<div class="team-manager-row" data-search="${esc((st.name+' '+studentGroupLabel(st)).toLowerCase())}"><button type="button" class="team-person-open" data-id="${st.id}">${studentIdentityHtml(st)}</button><button type="button" class="ghost danger-inline team-global-remove" data-id="${st.id}">Прибрати звідусіль</button></div>`).join("")||'<div class="empty">Нікого не додано.</div>'}</div></section>
+        <section><h3>Можна додати · ${available.length}</h3><div class="project-team-manager-list">${available.map(st=>`<div class="team-manager-row" data-search="${esc((st.name+' '+studentGroupLabel(st)).toLowerCase())}"><button type="button" class="team-person-open" data-id="${st.id}">${studentIdentityHtml(st)}</button><button type="button" class="primary team-global-add" data-id="${st.id}">+ Додати всюди</button></div>`).join("")||'<div class="empty">Усі вже в проєкті.</div>'}</div></section>
+      </div>
+      <div class="notice">Якщо людину треба додати або прибрати лише на конкретну дату — відкрий цю дату в календарі проєкту. Там зміна синхронізується між усіма блоками цієї дати, але не зачепить інші дні.</div>
+    </div>`;
+    dialog.querySelector("#teamManagerBack").onclick=()=>openProjectCard(projectId);
+    const search=dialog.querySelector("#teamManagerSearch");
+    search.oninput=()=>{const q=search.value.trim().toLowerCase();dialog.querySelectorAll(".team-manager-row").forEach(r=>r.style.display=!q||String(r.dataset.search||"").includes(q)?"":"none");};
+    dialog.querySelectorAll(".team-person-open").forEach(b=>b.onclick=()=>{const sid=resolveStudentId(b.dataset.id);if(sid!==undefined)openStudent(sid);});
+    dialog.querySelectorAll(".team-global-add").forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent="Додаю…";const sid=String(b.dataset.id);const ok=await setProjectPersonEverywhere(projectId,sid,true);if(!ok){b.disabled=false;b.textContent="Спробувати ще";alert("Не вдалося зберегти.");return;}current.add(sid);render();});
+    dialog.querySelectorAll(".team-global-remove").forEach(b=>b.onclick=async()=>{if(!confirm("Прибрати людину з усього проєкту, усіх дат і всіх блоків?"))return;b.disabled=true;const sid=String(b.dataset.id);const ok=await setProjectPersonEverywhere(projectId,sid,false);if(!ok){b.disabled=false;alert("Не вдалося зберегти.");return;}current.delete(sid);render();});
+  };
+  render();
+}
+
 function showProjectDay(projectId,date,availabilityEventIndex=0){
   const p=pBy(projectId); if(!p) return;
   projectUiState[projectId]={...(projectUiState[projectId]||{}),month:date.slice(0,7),mode:"calendar"};
@@ -4008,13 +4102,13 @@ function showProjectDay(projectId,date,availabilityEventIndex=0){
     </div>
 
     <div class="availability-picker-head">
-      <div><b>Підібрати людей на цю дату</b><div class="muted">Перевірка виконується не просто за днем, а за часом вибраного робочого блоку.</div>${evs.length?`<label style="margin-top:7px;display:block">Перевіряти для<select id="projectDayAvailabilitySlot">${evs.map((e,i)=>`<option value="${i}" ${i===Math.max(0,Math.min(Number(availabilityEventIndex)||0,evs.length-1))?'selected':''}>${esc(e.type)} · ${esc(eventTimeText(e))}</option>`).join("")}</select></label>`:''}</div>
+      <div><b>Люди на цю дату</b><div class="muted">Одна зміна тут одразу застосовується до всіх робочих блоків цієї дати. Інші дати не змінюються.</div>${evs.length?`<label style="margin-top:7px;display:block">Перевіряти для<select id="projectDayAvailabilitySlot">${evs.map((e,i)=>`<option value="${i}" ${i===Math.max(0,Math.min(Number(availabilityEventIndex)||0,evs.length-1))?'selected':''}>${esc(e.type)} · ${esc(eventTimeText(e))}</option>`).join("")}</select></label>`:''}</div>
       <div class="planner-toolbar"><button type="button" class="ghost availability-filter active" data-filter="all">Усі</button><button type="button" class="ghost availability-filter" data-filter="free">Вільні · ${freeCandidates.length}</button><button type="button" class="ghost availability-filter" data-filter="busy">Зайняті · ${busyCandidates.length}</button><input id="projectDayAvailabilitySearch" placeholder="Пошук студента" style="min-width:180px"></div>
     </div>
 
     <div class="availability-grid-two project-day-availability-grid">
       <div class="availability-card" data-availability-kind="selected"><div class="availability-title"><b>СКЛАД ЦІЄЇ ДАТИ · ${people.length}</b><small>${esc(studentGroupSummary(people)||"—")}</small></div><div class="availability-list">
-        ${people.map(s=>`<div class="availability-person-row" data-search="${esc((s.name+' '+studentGroupLabel(s)).toLowerCase())}"><button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s,busyFor(s).join(" · "))}</button><button type="button" class="ghost danger-inline remove-date-person" data-id="${s.id}">Прибрати з дати</button></div>`).join("")||'<span class="muted">Ще нікого не додано.</span>'}
+        ${people.map(s=>`<div class="availability-person-row" data-search="${esc((s.name+' '+studentGroupLabel(s)).toLowerCase())}"><button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s,busyFor(s).join(" · "))}</button><button type="button" class="ghost danger-inline remove-date-person" data-id="${s.id}">Прибрати з цієї дати</button></div>`).join("")||'<span class="muted">Ще нікого не додано.</span>'}
       </div></div>
       <div class="availability-card" data-availability-kind="free"><div class="availability-title"><b>ВІЛЬНІ · ${freeCandidates.length}</b><small>${esc(studentGroupSummary(freeCandidates)||"—")}</small></div><div class="availability-list">
         ${freeCandidates.map(s=>`<div class="availability-person-row" data-search="${esc((s.name+' '+studentGroupLabel(s)).toLowerCase())}"><button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s,`Вільний · ${eventTimeText(slot)}`)}</button><button type="button" class="primary add-date-person" data-id="${s.id}">+ Додати</button></div>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
@@ -4194,10 +4288,10 @@ function openProjectCard(id){
         <span><small>ДАНІ ДЛЯ ЗВІТНОСТІ</small><b>${projectReportingFilledCount(p)?esc(projectReportingTitle(p)):"Ще не заповнені"}</b><em>${projectReportingFilledCount(p)?`${projectReportingFilledCount(p)} із 8 полів · можна доповнити будь-коли`:"Проєкт уже можна використовувати. Офіційні дані допишете пізніше."}</em></span><strong>→</strong>
       </button>
 
-      <div class="project-section">
-        <div class="project-section-head"><b>Студенти</b><div style="display:flex;align-items:center;gap:8px"><span class="muted">${assigned.length}</span><button type="button" class="ghost" id="projectRosterTemplatesBtn">Шаблони складу</button></div></div>
-        <div class="project-students">
-          ${db.students.map(s=>`<button class="project-student-chip ${assigned.some(x=>String(x.id)===String(s.id))?"active":""}" data-student="${s.id}">${studentIdentityHtml(s)}</button>`).join("")}
+      <div class="project-section project-team-simple">
+        <div class="project-section-head"><div><b>Команда проєкту</b><div class="muted">Один склад для всього проєкту. Зміни тут автоматично застосовуються до всіх дат і робочих блоків.</div></div><div style="display:flex;align-items:center;gap:8px"><span class="muted">${assigned.length}</span><button type="button" class="primary" id="projectManageTeamBtn">Керувати людьми</button><button type="button" class="ghost" id="projectRosterTemplatesBtn">Шаблони</button></div></div>
+        <div class="project-team-selected">
+          ${assigned.map(s=>`<span class="project-team-person">${studentIdentityHtml(s)}<button type="button" class="project-team-remove" data-student="${s.id}" title="Прибрати з усього проєкту">×</button></span>`).join("")||'<span class="muted">У проєкті ще немає людей.</span>'}
         </div>
       </div>
 
@@ -4233,18 +4327,15 @@ function openProjectCard(id){
     </div>
   </div>`;
 
-  dialog.querySelectorAll(".project-student-chip").forEach(b=>b.onclick=async()=>{
-    const sid=resolveStudentId(b.dataset.student);
-    if(sid===undefined) return;
-    const i=db.assignments.findIndex(a=>String(a.projectId)===String(id)&&String(a.studentId)===String(sid));
-    if(i>=0){
-      db.assignments.splice(i,1);
-      const pr=pBy(id);
-      if(pr?.dateRosters&&typeof pr.dateRosters==="object") Object.keys(pr.dateRosters).forEach(d=>{pr.dateRosters[d]=(pr.dateRosters[d]||[]).filter(x=>String(x)!==String(sid));});
-    }else db.assignments.push({projectId:id,studentId:sid});
-    // Видалення з команди чистить людину з усіх дат. Додавання лишає дати незалежними.
-    normalizeProjectEventRosters(id);
-    await save(); openProjectCard(id);
+  const manageTeamBtn=dialog.querySelector("#projectManageTeamBtn");
+  if(manageTeamBtn) manageTeamBtn.onclick=()=>openProjectTeamManager(id);
+  dialog.querySelectorAll(".project-team-remove").forEach(b=>b.onclick=async()=>{
+    const sid=resolveStudentId(b.dataset.student); if(sid===undefined)return;
+    if(!confirm("Прибрати цю людину з усього проєкту, усіх дат і всіх робочих блоків?")) return;
+    b.disabled=true;
+    const ok=await setProjectPersonEverywhere(id,sid,false);
+    if(!ok){b.disabled=false;alert("Не вдалося зберегти зміну.");return;}
+    openProjectCard(id);
   });
 
   dialog.querySelector("#projectPlannerBtn").onclick=()=>openProjectPlanner(id);
@@ -4527,7 +4618,8 @@ function editEventPeople(projectId,ev){
     const target=db.events.find(x=>x===ev)
       || db.events.find(x=>x.projectId===ev.projectId&&x.date===ev.date&&x.type===ev.type&&String(x.startTime||"")===String(ev.startTime||""));
     if(target){
-      target.studentIds=projectPeople.filter(s=>selected.has(String(s.id))).map(s=>s.id);
+      const ids=projectPeople.filter(s=>selected.has(String(s.id))).map(s=>s.id);
+      applyProjectDateRosterEverywhere(projectId,target.date,ids);
       const roles={};
       dialog.querySelectorAll(".event-person-role").forEach(input=>{
         const sid=String(input.dataset.id);
@@ -4536,8 +4628,9 @@ function editEventPeople(projectId,ev){
       });
       target.studentRoles=roles;
     }
-    await save();
-    openProjectCard(projectId);
+    const ok=await save();
+    if(!ok){alert("Не вдалося зберегти склад дати.");return;}
+    showProjectDay(projectId,ev.date);
   };
 }
 
@@ -4716,6 +4809,8 @@ function openProjectPlanner(projectId,preselectedDates=[]){
         const duplicate=db.events.some(e=>String(e.projectId)===String(projectId)&&e.date===date&&String(e.type||"")===type&&String(e.startTime||"")===startTime&&String(e.endTime||"")===endTime);
         if(duplicate){skipped++;continue;}
         db.events.push({projectId,date,type,startTime,endTime,timeUndetermined,location,note,studentIds:[...studentIds],studentRoles:{...roles}});
+        studentIds.forEach(sid=>ensureStudentInProjectTeam(projectId,sid));
+        applyProjectDateRosterEverywhere(projectId,date,studentIds);
         created++;
       }
       p.plannedDates=[...new Set([...(p.plannedDates||[]),...[...selectedDates]])].sort();
@@ -6214,34 +6309,30 @@ function academic(){
     const dates=[...new Set(rows.flatMap(l=>academicLessonDates(l).filter(d=>d.startsWith(activeMonth))))].sort();
     const mount=document.querySelector("#academicDualMount");
     if(!dates.length){mount.innerHTML='<div class="empty">У цьому місяці занять для РЕМС-34/44 немає.</div>';return;}
-    mount.innerHTML=dates.map(date=>{
+    const [yy,mm]=activeMonth.split("-").map(Number);
+    const lastDay=new Date(yy,mm,0).getDate();
+    const allMonthDates=Array.from({length:lastDay},(_,i)=>`${activeMonth}-${String(i+1).padStart(2,"0")}`);
+    const workDates=allMonthDates.filter(d=>{const day=new Date(d+"T12:00:00").getDay();return day>=1&&day<=5;});
+    const firstWork=workDates[0];
+    const firstIndex=firstWork?new Date(firstWork+"T12:00:00").getDay()-1:0;
+    const blanks=Array.from({length:firstIndex},()=>'<div class="academic-dual-cal-day empty"></div>').join("");
+    const cellForDate=date=>{
       const dayRows=rows.filter(l=>academicLessonOccursOnDate(l,date));
-      const pairs=[...new Set(dayRows.map(academicPairNumberForLesson).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
       const dt=new Date(date+"T12:00:00");
-      const dayTitle=dt.toLocaleDateString("uk-UA",{weekday:"long",day:"numeric",month:"long"});
-      return `<section class="academic-dual-date">
-        <div class="academic-dual-date-head"><h3>${esc(dayTitle.charAt(0).toUpperCase()+dayTitle.slice(1))}</h3><span>${fmt(date)}</span></div>
-        <div class="academic-dual-columns-head"><div>Пара</div><div>РЕМС-34</div><div>РЕМС-44</div></div>
-        ${pairs.map(pair=>{
-          const all=dayRows.filter(l=>academicPairNumberForLesson(l)===pair);
-          const a=all.filter(l=>String(l.group)==="РЕМС-34");
-          const b=all.filter(l=>String(l.group)==="РЕМС-44");
-          const usedB=new Set(),shared=[];
-          a.forEach(x=>{const j=b.findIndex((y,i)=>!usedB.has(i)&&signature(y)===signature(x));if(j>=0){usedB.add(j);shared.push(x);}});
-          const sharedSigs=new Set(shared.map(signature));
-          const onlyA=a.filter(x=>!sharedSigs.has(signature(x)));
-          const onlyB=b.filter((x,i)=>!usedB.has(i));
-          const times=ACADEMIC_PAIR_TIMES[String(pair)]||[all[0]?.startTime||"",all[0]?.endTime||""];
-          return `<div class="academic-dual-pair">
-            <div class="academic-dual-pair-label"><b>${esc(pair)}</b><span>${esc(times[0]||"")}–${esc(times[1]||"")}</span></div>
-            <div class="academic-dual-pair-content">
-              ${shared.map(x=>`<div class="academic-dual-shared">${card(x,true)}</div>`).join("")}
-              ${(onlyA.length||onlyB.length)?`<div class="academic-dual-separate"><div>${onlyA.map(x=>card(x,false)).join("")||'<div class="academic-dual-empty">—</div>'}</div><div>${onlyB.map(x=>card(x,false)).join("")||'<div class="academic-dual-empty">—</div>'}</div></div>`:""}
-            </div>
-          </div>`;
-        }).join("")}
-      </section>`;
-    }).join("");
+      const pairs=[...new Set(dayRows.map(academicPairNumberForLesson).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
+      const pairHtml=pairs.map(pair=>{
+        const all=dayRows.filter(l=>academicPairNumberForLesson(l)===pair);
+        const a=all.filter(l=>String(l.group)==="РЕМС-34"), b=all.filter(l=>String(l.group)==="РЕМС-44");
+        const usedB=new Set(),shared=[];
+        a.forEach(x=>{const j=b.findIndex((y,i)=>!usedB.has(i)&&signature(y)===signature(x));if(j>=0){usedB.add(j);shared.push(x);}});
+        const sharedSigs=new Set(shared.map(signature));
+        const onlyA=a.filter(x=>!sharedSigs.has(signature(x))), onlyB=b.filter((x,i)=>!usedB.has(i));
+        const times=ACADEMIC_PAIR_TIMES[String(pair)]||[all[0]?.startTime||"",all[0]?.endTime||""];
+        return `<div class="academic-dual-cal-pair"><div class="academic-dual-cal-pair-head"><b>${esc(pair)} пара</b><span>${esc(times[0]||"")}–${esc(times[1]||"")}</span></div>${shared.map(x=>`<div class="academic-dual-cal-shared">${card(x,true)}</div>`).join("")}${(onlyA.length||onlyB.length)?`<div class="academic-dual-cal-two"><div><small>РЕМС-34</small>${onlyA.map(x=>card(x,false)).join("")||'<i>—</i>'}</div><div><small>РЕМС-44</small>${onlyB.map(x=>card(x,false)).join("")||'<i>—</i>'}</div></div>`:""}</div>`;
+      }).join("");
+      return `<div class="academic-dual-cal-day ${localIsoDate()===date?"today-date":""}"><div class="academic-dual-cal-date"><b>${dt.getDate()}</b><span>${dt.toLocaleDateString("uk-UA",{weekday:"short"})}</span></div>${pairHtml||'<div class="academic-dual-cal-none">—</div>'}</div>`;
+    };
+    mount.innerHTML=`<div class="academic-dual-calendar"><div class="academic-dual-cal-weekdays">${["Понеділок","Вівторок","Середа","Четвер","П’ятниця"].map(x=>`<b>${x}</b>`).join("")}</div><div class="academic-dual-cal-grid">${blanks}${workDates.map(cellForDate).join("")}</div></div>`;
     document.querySelectorAll(".academic-dual-card[data-id]").forEach(b=>b.onclick=()=>openAcademicEditor(b.dataset.id));
   };
   document.querySelector("#academicOpenCalendar").onclick=()=>{academicMainMode="calendar";academic();};
@@ -6262,7 +6353,7 @@ function academicLegacyCalendar(){
     "2027-03":"Березень 2027","2027-04":"Квітень 2027","2027-05":"Травень 2027"
   };
   const monthKeys=Object.keys(monthNames);
-  const weekdays=["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
+  const weekdays=["Пн","Вт","Ср","Чт","Пт"];
   app.innerHTML=`<div class="academic-page">
     <div class="academic-topbar">
       <div>
@@ -6331,9 +6422,9 @@ function academicLegacyCalendar(){
     const [year,mon]=activeMonth.split("-").map(Number);
     const start=`${activeMonth}-01`;
     const lastDay=new Date(year,mon,0).getDate();
-    const dates=Array.from({length:lastDay},(_,i)=>`${activeMonth}-${String(i+1).padStart(2,"0")}`);
-    const first=new Date(start+"T12:00:00");
-    const blanks=Array.from({length:(first.getDay()+6)%7},()=>'<div class="academic-month-day empty"></div>').join("");
+    const dates=Array.from({length:lastDay},(_,i)=>`${activeMonth}-${String(i+1).padStart(2,"0")}`).filter(d=>{const day=new Date(d+"T12:00:00").getDay();return day>=1&&day<=5;});
+    const first=dates[0]?new Date(dates[0]+"T12:00:00"):new Date(start+"T12:00:00");
+    const blanks=Array.from({length:Math.max(0,first.getDay()-1)},()=>'<div class="academic-month-day empty"></div>').join("");
 
     const cells=dates.map(date=>{
       const dt=new Date(date+"T12:00:00");
@@ -6437,7 +6528,7 @@ function academicLegacyCalendar(){
     .academic-month-tabs{margin-top:0}
     .academic-month-section{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;overflow:auto}
     .academic-month-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.academic-month-title h2{margin:0}.academic-month-title span{font-size:11px;color:#64748b}
-    .academic-month-grid{display:grid;grid-template-columns:repeat(7,minmax(128px,1fr));gap:7px;min-width:920px}
+    .academic-month-grid{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:7px;min-width:920px}
     .academic-month-weekday{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;padding:5px 7px;text-align:center}
     .academic-month-day{min-height:142px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:7px;display:flex;flex-direction:column;gap:6px}
     .academic-month-day.weekend{background:#fafafa}.academic-month-day.today-date{box-shadow:inset 0 0 0 2px #2563eb}
@@ -6457,6 +6548,12 @@ function academicLegacyCalendar(){
     .academic-bulk-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.academic-bulk-form .full{grid-column:1/-1}.academic-bulk-field{border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc;padding:11px;display:grid;gap:8px}.academic-bulk-field.is-disabled{opacity:.65}.academic-bulk-toggle{display:flex!important;flex-direction:row!important;align-items:center!important;gap:7px!important;font-size:11px!important;font-weight:800!important}.academic-bulk-toggle input{width:auto!important;margin:0!important}.academic-bulk-field>input,.academic-bulk-field>select,.academic-bulk-field>textarea,.academic-bulk-audience>select{background:#fff}.academic-bulk-field :disabled{opacity:.55;cursor:not-allowed}.academic-bulk-time{display:grid;grid-template-columns:1fr auto 1fr;gap:7px;align-items:center}.academic-bulk-dates{padding:9px 11px;border-radius:10px;background:#f8fafc;color:#475569;font-size:10px;display:flex;gap:7px;align-items:flex-start;flex-wrap:wrap}.academic-bulk-dates b{color:#111827}.academic-bulk-audience{display:grid;gap:8px}
     .combined-lesson-card{max-width:132px!important;padding:5px 6px!important}.combined-lesson-card b{font-size:9px}.combined-lesson-card small{display:block;white-space:normal;line-height:1.25;margin-top:2px}
     .calendar-month-tabs{margin-top:10px}
+
+    /* v37 — simplified project people management */
+    .project-team-simple{border:1px solid #dbeafe;background:#f8fbff}.project-team-selected{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.project-team-person{display:inline-flex;align-items:center;gap:5px;border:1px solid #bfdbfe;background:#fff;border-radius:999px;padding:5px 7px 5px 10px}.project-team-remove{width:22px;height:22px;border-radius:999px;border:0;background:#fee2e2;color:#b91c1c;font-weight:900;cursor:pointer}.project-team-manager-toolbar{display:flex;gap:10px;align-items:center;margin:14px 0}.project-team-manager-toolbar input{flex:1}.project-team-manager-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.project-team-manager-grid>section{border:1px solid #e5e7eb;border-radius:14px;padding:12px;background:#fff}.project-team-manager-grid h3{margin:0 0 10px}.project-team-manager-list{display:grid;gap:7px;max-height:55vh;overflow:auto}.team-manager-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border-bottom:1px solid #f1f5f9;padding:6px 0}.team-person-open{border:0;background:transparent;text-align:left;padding:0;cursor:pointer}
+    /* v37 — academic timetable is a real Mon–Fri calendar table */
+    .academic-dual-calendar{overflow:auto}.academic-dual-cal-weekdays,.academic-dual-cal-grid{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:7px;min-width:1180px}.academic-dual-cal-weekdays{margin-bottom:7px}.academic-dual-cal-weekdays b{text-align:center;padding:8px;border-radius:9px;background:#0f172a;color:#fff;font-size:11px}.academic-dual-cal-day{min-height:190px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:8px;display:grid;align-content:start;gap:7px}.academic-dual-cal-day.empty{background:#f8fafc;border-style:dashed;min-height:80px}.academic-dual-cal-date{display:flex;justify-content:space-between;align-items:center;padding-bottom:5px;border-bottom:1px solid #f1f5f9}.academic-dual-cal-date b{font-size:16px}.academic-dual-cal-date span{font-size:9px;color:#64748b;text-transform:uppercase}.academic-dual-cal-pair{display:grid;gap:5px;border-top:1px solid #e5e7eb;padding-top:6px}.academic-dual-cal-pair:first-of-type{border-top:0}.academic-dual-cal-pair-head{display:flex;justify-content:space-between;gap:5px;font-size:9px;color:#475569}.academic-dual-cal-pair-head b{color:#111827}.academic-dual-cal-two{display:grid;grid-template-columns:1fr 1fr;gap:5px}.academic-dual-cal-two>div{min-width:0}.academic-dual-cal-two small{display:block;font-size:8px;font-weight:800;color:#64748b;margin-bottom:3px}.academic-dual-cal-two i{display:block;text-align:center;color:#cbd5e1;font-style:normal;padding:8px}.academic-dual-cal-day .academic-dual-card{padding:6px!important;border-radius:8px!important;gap:2px!important}.academic-dual-cal-day .academic-dual-card strong{font-size:9px!important}.academic-dual-cal-day .academic-dual-card span,.academic-dual-cal-day .academic-dual-card b{font-size:8px!important}.academic-dual-cal-day .academic-together{font-size:7px!important}.academic-dual-cal-none{color:#cbd5e1;text-align:center;padding:18px 0}
+    @media(max-width:760px){.project-team-manager-grid{grid-template-columns:1fr}.project-team-manager-toolbar{align-items:stretch;flex-direction:column}}
     @media(max-width:900px){.academic-summary{grid-template-columns:repeat(2,1fr)}.academic-form-grid{grid-template-columns:1fr 1fr}}
     @media(max-width:650px){.academic-topbar{flex-direction:column}.academic-filter-actions{width:100%;justify-content:stretch}.academic-filter-actions select,.academic-filter-actions button{width:100%}.academic-import-status{align-items:flex-start;flex-direction:column}.academic-import-group-grid{grid-template-columns:1fr}.academic-summary{grid-template-columns:1fr 1fr}.academic-form{grid-template-columns:1fr}.academic-form .full{grid-column:1}.academic-form-grid{grid-template-columns:1fr}.academic-student-grid{grid-template-columns:1fr}.academic-once-card{grid-template-columns:1fr}.academic-editor{padding:14px;min-width:0}.academic-bulk-bar{position:static;align-items:stretch;flex-direction:column}.academic-bulk-bar-actions{display:grid;grid-template-columns:1fr 1fr}.academic-bulk-form{grid-template-columns:1fr}.academic-bulk-form .full{grid-column:1}}
   `;
@@ -8137,7 +8234,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       throw err;
     }
 
-    setStatus("v36.0 · хмара ✓");
+    setStatus("v37.0 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -8253,7 +8350,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v36.0 · хмара ✓");
+      setStatus("v37.0 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
