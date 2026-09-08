@@ -254,3 +254,65 @@ body.ui-mobile .mobile-calendar-sheet-item small{font-size:9px;color:#64748b;lin
 body.ui-mobile .mobile-calendar-sheet-item.selected{border-color:#2563eb;background:#eff6ff}
 body.ui-mobile .mobile-calendar-sheet-empty{padding:24px 14px;text-align:center;color:#94a3b8;font-size:12px;background:#f8fafc;border-radius:12px}
 body.ui-mobile .mobile-calendar-sheet-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto;position:sticky;bottom:0;background:#fff;padding-top:10px}
+
+/* =========================================================
+   REMS Control v39 — stabilization layer
+   Same controls and same data flow on desktop / iPad / phone.
+   Only layout changes between devices.
+   ========================================================= */
+body.ui-mobile .mobile-compact-calendar,
+body.ui-mobile .mobile-combined-compact,
+body.ui-mobile .academic-mobile-compact{display:none!important}
+body.ui-mobile .mobile-calendar-source{display:grid!important}
+body.ui-mobile .academic-month-grid.mobile-calendar-source{display:grid!important}
+
+/* Never let a wide admin surface disappear off-screen. */
+body.ui-mobile .calendar-wrap,
+body.ui-mobile .academic-month-section,
+body.ui-mobile .new-project-work-table,
+body.ui-mobile .word-export-projects,
+body.ui-mobile .schedule-table-wrap,
+body.ui-mobile .project-event-list{max-width:100%;overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+
+/* Project detail uses one predictable stacked flow on phone. */
+body.ui-mobile .project-hero-top,
+body.ui-mobile .project-title-wrap,
+body.ui-mobile .project-team-compact-main,
+body.ui-mobile .availability-picker-head{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:10px!important}
+body.ui-mobile .project-hero-top>div:last-child{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%}
+body.ui-mobile .project-hero-top>div:last-child>*{width:100%}
+body.ui-mobile .project-meta-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
+body.ui-mobile .project-meta{padding:9px!important;min-width:0}
+body.ui-mobile .project-meta strong{overflow-wrap:anywhere}
+body.ui-mobile .project-team-preview{display:flex!important;overflow-x:auto!important;flex-wrap:nowrap!important;-webkit-overflow-scrolling:touch}
+body.ui-mobile .project-team-preview>span{flex:0 0 auto}
+body.ui-mobile .availability-grid-two,
+body.ui-mobile .project-day-availability-grid{grid-template-columns:1fr!important}
+body.ui-mobile .availability-person-row{grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important}
+body.ui-mobile .availability-person-row .availability-chip{min-width:0!important;text-align:left!important}
+body.ui-mobile .day-event-row{grid-template-columns:auto minmax(0,1fr)!important;gap:8px!important}
+body.ui-mobile .day-event-row>div:last-child{grid-column:1/-1;display:grid!important;grid-template-columns:1fr 1fr!important;width:100%}
+body.ui-mobile .project-event-row{min-width:0!important;grid-template-columns:1fr!important;gap:7px!important;padding:10px!important}
+body.ui-mobile .project-event-row>*{min-width:0}
+body.ui-mobile .project-event-row button{width:100%}
+body.ui-mobile .project-team-manager-toolbar-v38{grid-template-columns:1fr!important}
+body.ui-mobile .project-team-one-list{max-height:none!important}
+
+/* New project/planner tables remain usable: rows stack instead of relying on a desktop-only canvas. */
+body.ui-mobile .new-project-work-table{min-width:0!important}
+body.ui-mobile .new-project-work-head{display:none!important}
+body.ui-mobile .new-project-work-row-v10{grid-template-columns:auto 1fr!important;gap:8px!important}
+body.ui-mobile .new-project-work-row-v10>*:not(:first-child){grid-column:2}
+body.ui-mobile .new-project-bulkbar{position:static!important;grid-template-columns:1fr!important}
+
+/* Tablet gets the same controls as desktop, with touch-safe sizing; no alternate behavior. */
+body.ui-tablet .project-cal-day{min-height:86px}
+body.ui-tablet .project-section-head{flex-wrap:wrap;gap:10px}
+body.ui-tablet .project-calendar-actions{flex-wrap:wrap}
+body.ui-tablet .availability-grid-two{grid-template-columns:1fr 1fr}
+body.ui-tablet .project-event-row{gap:8px}
+
+/* Safe tap / wrapping rules for all touch layouts. */
+body.ui-mobile button,body.ui-tablet button{white-space:normal;overflow-wrap:anywhere}
+body.ui-mobile .planner-toolbar,body.ui-tablet .planner-toolbar{flex-wrap:wrap}
+body.ui-mobile img,body.ui-tablet img{max-width:100%}

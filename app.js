@@ -1055,38 +1055,52 @@ async function removeStudentFromProjectDate(projectId,date,studentId){
   }
 }
 
-// v38.0 — one source of truth for project participation.
-// Global team edits propagate to assignments, every date roster and every work block.
-// Date edits propagate to the date roster and ALL work blocks on that date.
+// v39.0 — stable project participation model.
+// There are only two meaningful rosters:
+// 1) project team (db.assignments); 2) optional roster override for a concrete date (project.dateRosters[date]).
+// Work blocks no longer own a competing copy of the roster. They inherit the date roster, or the project team when no date override exists.
 const projectAllDates=(projectId)=>{
   const p=pBy(projectId);
   return [...new Set([...(p?.plannedDates||[]).map(String),...eventsFor(projectId).map(e=>String(e.date||""))])].filter(Boolean).sort();
 };
 const normalizeRosterIds=(ids=[])=>[...new Set((ids||[]).map(x=>String(resolveStudentId(x)??x)).filter(Boolean))];
+const hasProjectDateRoster=(project,date)=>!!(project?.dateRosters && Object.prototype.hasOwnProperty.call(project.dateRosters,String(date)));
+const effectiveProjectDateRosterIds=(projectId,date)=>{
+  const p=pBy(projectId); if(!p) return [];
+  if(hasProjectDateRoster(p,date)) return normalizeRosterIds(projectDateRosterIds(p,date));
+  return normalizeRosterIds(projectStudents(projectId).map(st=>st.id));
+};
 const applyProjectTeamEverywhere=(projectId,ids=[])=>{
   const p=pBy(projectId); if(!p) return [];
-  const wanted=normalizeRosterIds(ids);
-  const wantedSet=new Set(wanted);
+  const oldTeam=new Set(projectStudents(projectId).map(st=>String(st.id)));
+  const wanted=normalizeRosterIds(ids), wantedSet=new Set(wanted);
   db.assignments=(db.assignments||[]).filter(a=>String(a.projectId)!==String(projectId));
   wanted.forEach(sid=>db.assignments.push({projectId,studentId:resolveStudentId(sid)??sid,role:""}));
-  projectAllDates(projectId).forEach(date=>setProjectDateRosterIds(p,date,wanted));
-  (db.events||[]).forEach(e=>{
-    if(String(e.projectId)!==String(projectId)) return;
-    e.studentIds=wanted.map(x=>resolveStudentId(x)??x);
-    if(e.studentRoles&&typeof e.studentRoles==="object"){
-      Object.keys(e.studentRoles).forEach(k=>{if(!wantedSet.has(String(k))) delete e.studentRoles[k];});
-    }
-  });
+  // Removing a person from the whole project also removes them from date overrides and obsolete block-level copies.
+  const removed=[...oldTeam].filter(sid=>!wantedSet.has(sid));
+  if(removed.length){
+    const removedSet=new Set(removed);
+    Object.keys(p.dateRosters||{}).forEach(date=>{
+      setProjectDateRosterIds(p,date,projectDateRosterIds(p,date).filter(id=>!removedSet.has(String(id))));
+    });
+    (db.events||[]).forEach(e=>{
+      if(String(e.projectId)!==String(projectId)) return;
+      if(Array.isArray(e.studentIds)) e.studentIds=e.studentIds.filter(id=>!removedSet.has(String(id)));
+      if(e.studentRoles&&typeof e.studentRoles==="object") removed.forEach(sid=>delete e.studentRoles[sid]);
+    });
+  }
+  // Adding somebody changes only the project team. Existing custom dates stay custom; inherited dates pick the new team automatically.
   return wanted;
 };
 const applyProjectDateRosterEverywhere=(projectId,date,ids=[])=>{
   const p=pBy(projectId); if(!p) return [];
-  const wanted=normalizeRosterIds(ids), wantedSet=new Set(wanted);
+  const wanted=normalizeRosterIds(ids);
   wanted.forEach(sid=>ensureStudentInProjectTeam(projectId,sid));
   setProjectDateRosterIds(p,date,wanted);
+  // Block-level studentIds are legacy data. Keep roles clean, but the active roster is the date roster.
+  const wantedSet=new Set(wanted);
   (db.events||[]).forEach(e=>{
     if(String(e.projectId)!==String(projectId)||String(e.date)!==String(date)) return;
-    e.studentIds=wanted.map(x=>resolveStudentId(x)??x);
     if(e.studentRoles&&typeof e.studentRoles==="object"){
       Object.keys(e.studentRoles).forEach(k=>{if(!wantedSet.has(String(k))) delete e.studentRoles[k];});
     }
@@ -1818,44 +1832,23 @@ const projectStudents=id=>db.assignments.filter(a=>String(a.projectId)===String(
 // має власний підсклад. Видалення людини з проєкту прибирає її з усіх дат,
 // а додавання до проєкту НЕ додає її автоматично в уже створені дати.
 function normalizeProjectEventRosters(projectId){
-  const pid=String(projectId);
-  const team=projectStudents(pid);
-  const teamIds=team.map(st=>st.id);
-  const allowed=new Set(teamIds.map(String));
+  // v39 migration: if an old project has block-level rosters but no date roster,
+  // convert the union for that date once into project.dateRosters. Afterwards dateRosters are canonical.
+  const pid=String(projectId), p=pBy(pid);
+  if(!p) return false;
   let changed=false;
-
+  const byDate=new Map();
   (db.events||[]).forEach(e=>{
-    if(String(e.projectId)!==pid) return;
-
-    // Старі події без окремого складу раніше успадковували всю команду.
-    // Матеріалізуємо цей стан один раз; надалі це вже незалежний список дати.
-    if(!Array.isArray(e.studentIds)){
-      e.studentIds=[...teamIds];
+    if(String(e.projectId)!==pid || !e.date || !Array.isArray(e.studentIds)) return;
+    const set=byDate.get(String(e.date))||new Set();
+    e.studentIds.forEach(id=>set.add(String(resolveStudentId(id)??id)));
+    byDate.set(String(e.date),set);
+  });
+  byDate.forEach((ids,date)=>{
+    if(!hasProjectDateRoster(p,date)){
+      ids.forEach(sid=>ensureStudentInProjectTeam(projectId,sid));
+      setProjectDateRosterIds(p,date,[...ids]);
       changed=true;
-    }else{
-      const seen=new Set();
-      const cleaned=e.studentIds.filter(id=>{
-        const key=String(id);
-        if(!allowed.has(key)||seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      if(cleaned.length!==e.studentIds.length || cleaned.some((id,i)=>String(id)!==String(e.studentIds[i]))){
-        e.studentIds=cleaned;
-        changed=true;
-      }
-    }
-
-    if(e.studentRoles && typeof e.studentRoles==='object'){
-      const active=new Set((e.studentIds||[]).map(String));
-      const roles={};
-      Object.entries(e.studentRoles).forEach(([sid,role])=>{
-        if(allowed.has(String(sid)) && active.has(String(sid)) && String(role||'').trim()) roles[String(sid)]=role;
-      });
-      if(JSON.stringify(roles)!==JSON.stringify(e.studentRoles)){
-        e.studentRoles=roles;
-        changed=true;
-      }
     }
   });
   return changed;
@@ -4043,7 +4036,7 @@ function openProjectTeamManager(projectId){
     const current=new Set(projectStudents(projectId).map(st=>String(st.id)));
     dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body project-team-manager-v38">
       <div class="project-section-head project-team-manager-head">
-        <div><h2 style="margin:0">Склад проєкту</h2><div class="muted">${esc(p.name)} · постав галочку — людина є в усьому проєкті; зніми — вона прибирається з усіх дат і робочих блоків.</div></div>
+        <div><h2 style="margin:0">Склад проєкту</h2><div class="muted">${esc(p.name)} · постав галочку — людина є в команді проєкту. Дати за замовчуванням успадковують цю команду; окрему дату можна змінити незалежно.</div></div>
         <button class="ghost" id="teamManagerBack">← До проєкту</button>
       </div>
       <div class="project-team-manager-toolbar-v38">
@@ -4088,9 +4081,7 @@ function showProjectDay(projectId,date,availabilityEventIndex=0){
   const dialog=ensureProjectCardDialog();
   const evs=eventsFor(projectId).filter(e=>e.date===date);
   const pretty=new Date(date+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  const eventPeopleIds=new Set(evs.flatMap(e=>studentsForEvent(e).map(s=>String(s.id))));
-  const storedRoster=new Set(projectDateRosterIds(p,date));
-  eventPeopleIds.forEach(id=>storedRoster.add(id));
+  const storedRoster=new Set(effectiveProjectDateRosterIds(projectId,date).map(String));
   const people=db.students.filter(s=>storedRoster.has(String(s.id)));
   const slot=evs[Math.max(0,Math.min(Number(availabilityEventIndex)||0,evs.length-1))]||{startTime:"",endTime:"",timeUndetermined:true,type:"Весь день"};
   const busyFor=s=>studentBusyLabelsForSlot(s.id,date,slot.startTime||"",slot.endTime||"",slot.timeUndetermined!==false,projectId);
@@ -4115,7 +4106,6 @@ function showProjectDay(projectId,date,availabilityEventIndex=0){
         <div><b>${esc(e.type)}</b>${eventMetaText(e)?`<div class="day-event-meta">${esc(eventMetaText(e))}</div>`:""}${e.note?`<div class="day-event-meta">${esc(e.note)}</div>`:""}<div class="day-event-meta">${studentsForEvent(e).length} учасників${Object.keys(e.studentRoles||{}).length?` · функції розподілено: ${Object.keys(e.studentRoles||{}).length}`:""}</div></div>
         <div style="display:flex;gap:6px;align-items:center">
           <button class="ghost project-day-edit-event" data-index="${i}">Редагувати</button>
-          <button class="ghost project-day-people-event" data-index="${i}">Учасники</button>
           <button class="ghost danger-inline project-day-delete-event" data-index="${i}">Видалити</button>
           <span class="chip project-watermark" style="${projectWatermarkStyle(p)}">${projectWatermarkInner(p,esc(shortType(e.type)))}</span>
         </div>
@@ -4123,7 +4113,7 @@ function showProjectDay(projectId,date,availabilityEventIndex=0){
     </div>
 
     <div class="availability-picker-head">
-      <div><b>Люди на цю дату</b><div class="muted">Одна зміна тут одразу застосовується до всіх робочих блоків цієї дати. Інші дати не змінюються.</div>${evs.length?`<label style="margin-top:7px;display:block">Перевіряти для<select id="projectDayAvailabilitySlot">${evs.map((e,i)=>`<option value="${i}" ${i===Math.max(0,Math.min(Number(availabilityEventIndex)||0,evs.length-1))?'selected':''}>${esc(e.type)} · ${esc(eventTimeText(e))}</option>`).join("")}</select></label>`:''}</div>
+      <div><b>Люди на цю дату</b><div class="muted">Це єдиний склад цієї дати. Усі робочі блоки цього дня використовують його; інші дати не змінюються.</div>${evs.length?`<label style="margin-top:7px;display:block">Перевіряти для<select id="projectDayAvailabilitySlot">${evs.map((e,i)=>`<option value="${i}" ${i===Math.max(0,Math.min(Number(availabilityEventIndex)||0,evs.length-1))?'selected':''}>${esc(e.type)} · ${esc(eventTimeText(e))}</option>`).join("")}</select></label>`:''}</div>
       <div class="planner-toolbar"><button type="button" class="ghost availability-filter active" data-filter="all">Усі</button><button type="button" class="ghost availability-filter" data-filter="free">Вільні · ${freeCandidates.length}</button><button type="button" class="ghost availability-filter" data-filter="busy">Зайняті · ${busyCandidates.length}</button><input id="projectDayAvailabilitySearch" placeholder="Пошук студента" style="min-width:180px"></div>
     </div>
 
@@ -4165,7 +4155,6 @@ function showProjectDay(projectId,date,availabilityEventIndex=0){
     $("#eventProjectId").value=projectId; $("#eventDate").value=date; $("#eventDialog").showModal();
   };
   dialog.querySelectorAll(".project-day-edit-event").forEach(b=>b.onclick=()=>editProjectEvent(projectId,evs[+b.dataset.index]));
-  dialog.querySelectorAll(".project-day-people-event").forEach(b=>b.onclick=()=>editEventPeople(projectId,evs[+b.dataset.index]));
   dialog.querySelectorAll(".project-day-delete-event").forEach(b=>{
     b.onclick=async()=>{
       const ev=evs[+b.dataset.index];
@@ -4339,7 +4328,7 @@ function openProjectCard(id){
                 <b>${fmt(e.date)}</b>
                 <span>${esc(e.type)}${eventMetaText(e)?`<div class="muted">${esc(eventMetaText(e))}</div>`:""}<div class="muted">${people.length} учасників</div></span>
                 <button class="ghost edit-event-btn" data-index="${i}">Редагувати</button>
-                <button class="ghost event-people-btn" data-index="${i}">Учасники</button>
+                <button class="ghost event-people-btn" data-index="${i}">Склад дати</button>
                 <button class="ghost delete-event" data-index="${i}">Видалити</button>
               </div>`;
             }).join("")||'<div class="empty">Дат ще немає.</div>'}
@@ -4353,7 +4342,7 @@ function openProjectCard(id){
   if(manageTeamBtn) manageTeamBtn.onclick=()=>openProjectTeamManager(id);
   dialog.querySelectorAll(".project-team-remove").forEach(b=>b.onclick=async()=>{
     const sid=resolveStudentId(b.dataset.student); if(sid===undefined)return;
-    if(!confirm("Прибрати цю людину з усього проєкту, усіх дат і всіх робочих блоків?")) return;
+    if(!confirm("Прибрати цю людину з усього проєкту? Вона також буде прибрана з усіх окремих складів дат.")) return;
     b.disabled=true;
     const ok=await setProjectPersonEverywhere(id,sid,false);
     if(!ok){b.disabled=false;alert("Не вдалося зберегти зміну.");return;}
@@ -4376,7 +4365,7 @@ function openProjectCard(id){
 
   dialog.querySelectorAll(".event-people-btn").forEach(b=>b.onclick=()=>{
     const ev=eventsFor(id)[+b.dataset.index];
-    editEventPeople(id,ev);
+    showProjectDay(id,ev.date);
   });
 
   dialog.querySelectorAll(".delete-event").forEach(b=>b.onclick=async()=>{
@@ -5044,11 +5033,9 @@ function eventKey(e){
   return `${e.projectId}|${e.date}|${e.startTime||""}|${e.endTime||""}|${e.type}`;
 }
 function studentsForEvent(e){
-  if(Array.isArray(e.studentIds)){
-    const ids=new Set(e.studentIds.map(String));
-    return db.students.filter(s=>ids.has(String(s.id)));
-  }
-  return projectStudents(e.projectId);
+  // v39: every work block inherits one roster for its date. This keeps desktop, iPad and phone in sync.
+  const ids=new Set(effectiveProjectDateRosterIds(e.projectId,e.date).map(String));
+  return db.students.filter(s=>ids.has(String(s.id)));
 }
 function studentRoleForEvent(e,studentId){
   const roles=e?.studentRoles;
