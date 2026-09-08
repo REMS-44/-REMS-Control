@@ -8711,3 +8711,78 @@ function academicV39(){
 // ===== /REMS Control v39.3 =====
 
 bootstrapAuth();
+/* === V40 SIMPLE PROJECTS: project -> work -> students. One source of truth = event.studentIds === */
+function v40EventStudentIds(ev){ return [...new Set((ev?.studentIds||[]).map(x=>String(resolveStudentId(x)??x)).filter(Boolean))]; }
+function v40ProjectStudentIds(pid){
+  const ids=new Set(); eventsFor(pid).forEach(e=>v40EventStudentIds(e).forEach(id=>ids.add(id)));
+  // Legacy fallback: keeps old projects visible until their first edit in V40.
+  (db.assignments||[]).filter(a=>String(a.projectId)===String(pid)).forEach(a=>ids.add(String(resolveStudentId(a.studentId)??a.studentId)));
+  return [...ids];
+}
+function v40StudentName(id){ const s=(db.students||[]).find(x=>String(x.id)===String(id)); return s?.name||"Студент"; }
+function v40Group(id){ const s=(db.students||[]).find(x=>String(x.id)===String(id)); return studentGroupLabel(s)||s?.group||""; }
+function v40ProjectPeriod(p){
+  const ds=eventsFor(p.id).map(e=>e.date).filter(Boolean).sort();
+  return ds.length?`${fmt(ds[0])} — ${fmt(ds[ds.length-1])}`:"Ще без робіт";
+}
+function v40Projects(){
+  const ordered=sortedProjectsByRelevance();
+  app.innerHTML=`<div class="v40-projects-head"><div><h2>Проєкти</h2><p>Проста система: проєкт → робота → студенти.</p></div></div>
+  <div class="v40-project-grid">${ordered.map(p=>{const evs=eventsFor(p.id), ids=v40ProjectStudentIds(p.id);return `<button class="v40-project-card" data-v40-project="${esc(String(p.id))}" type="button" style="--pc:${esc(p.color||'#111827')}">
+    <div class="v40-project-logo">${projectLogoHtml(p,"project-card-logo")}</div><div class="v40-project-copy"><h3>${esc(p.name)}</h3><p>${evs.length} ${evs.length===1?'робота':'робіт'} · ${ids.length} студентів</p><small>${esc(v40ProjectPeriod(p))}</small></div><span>→</span>
+  </button>`}).join("")||'<div class="empty">Проєктів ще немає.</div>'}</div>`;
+  app.querySelectorAll("[data-v40-project]").forEach(b=>b.onclick=()=>v40OpenProject(b.dataset.v40Project));
+}
+function v40OpenProject(pid){
+  const p=pBy(pid); if(!p)return;
+  const evs=eventsFor(pid).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.startTime||"").localeCompare(String(b.startTime||"")));
+  const ids=v40ProjectStudentIds(pid);
+  app.innerHTML=`<div class="v40-detail">
+    <button class="v40-back" id="v40BackProjects" type="button">← Проєкти</button>
+    <div class="v40-detail-head"><div><div class="v40-title-row">${projectLogoHtml(p,"project-card-logo")}<div><h2>${esc(p.name)}</h2><p>${evs.length} робіт · ${ids.length} студентів</p></div></div></div><button class="primary" id="v40AddWork" type="button">+ Додати роботу</button></div>
+    <div class="v40-work-list">${evs.map((e,i)=>`<button type="button" class="v40-work" data-v40-event="${i}"><div class="v40-date"><b>${new Date(e.date+'T12:00:00').getDate()}</b><span>${new Date(e.date+'T12:00:00').toLocaleDateString('uk-UA',{month:'short'}).replace('.','')}</span></div><div class="v40-work-main"><h3>${esc(e.type||'Робота')}</h3><p>${e.timeUndetermined||(!e.startTime&&!e.endTime)?'Час не визначено':esc([e.startTime,e.endTime].filter(Boolean).join('–'))}</p><small>👥 ${v40EventStudentIds(e).length} студентів</small></div><span class="v40-arrow">→</span></button>`).join("")||'<div class="v40-empty"><b>У проєкті ще немає робіт</b><span>Додайте першу дату, назву роботи та студентів.</span></div>'}</div>
+  </div>`;
+  document.querySelector("#pageTitle").textContent="Проєкти";
+  document.querySelector("#v40BackProjects").onclick=()=>{v40Projects();};
+  document.querySelector("#v40AddWork").onclick=()=>v40WorkEditor(pid,null);
+  app.querySelectorAll("[data-v40-event]").forEach(b=>b.onclick=()=>v40WorkEditor(pid,evs[+b.dataset.v40Event]));
+}
+function v40ConflictText(studentId,date,start,end,editingEv){
+  const sid=String(studentId); const hits=(db.events||[]).filter(e=>e!==editingEv&&String(e.date)===String(date)&&v40EventStudentIds(e).includes(sid));
+  if(!hits.length)return ""; const e=hits[0],p=pBy(e.projectId); return `⚠ Уже зайнятий: ${p?.name||'Інший проєкт'} · ${e.type||'робота'}`;
+}
+function v40EnsureDialog(){
+  let d=document.querySelector('#v40WorkDialog'); if(d)return d;
+  d=document.createElement('dialog'); d.id='v40WorkDialog'; d.className='v40-dialog'; d.innerHTML='<div id="v40WorkBody"></div>'; document.body.appendChild(d); return d;
+}
+function v40WorkEditor(pid,ev){
+  const p=pBy(pid); if(!p)return; const d=v40EnsureDialog(), body=d.querySelector('#v40WorkBody');
+  const selected=new Set(ev?v40EventStudentIds(ev):[]); const groups=[...new Set((db.students||[]).map(studentGroupLabel).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk'));
+  const renderPeople=()=>{
+    const date=body.querySelector('#v40Date')?.value||ev?.date||localIsoDate(); const q=(body.querySelector('#v40Search')?.value||'').trim().toLowerCase(); const g=body.querySelector('#v40Group')?.value||'';
+    const list=body.querySelector('#v40People'); if(!list)return;
+    const people=(db.students||[]).filter(s=>(!g||studentGroupLabel(s)===g)&&(!q||(`${s.name} ${studentGroupLabel(s)}`).toLowerCase().includes(q))).sort((a,b)=>String(a.name).localeCompare(String(b.name),'uk'));
+    list.innerHTML=people.map(s=>{const sid=String(s.id),on=selected.has(sid), conflict=v40ConflictText(sid,date,'','',ev);return `<label class="v40-person ${on?'selected':''}"><input type="checkbox" data-v40-sid="${esc(sid)}" ${on?'checked':''}><span><b>${esc(s.name)}</b><small>${esc(studentGroupLabel(s)||'')}</small>${conflict?`<em>${esc(conflict)}</em>`:''}</span></label>`}).join('')||'<div class="empty">Нікого не знайдено.</div>';
+    list.querySelectorAll('[data-v40-sid]').forEach(ch=>ch.onchange=()=>{ch.checked?selected.add(String(ch.dataset.v40Sid)):selected.delete(String(ch.dataset.v40Sid));body.querySelector('#v40Count').textContent=selected.size;ch.closest('.v40-person').classList.toggle('selected',ch.checked);});
+  };
+  body.innerHTML=`<div class="v40-editor"><div class="v40-editor-head"><div><h2>${ev?'Редагувати роботу':'Нова робота'}</h2><p>${esc(p.name)}</p></div><button class="ghost" id="v40Close" type="button">Закрити</button></div>
+    <div class="v40-fields"><label>Дата<input id="v40Date" type="date" value="${esc(ev?.date||localIsoDate())}"></label><label>Що відбувається?<input id="v40Type" value="${esc(ev?.type||'')}" placeholder="Зйомка / репетиція / кастинг"></label></div>
+    <div class="v40-time"><label><input id="v40Unknown" type="checkbox" ${!ev||ev.timeUndetermined||(!ev.startTime&&!ev.endTime)?'checked':''}> Час не визначено</label><div id="v40TimeFields"><input id="v40Start" type="time" value="${esc(ev?.startTime||'')}"><span>—</span><input id="v40End" type="time" value="${esc(ev?.endTime||'')}"></div></div>
+    <div class="v40-people-head"><div><h3>Студенти</h3><p><b id="v40Count">${selected.size}</b> вибрано</p></div><div class="v40-filters"><input id="v40Search" placeholder="Пошук"><select id="v40Group"><option value="">Усі групи</option>${groups.map(g=>`<option>${esc(g)}</option>`).join('')}</select></div></div>
+    <div class="v40-people" id="v40People"></div>
+    <div class="v40-actions">${ev?'<button class="danger ghost" id="v40Delete" type="button">Видалити роботу</button>':'<span></span>'}<div><button class="ghost" id="v40Cancel" type="button">Скасувати</button><button class="primary" id="v40Save" type="button">Зберегти</button></div></div>
+  </div>`;
+  const unknown=body.querySelector('#v40Unknown'), tf=body.querySelector('#v40TimeFields'); const syncTime=()=>tf.classList.toggle('disabled',unknown.checked); syncTime(); unknown.onchange=syncTime;
+  body.querySelector('#v40Search').oninput=renderPeople; body.querySelector('#v40Group').onchange=renderPeople; body.querySelector('#v40Date').onchange=renderPeople; renderPeople();
+  const close=()=>d.close(); body.querySelector('#v40Close').onclick=close; body.querySelector('#v40Cancel').onclick=close;
+  body.querySelector('#v40Save').onclick=async()=>{const date=body.querySelector('#v40Date').value,type=body.querySelector('#v40Type').value.trim();if(!date||!type){alert('Вкажіть дату і назву роботи.');return;}const unk=unknown.checked,start=unk?'':body.querySelector('#v40Start').value,end=unk?'':body.querySelector('#v40End').value;if(!unk&&start&&end&&timeMinutes(start)>=timeMinutes(end)){alert('Час завершення має бути пізніше за початок.');return;}const btn=body.querySelector('#v40Save');btn.disabled=true;btn.textContent='Збереження…';if(ev){ev.date=date;ev.type=type;ev.startTime=start;ev.endTime=end;ev.timeUndetermined=unk;ev.studentIds=[...selected];ev.studentRoles={};}else{db.events.push({projectId:pid,date,type,startTime:start,endTime:end,timeUndetermined:unk,location:'',note:'',studentIds:[...selected],studentRoles:{}});}const ok=await save();btn.disabled=false;btn.textContent='Зберегти';if(!ok){alert('Не вдалося зберегти в хмару.');return;}d.close();v40OpenProject(pid);};
+  if(ev) body.querySelector('#v40Delete').onclick=async()=>{if(!confirm(`Видалити «${ev.type||'роботу'}» ${fmt(ev.date)}?`))return;const idx=db.events.indexOf(ev);if(idx>=0)db.events.splice(idx,1);const ok=await save();if(!ok){alert('Не вдалося зберегти зміну.');return;}d.close();v40OpenProject(pid);};
+  if(!d.open)d.showModal();
+}
+function v40NewProject(){
+  const d=v40EnsureDialog(),body=d.querySelector('#v40WorkBody');
+  body.innerHTML=`<div class="v40-editor v40-new-project"><div class="v40-editor-head"><div><h2>Новий проєкт</h2><p>Спочатку тільки основне. Роботи й студентів додасте після створення.</p></div><button class="ghost" id="v40Close" type="button">Закрити</button></div><div class="v40-project-fields"><label>Назва<input id="v40PName" placeholder="Наприклад: Фабрика зірок"></label><label>Колір<input id="v40PColor" type="color" value="#2563EB"></label><label>Позначка<input id="v40PEmoji" maxlength="3" value="◆"></label><label>Логотип<input id="v40PLogo" type="file" accept="image/*"></label></div><div class="v40-actions"><span></span><div><button class="ghost" id="v40Cancel" type="button">Скасувати</button><button class="primary" id="v40Create" type="button">Створити</button></div></div></div>`;
+  const close=()=>d.close();body.querySelector('#v40Close').onclick=close;body.querySelector('#v40Cancel').onclick=close;body.querySelector('#v40Create').onclick=async()=>{const name=body.querySelector('#v40PName').value.trim();if(!name){alert('Вкажіть назву проєкту.');return;}const project={id:'p_'+Date.now(),name,color:body.querySelector('#v40PColor').value,emoji:body.querySelector('#v40PEmoji').value||'◆',createdAt:new Date().toISOString()};const f=body.querySelector('#v40PLogo').files?.[0];if(f)project.logoData=await compressProjectLogo(f);db.projects.push(project);const ok=await save();if(!ok){db.projects=db.projects.filter(x=>x!==project);alert('Не вдалося зберегти проєкт.');return;}d.close();v40OpenProject(project.id);};if(!d.open)d.showModal();
+}
+projects=v40Projects; views.projects=v40Projects; openProjectCard=v40OpenProject;
+const v40Quick=document.querySelector('#quickAdd'); if(v40Quick){const old=v40Quick.onclick;v40Quick.onclick=()=>{if(currentView==='projects'){if(!cloudReady){alert('Зачекайте, поки завантажиться хмарна база.');return;}v40NewProject();}else old?.();};}
