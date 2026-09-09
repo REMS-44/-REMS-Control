@@ -1924,7 +1924,14 @@ const eventAssignments=()=>{
 
 // ===== Розклад занять · REMS Control v5.8 =====
 const ACADEMIC_COLOR="#2563EB";
-const academicLessons=()=>Array.isArray(db.lessons)?db.lessons:[];
+// v40.8: індивідуальні Фішера є віртуальним вбудованим шаром розкладу.
+// Вони не залежать від порядку завантаження Firebase і не можуть зникнути після refresh.
+const academicLessons=()=>{
+  const base=Array.isArray(db.lessons)?db.lessons:[];
+  const bundled=Array.isArray(window.__REMS_FISHER_INDIVIDUAL_LESSONS)?window.__REMS_FISHER_INDIVIDUAL_LESSONS:[];
+  const cleanBase=base.filter(l=>String(l?.source||"")!=="fisher-individual-dramaturgy-2026");
+  return bundled.length?[...cleanBase,...bundled]:cleanBase;
+};
 const academicLessonId=()=>`lesson-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
 const academicWeekdays=[
   {value:"1",label:"Понеділок",short:"Пн"},
@@ -6221,9 +6228,13 @@ const fisherIndividualLesson=(row,index)=>{
   };
 };
 const fisherBundledLessons=()=>FISHER_INDIVIDUAL_SCHEDULE.map(fisherIndividualLesson);
+// v40.8: зберігаємо вбудовані індивідуальні окремо від db.lessons.
+// academicLessons() завжди домішує їх під час читання, тому Firestore snapshot не може їх стерти.
+window.__REMS_FISHER_INDIVIDUAL_LESSONS=fisherBundledLessons();
 const mergeFisherIndividualLessons=lessons=>{
-  const keep=academicLessons().filter(l=>l?.source!==FISHER_INDIVIDUAL_SCHEDULE_SOURCE);
-  db.lessons=[...keep,...(lessons||[])];
+  window.__REMS_FISHER_INDIVIDUAL_LESSONS=Array.isArray(lessons)?lessons:fisherBundledLessons();
+  // Прибираємо старі фізичні копії, якщо вони лишилися з v40.4–v40.8.
+  db.lessons=(Array.isArray(db.lessons)?db.lessons:[]).filter(l=>String(l?.source||"")!==FISHER_INDIVIDUAL_SCHEDULE_SOURCE);
 };
 async function loadFisherIndividualScheduleCloud(){
   // v40.4: цей розклад уже вбудований у сам застосунок. Ніякого окремого
@@ -8396,7 +8407,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
     // v39 SAFE BOOT: never seed or repair project calendars automatically.
     // Existing project data in Firebase is authoritative and is not changed by code updates.
 
-    // v40.7: never force the user back to Home when cloud loading finishes.
+    // v40.8: never force the user back to Home when cloud loading finishes.
     // Keep whichever section the user is currently viewing (or the last section in this tab).
     try{
       refreshCurrentView();
@@ -8427,7 +8438,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       cache();
       applyingRemote=false;
 
-      // v40.7: a Firestore snapshot updates data only. It must never change navigation.
+      // v40.8: a Firestore snapshot updates data only. It must never change navigation.
       loadAllStudentMedia().finally(()=>{
         try{
           refreshCurrentView();
@@ -8801,7 +8812,7 @@ function academicV39(){
 })();
 // ===== /REMS Control v39.3 =====
 
-// ===== v40.7 STABLE NAVIGATION =====
+// ===== v40.8 STABLE NAVIGATION =====
 // Cloud/auth/media callbacks may refresh the current screen, but only an explicit user
 // navigation action is allowed to change currentView. This prevents random jumps.
 window.addEventListener("pageshow",()=>{
@@ -8810,7 +8821,7 @@ window.addEventListener("pageshow",()=>{
     if(REMS_VALID_VIEWS.has(saved)) currentView=saved;
   }catch{}
 });
-// ===== /v40.7 STABLE NAVIGATION =====
+// ===== /v40.8 STABLE NAVIGATION =====
 
 bootstrapAuth();
 /* === V40 SIMPLE PROJECTS: project -> work -> students. One source of truth = event.studentIds === */

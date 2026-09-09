@@ -1,0 +1,8 @@
+REMS Control v40.8
+
+FIX: Persistent individual lessons after reload.
+- Fisher individual schedule is now a virtual bundled layer, not mutable cloud state.
+- academicLessons() always composes cloud lessons + bundled individual lessons.
+- Firestore snapshots can no longer remove individual lessons.
+- Old physical copies are removed to prevent duplicates.
+- PWA cache bumped to v40.8.
