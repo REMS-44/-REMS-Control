@@ -1926,11 +1926,28 @@ const eventAssignments=()=>{
 const ACADEMIC_COLOR="#2563EB";
 // v40.8: індивідуальні Фішера є віртуальним вбудованим шаром розкладу.
 // Вони не залежать від порядку завантаження Firebase і не можуть зникнути після refresh.
+const fisherIndividualHiddenIds=()=>new Set((db.settings?.fisherIndividualHiddenIds||[]).map(String));
+const fisherRememberHiddenIds=ids=>{
+  db.settings=db.settings||{};
+  const set=fisherIndividualHiddenIds();
+  (ids||[]).map(String).filter(Boolean).forEach(id=>set.add(id));
+  db.settings.fisherIndividualHiddenIds=[...set];
+};
+const fisherForgetHiddenIds=ids=>{
+  db.settings=db.settings||{};
+  const remove=new Set((ids||[]).map(String));
+  db.settings.fisherIndividualHiddenIds=[...fisherIndividualHiddenIds()].filter(id=>!remove.has(id));
+};
 const academicLessons=()=>{
   const base=Array.isArray(db.lessons)?db.lessons:[];
   const bundled=Array.isArray(window.__REMS_FISHER_INDIVIDUAL_LESSONS)?window.__REMS_FISHER_INDIVIDUAL_LESSONS:[];
+  // Старі фізичні копії вбудованого розкладу не читаємо. Ручні правки з тим самим id
+  // мають source=manual і перекривають відповідний вбудований запис.
   const cleanBase=base.filter(l=>String(l?.source||"")!=="fisher-individual-dramaturgy-2026");
-  return bundled.length?[...cleanBase,...bundled]:cleanBase;
+  const overridden=new Set(cleanBase.map(l=>String(l?.id||"")).filter(Boolean));
+  const hidden=fisherIndividualHiddenIds();
+  const visibleBundled=bundled.filter(l=>!hidden.has(String(l.id))&&!overridden.has(String(l.id)));
+  return [...cleanBase,...visibleBundled];
 };
 const academicLessonId=()=>`lesson-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
 const academicWeekdays=[
@@ -6245,14 +6262,21 @@ async function loadFisherIndividualScheduleCloud(){
   return {ok:true,source:"bundled",count:FISHER_INDIVIDUAL_SCHEDULE.length};
 }
 async function installFisherIndividualSchedule(force=false){
-  // v40.4: кнопка лише відновлює гарантований вбудований набір. Дані однакові
-  // на комп'ютері, iPad і телефоні, бо приходять разом з app.js.
   const added=fisherBundledLessons();
   mergeFisherIndividualLessons(added);
   db.settings=db.settings||{};
+  if(force){
+    // «Оновити індивідуальні» = повернути початковий вбудований набір.
+    db.settings.fisherIndividualHiddenIds=[];
+    db.lessons=(db.lessons||[]).filter(l=>!String(l?.id||"").startsWith("fisher-individual-"));
+  }
   db.settings={...db.settings,fisherIndividualScheduleVersion:FISHER_INDIVIDUAL_SCHEDULE_VERSION,fisherIndividualScheduleUpdatedAt:new Date().toISOString()};
   cache();
-  setStatus(cloudReady?"v40.4 · хмара ✓":"v40.4 · локально");
+  if(force){
+    const ok=await saveAcademicV39();
+    if(!ok)return {ok:false,error:"Не вдалося зберегти відновлений індивідуальний розклад у хмару."};
+  }
+  setStatus(cloudReady?"v40.9 · хмара ✓":"v40.9 · локально");
   return {ok:true,changed:true,count:added.length,bundled:true};
 }
 
@@ -8639,7 +8663,7 @@ async function saveAcademicV39(){
   normalizeUndeterminedTimes(db);cache();
   if(!cloudReady||!cloudDb||!currentUser){setStatus("v39.3 · немає з’єднання");return false;}
   try{
-    cloudWriting=true;setStatus("v40.4 · збереження розкладу…");
+    cloudWriting=true;setStatus("v40.9 · збереження розкладу…");
     // Вбудовані індивідуальні не пишемо в окрему колекцію і не залежимо від
     // Firestore Rules. Звичайні/офіційні/ручні заняття зберігаються як раніше.
     const coreLessons=(db.lessons||[]).filter(l=>l?.source!==FISHER_INDIVIDUAL_SCHEDULE_SOURCE);
@@ -8647,8 +8671,8 @@ async function saveAcademicV39(){
       lessons:coreLessons,settings:db.settings||{},academicImport:db.academicImport||null,updatedAt:new Date().toISOString()
     },{merge:true});
     mergeFisherIndividualLessons(fisherBundledLessons());
-    cache();setStatus("v40.4 · хмара ✓");return true;
-  }catch(err){console.error(err);setStatus("v40.4 · помилка хмари");return false;}
+    cache();setStatus("v40.9 · хмара ✓");return true;
+  }catch(err){console.error(err);setStatus("v40.9 · помилка хмари");return false;}
   finally{setTimeout(()=>{cloudWriting=false;},250);}
 }
 
@@ -8678,40 +8702,94 @@ function openAcademicV39Editor({ids=[],date="",pair=""}={}){
       <label class="full">Дисципліна<input id="academicV39Subject" required value="${esc(base.subject)}"></label>
       <label>Викладач<input id="academicV39Teacher" value="${esc(base.teacher)}" list="academicV39TeacherList"><datalist id="academicV39TeacherList">${academicV39AllTeachers().map(t=>`<option value="${esc(t)}"></option>`).join("")}</datalist></label>
       <label>Аудиторія<input id="academicV39Room" value="${esc(base.room)}" placeholder="Обов’язково вкажіть або залиште порожнім"></label>
+      <div class="full academic-v409-individual-picker" id="academicV409IndividualPicker" hidden></div>
       ${first?`<label class="full">Застосувати<select id="academicV39Scope"><option value="one">Тільки до цього заняття / цієї дати</option><option value="similar">До всіх таких занять цього викладача й дисципліни</option></select></label>`:""}
       <div class="dialog-actions academic-actions full">${first?'<button type="button" class="danger ghost" id="academicV39Delete">Видалити</button>':""}<button type="button" class="ghost" id="academicV39Cancel">Скасувати</button><button type="submit" class="primary">Зберегти</button></div>
     </form></div>`;
+  const typeSelect=body.querySelector("#academicV39Type"),groupSelect=body.querySelector("#academicV39Group"),picker=body.querySelector("#academicV409IndividualPicker");
+  const initialIndividualIds=rows.filter(r=>String(r.lessonType||"").toLowerCase().includes("індив")).flatMap(r=>(r.studentIds||[]).map(String));
+  const renderIndividualPicker=()=>{
+    const isIndividual=String(typeSelect.value||"").toLowerCase().includes("індив");
+    picker.hidden=!isIndividual;
+    if(!isIndividual){picker.innerHTML="";return;}
+    const groups=groupSelect.value==="both"?["РЕМС-34","РЕМС-44"]:[groupSelect.value];
+    const selected=new Set([...picker.querySelectorAll('input[type="checkbox"]:checked')].map(x=>String(x.value)));
+    if(!picker.dataset.ready) initialIndividualIds.forEach(id=>selected.add(String(id)));
+    const sts=(db.students||[]).filter(st=>groups.includes(String(st.group||""))).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"uk"));
+    picker.innerHTML=`<div class="academic-v409-pick-head"><div><b>Студенти індивідуального заняття</b><small>Оберіть одного або двох студентів на цю пару.</small></div><span id="academicV409PickCount">${selected.size}/2</span></div><div class="academic-v409-pick-grid">${sts.map(st=>`<label><input type="checkbox" value="${esc(String(st.id))}" ${selected.has(String(st.id))?"checked":""}><span>${esc(st.name||"Студент")}<small>${esc(st.group||"")}</small></span></label>`).join("")||'<span class="muted">Студентів немає.</span>'}</div>`;
+    picker.dataset.ready="1";
+    const refreshCount=()=>{const checked=[...picker.querySelectorAll('input[type="checkbox"]:checked')];const c=picker.querySelector("#academicV409PickCount");if(c)c.textContent=`${checked.length}/2`;};
+    picker.querySelectorAll('input[type="checkbox"]').forEach(ch=>ch.onchange=()=>{
+      const checked=[...picker.querySelectorAll('input[type="checkbox"]:checked')];
+      if(checked.length>2){ch.checked=false;alert("На одну пару можна вибрати максимум двох студентів.");}
+      refreshCount();
+    });
+    refreshCount();
+  };
+  typeSelect.onchange=renderIndividualPicker;
+  groupSelect.onchange=()=>{picker.dataset.ready="";renderIndividualPicker();};
+  renderIndividualPicker();
   body.querySelector("#academicV39Close").onclick=()=>d.close();body.querySelector("#academicV39Cancel").onclick=()=>d.close();
   if(first) body.querySelector("#academicV39Delete").onclick=async()=>{
     const scope=body.querySelector("#academicV39Scope")?.value||"one";
     if(!confirm(scope==="similar"?"Видалити всі такі заняття цього викладача й дисципліни?":"Видалити це заняття?"))return;
-    const before=clone(academicLessons());
+    const beforeLessons=clone(db.lessons||[]),beforeSettings=clone(db.settings||{});
+    let removeIds=ids.slice();
     if(scope==="similar"){
       const subj=academicV39TeacherNorm(first.subject),teach=academicV39TeacherNorm(first.teacher);
       const groups=new Set(rows.map(r=>String(r.group||"")));
-      db.lessons=academicLessons().filter(l=>!(academicV39TeacherNorm(l.subject)===subj&&academicV39TeacherNorm(l.teacher)===teach&&groups.has(String(l.group||""))));
-    }else db.lessons=academicLessons().filter(l=>!ids.includes(String(l.id)));
-    if(!await saveAcademicV39()){db.lessons=before;alert("Не вдалося зберегти зміни.");return;}d.close();academic();
+      removeIds=academicLessons().filter(l=>academicV39TeacherNorm(l.subject)===subj&&academicV39TeacherNorm(l.teacher)===teach&&groups.has(String(l.group||""))).map(l=>String(l.id));
+    }
+    const bundledIds=new Set(fisherBundledLessons().map(l=>String(l.id)));
+    fisherRememberHiddenIds(removeIds.filter(id=>bundledIds.has(String(id))));
+    const removeSet=new Set(removeIds.map(String));
+    db.lessons=(db.lessons||[]).filter(l=>!removeSet.has(String(l.id)));
+    if(!await saveAcademicV39()){db.lessons=beforeLessons;db.settings=beforeSettings;alert("Не вдалося зберегти зміни.");return;}d.close();academic();
   };
   body.querySelector("#academicV39Form").onsubmit=async e=>{
     e.preventDefault();
     const newDate=body.querySelector("#academicV39Date").value,pn=body.querySelector("#academicV39Pair").value,g=body.querySelector("#academicV39Group").value;
     const subject=body.querySelector("#academicV39Subject").value.trim(),teacher=body.querySelector("#academicV39Teacher").value.trim(),room=body.querySelector("#academicV39Room").value.trim(),type=body.querySelector("#academicV39Type").value;
     if(!newDate||!subject){alert("Вкажіть дату і дисципліну.");return;}
-    const [startTime,endTime]=academicV39TimeForPair(pn);const targetGroups=g==="both"?["РЕМС-34","РЕМС-44"]:[g];const before=clone(academicLessons());
+    const [startTime,endTime]=academicV39TimeForPair(pn);const targetGroups=g==="both"?["РЕМС-34","РЕМС-44"]:[g];
+    const beforeLessons=clone(db.lessons||[]),beforeSettings=clone(db.settings||{});
     const scope=first?(body.querySelector("#academicV39Scope")?.value||"one"):"one";
-    if(first&&scope==="similar"){
+    const isIndividual=String(type||"").toLowerCase().includes("індив");
+    if(isIndividual){
+      const studentIds=[...picker.querySelectorAll('input[type="checkbox"]:checked')].map(x=>String(x.value));
+      if(!studentIds.length){alert("Оберіть хоча б одного студента для індивідуального заняття.");return;}
+      if(studentIds.length>2){alert("На одну пару можна вибрати максимум двох студентів.");return;}
+      const bundledIds=new Set(fisherBundledLessons().map(l=>String(l.id)));
+      fisherRememberHiddenIds(ids.filter(id=>bundledIds.has(String(id))));
+      const removeSet=new Set(ids.map(String));
+      db.lessons=(db.lessons||[]).filter(l=>!removeSet.has(String(l.id)));
+      const startM=timeMinutes(startTime),endM=timeMinutes(endTime),midM=startM+40;
+      const fmtM=m=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+      studentIds.forEach((sid,i)=>{
+        const st=(db.students||[]).find(x=>String(x.id)===sid);
+        const groupName=String(st?.group||targetGroups[0]||"РЕМС-34");
+        const old=rows[i];
+        const rid=old&&!bundledIds.has(String(old.id))?String(old.id):academicLessonId();
+        db.lessons.push({id:rid,source:"manual",manualEditedAt:new Date().toISOString(),mode:"once",date:newDate,pairNumber:pn,subject,lessonType:type,group:groupName,startTime:i===0?startTime:fmtM(midM),endTime:i===0?fmtM(midM):endTime,timeUndetermined:false,room,teacher,note:`Індивідуальне заняття · ${String(st?.name||"").trim()}`,scope:"selected",studentIds:[sid]});
+      });
+    }else if(first&&scope==="similar"){
       const subj0=academicV39TeacherNorm(first.subject),teach0=academicV39TeacherNorm(first.teacher);const groups0=new Set(rows.map(r=>String(r.group||"")));
-      academicLessons().forEach(l=>{if(academicV39TeacherNorm(l.subject)===subj0&&academicV39TeacherNorm(l.teacher)===teach0&&groups0.has(String(l.group||""))){l.subject=subject;l.lessonType=type;l.teacher=teacher;l.room=room;l.pairNumber=pn;l.startTime=startTime;l.endTime=endTime;l.source="manual";l.manualEditedAt=new Date().toISOString();}});
+      const bundledIds=new Set(fisherBundledLessons().map(l=>String(l.id)));
+      const matched=academicLessons().filter(l=>academicV39TeacherNorm(l.subject)===subj0&&academicV39TeacherNorm(l.teacher)===teach0&&groups0.has(String(l.group||"")));
+      fisherRememberHiddenIds(matched.filter(l=>bundledIds.has(String(l.id))).map(l=>String(l.id)));
+      matched.filter(l=>!bundledIds.has(String(l.id))).forEach(l=>{const real=(db.lessons||[]).find(x=>String(x.id)===String(l.id));if(real){real.subject=subject;real.lessonType=type;real.teacher=teacher;real.room=room;real.pairNumber=pn;real.startTime=startTime;real.endTime=endTime;real.source="manual";real.manualEditedAt=new Date().toISOString();}});
     }else{
+      const bundledIds=new Set(fisherBundledLessons().map(l=>String(l.id)));
+      fisherRememberHiddenIds(ids.filter(id=>bundledIds.has(String(id))));
       const oldByGroup=new Map(rows.map(r=>[String(r.group||""),r]));
-      if(ids.length) db.lessons=academicLessons().filter(l=>!ids.includes(String(l.id)));
-      targetGroups.forEach(groupName=>{const old=oldByGroup.get(groupName);db.lessons.push({
-        id:old?String(old.id):academicLessonId(),source:"manual",manualEditedAt:new Date().toISOString(),mode:"once",date:newDate,pairNumber:pn,subject,lessonType:type,group:groupName,startTime,endTime,timeUndetermined:false,room,teacher,note:"Ручне редагування в календарі",scope:"group",studentIds:[]
+      const removeSet=new Set(ids.map(String));
+      db.lessons=(db.lessons||[]).filter(l=>!removeSet.has(String(l.id)));
+      targetGroups.forEach(groupName=>{const old=oldByGroup.get(groupName);const oldId=old&&!bundledIds.has(String(old.id))?String(old.id):academicLessonId();db.lessons.push({
+        id:oldId,source:"manual",manualEditedAt:new Date().toISOString(),mode:"once",date:newDate,pairNumber:pn,subject,lessonType:type,group:groupName,startTime,endTime,timeUndetermined:false,room,teacher,note:"Ручне редагування в календарі",scope:"group",studentIds:[]
       });});
     }
     const submit=e.submitter;if(submit){submit.disabled=true;submit.textContent="Збереження…";}
-    if(!await saveAcademicV39()){db.lessons=before;if(submit){submit.disabled=false;submit.textContent="Зберегти";}alert("Не вдалося зберегти зміни в хмару.");return;}d.close();academic();
+    if(!await saveAcademicV39()){db.lessons=beforeLessons;db.settings=beforeSettings;if(submit){submit.disabled=false;submit.textContent="Зберегти";}alert("Не вдалося зберегти зміни в хмару.");return;}d.close();academic();
   };
   if(!d.open)d.showModal();
 }
@@ -8755,7 +8833,7 @@ function academicV39(){
   document.querySelector("#academicV39Mine").onclick=()=>{academicV39State.teacher=teacherOptions.find(t=>academicV39TeacherNorm(t).includes("фішер"))||"Фішер В.М.";academicV39();};
   document.querySelector("#academicV39Clear").onclick=()=>{academicV39State.group="both";academicV39State.teacher="";academicV39();};
   document.querySelector("#academicV39Add").onclick=()=>openAcademicV39Editor({date:localIsoDate(),pair:"1"});
-  document.querySelector("#academicRefreshIndividuals").onclick=async()=>{if(!confirm("Додати/оновити індивідуальні заняття Фішера з драматургії шоу?"))return;const r=await installFisherIndividualSchedule(true);if(!r.ok)alert("Не вдалося оновити індивідуальні заняття.\n\n"+(r.error||"Невідома помилка"));else {academicV39();alert(`Готово. Додано/оновлено індивідуальних занять: ${r.count}.`);}};
+  document.querySelector("#academicRefreshIndividuals").onclick=async()=>{if(!confirm("Відновити початковий набір індивідуальних занять Фішера? Ручні зміни саме в цих вбудованих заняттях буде скинуто."))return;const r=await installFisherIndividualSchedule(true);if(!r.ok)alert("Не вдалося оновити індивідуальні заняття.\n\n"+(r.error||"Невідома помилка"));else {academicV39();alert(`Готово. Додано/оновлено індивідуальних занять: ${r.count}.`);}};
   document.querySelector("#academicRefreshOfficial").onclick=async()=>{if(!confirm("Оновити офіційний розклад? Ручні записи з source=manual залишаться, але офіційні записи будуть замінені."))return;const r=await installOfficialRemsSchedule(true);if(!r.ok)alert("Не вдалося оновити: "+(r.error||"помилка"));else academicV39();};
   render();
 }
@@ -8805,8 +8883,8 @@ function academicV39(){
     .academic-dual-cal-day .academic-v393-card>.academic-v393-teacher{font-size:11px!important;font-weight:900!important;margin-bottom:3px!important}
     .academic-dual-cal-day .academic-v393-card>.academic-v393-room{font-size:11px!important;font-weight:900!important}
     @media(max-width:900px){.academic-dual-cal-day .academic-v393-card>.academic-v393-subject{font-size:13px!important}.academic-dual-cal-day .academic-v393-card>.academic-v393-kind{font-size:11px!important}.academic-dual-cal-day .academic-v393-card>.academic-v393-teacher,.academic-dual-cal-day .academic-v393-card>.academic-v393-room{font-size:12px!important}}
-    .academic-v39-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.academic-v39-form label{display:grid;gap:5px;font-size:12px;font-weight:700}.academic-v39-form input,.academic-v39-form select{padding:10px;border:1px solid #d9dee6;border-radius:9px;background:#fff}.academic-v39-form .full{grid-column:1/-1}.academic-v39-dialog{max-width:min(760px,96vw)}
-    @media(max-width:650px){.academic-v39-filters{align-items:stretch;display:grid;grid-template-columns:1fr}.academic-v39-group-switch{width:100%}.academic-v39-group-switch button{flex:1}.academic-v39-filters select{width:100%;min-width:0}.academic-v39-form{grid-template-columns:1fr}.academic-v39-form .full{grid-column:1}}
+    .academic-v409-individual-picker{border:1px solid #dbeafe;background:#f8fbff;border-radius:12px;padding:12px}.academic-v409-pick-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}.academic-v409-pick-head>div{display:grid;gap:2px}.academic-v409-pick-head small{font-size:10px;color:#64748b;font-weight:500}.academic-v409-pick-head>span{font-weight:900;color:#1d4ed8}.academic-v409-pick-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-height:240px;overflow:auto}.academic-v409-pick-grid label{display:flex!important;grid-template-columns:none!important;align-items:center;gap:8px!important;border:1px solid #e5e7eb;border-radius:9px;padding:8px;background:#fff;cursor:pointer}.academic-v409-pick-grid input{width:auto!important;margin:0!important}.academic-v409-pick-grid label>span{display:grid;gap:1px;font-size:11px}.academic-v409-pick-grid label small{font-size:9px;color:#64748b}.academic-v39-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.academic-v39-form label{display:grid;gap:5px;font-size:12px;font-weight:700}.academic-v39-form input,.academic-v39-form select{padding:10px;border:1px solid #d9dee6;border-radius:9px;background:#fff}.academic-v39-form .full{grid-column:1/-1}.academic-v39-dialog{max-width:min(760px,96vw)}
+    @media(max-width:650px){.academic-v409-pick-grid{grid-template-columns:1fr}.academic-v39-filters{align-items:stretch;display:grid;grid-template-columns:1fr}.academic-v39-group-switch{width:100%}.academic-v39-group-switch button{flex:1}.academic-v39-filters select{width:100%;min-width:0}.academic-v39-form{grid-template-columns:1fr}.academic-v39-form .full{grid-column:1}}
   `;document.head.appendChild(st);
   academic=academicV39;if(typeof views!=="undefined")views.academic=academicV39;
 })();
@@ -8916,3 +8994,67 @@ function v40NewProject(){
 const v40DeleteStyle=document.createElement('style');v40DeleteStyle.textContent=`.v40-project-head-actions{display:flex;gap:8px;align-items:center}.v40-project-head-actions .danger{color:#b42318;border-color:#f0b4ad;background:#fff}.v40-project-head-actions .danger:hover{background:#fff5f4}@media(max-width:700px){.v40-project-head-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.v40-project-head-actions button{width:100%}}`;document.head.appendChild(v40DeleteStyle);
 projects=v40Projects; views.projects=v40Projects; openProjectCard=v40OpenProject;
 const v40Quick=document.querySelector('#quickAdd'); if(v40Quick){const old=v40Quick.onclick;v40Quick.onclick=()=>{if(currentView==='projects'){if(!cloudReady){alert('Зачекайте, поки завантажиться хмарна база.');return;}v40NewProject();}else old?.();};}
+
+// ===== v41.0 · Експорт особистого розкладу викладача в Excel =====
+const academicXmlEsc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const academicExcelCol=n=>{let s="";for(;n>0;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;};
+const academicExcelCell=(r,c,value,style=0)=>`<c r="${academicExcelCol(c)}${r}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${academicXmlEsc(value)}</t></is></c>`;
+const academicTeacherIsFisher=l=>academicV39TeacherNorm(String(l?.teacher||"")).includes("фішер");
+function academicPersonalExcelRows(){
+  const source=academicLessons().filter(academicTeacherIsFisher);
+  const map=new Map();
+  source.forEach(l=>{
+    academicLessonDates(l).forEach(date=>{
+      const pair=academicV39Pair(l)||"";
+      const key=[date,pair,l.group,l.subject,l.lessonType,l.room].map(x=>String(x||"")).join("|");
+      if(!map.has(key)) map.set(key,{date,pair,group:l.group||"",subject:l.subject||"",kind:academicDisplayLessonType(l.lessonType),room:l.room||"",students:[]});
+      const x=map.get(key);
+      const names=lessonStudents(l).map(s=>s.name).filter(Boolean);
+      if(!names.length&&String(l.note||"").includes("Індивідуальне")) names.push(String(l.note).replace(/^Індивідуальне заняття ·\s*/,"").trim());
+      names.forEach(n=>{if(n&&!x.students.includes(n))x.students.push(n);});
+    });
+  });
+  return [...map.values()].sort((a,b)=>a.date.localeCompare(b.date)||Number(a.pair||99)-Number(b.pair||99)||a.group.localeCompare(b.group,"uk"));
+}
+async function exportFisherScheduleXlsx(){
+  const JSZip=await ensureJsZipForWord();
+  const rows=academicPersonalExcelRows();
+  if(!rows.length) throw new Error("У розкладі не знайдено занять Фішера В.М.");
+  const grouped=[];
+  rows.forEach(x=>{
+    const day=new Date(x.date+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long"});
+    const key=[day,x.pair,x.group,x.subject,x.kind,x.room,x.students.join("; ")].join("|");
+    let g=grouped.find(y=>y.key===key);
+    if(!g){g={key,day,pair:x.pair,group:x.group,subject:x.subject,kind:x.kind,room:x.room,students:x.students,dates:[]};grouped.push(g);}
+    g.dates.push(x.date);
+  });
+  const dayOrder={"понеділок":1,"вівторок":2,"середа":3,"четвер":4,"п’ятниця":5,"субота":6,"неділя":7};
+  grouped.sort((a,b)=>(dayOrder[a.day]||9)-(dayOrder[b.day]||9)||Number(a.pair||99)-Number(b.pair||99)||a.group.localeCompare(b.group,"uk"));
+  const fmtDate=d=>{const [y,m,dd]=d.split("-");return `${dd}.${m}.${y}`;};
+  const pairRoman={1:"I",2:"II",3:"III",4:"IV",5:"V",6:"VI",7:"VII"};
+  const data=grouped.map(g=>[g.day.charAt(0).toUpperCase()+g.day.slice(1),`${pairRoman[g.pair]||g.pair} пара`,g.group,g.subject,g.kind,g.dates.map(fmtDate).join(", "),g.room?`ауд. ${g.room}`:"",g.students.join("; ")]);
+  const headers=["День тижня","Пара","Група","Назва освітньої компоненти","Вид заняття","Дати","Аудиторія","Студенти (індивідуальні)"];
+  const all=[headers,...data];
+  let sheetRows="";
+  all.forEach((arr,i)=>{const r=i+4;sheetRows+=`<row r="${r}" ht="${i===0?30:42}" customHeight="1">${arr.map((v,j)=>academicExcelCell(r,j+1,v,i===0?2:3)).join("")}</row>`;});
+  const last=all.length+3;
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="15" customWidth="1"/><col min="2" max="2" width="12" customWidth="1"/><col min="3" max="3" width="13" customWidth="1"/><col min="4" max="4" width="31" customWidth="1"/><col min="5" max="5" width="22" customWidth="1"/><col min="6" max="6" width="38" customWidth="1"/><col min="7" max="7" width="13" customWidth="1"/><col min="8" max="8" width="34" customWidth="1"/></cols><sheetData><row r="1" ht="28" customHeight="1">${academicExcelCell(1,1,"Розклад викладача Фішера В.М.",1)}</row><row r="2">${academicExcelCell(2,1,"Навчальний рік 2026/27",4)}</row>${sheetRows}</sheetData><mergeCells count="2"><mergeCell ref="A1:H1"/><mergeCell ref="A2:H2"/></mergeCells><autoFilter ref="A4:H${last}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="16"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment horizontal="left"/></xf></cellXfs></styleSheet>`;
+  const zip=new JSZip();
+  zip.file("[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`);
+  zip.folder("_rels").file(".rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  zip.folder("xl").file("workbook.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Розклад Фішера" sheetId="1" r:id="rId1"/></sheets></workbook>`).file("styles.xml",styles).folder("worksheets").file("sheet1.xml",sheet);
+  zip.folder("xl").folder("_rels").file("workbook.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  const blob=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Розклад_Фішер_2026-27.xlsx";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+}
+const academicV39BaseV410=academicV39;
+academicV39=function(){
+  academicV39BaseV410();
+  const actions=document.querySelector(".academic-v39-topbar .academic-filter-actions");
+  if(actions&&!document.querySelector("#academicExcelExport")){
+    const b=document.createElement("button");b.type="button";b.className="ghost";b.id="academicExcelExport";b.textContent="⬇ Excel · мій розклад";
+    b.onclick=async()=>{const old=b.textContent;b.disabled=true;b.textContent="Формую Excel…";try{await exportFisherScheduleXlsx();}catch(err){console.error(err);alert("Не вдалося сформувати Excel: "+(err?.message||err));}finally{b.disabled=false;b.textContent=old;}};
+    actions.appendChild(b);
+  }
+};
