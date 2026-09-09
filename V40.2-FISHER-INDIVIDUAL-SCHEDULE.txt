@@ -1,0 +1,1 @@
+Added 66 individual Dramaturgy show lessons from user-provided schedule. Calendar cards show the specific student. Use “↻ Індивідуальні Фішера” once after deployment to install/update them safely without replacing projects or manual lessons.
