@@ -580,7 +580,20 @@ db.lessons=Array.isArray(db.lessons)?db.lessons:[];
 let cloudDb=null, cloudReady=false, applyingRemote=false, cloudInitializing=false, cloudWriting=false;
 let firebaseApp=null, auth=null, currentUser=null, mediaStorage=null, functions=null;
 const projectUiState={};
-let currentView="dashboard";
+const REMS_VIEW_KEY="rems_control_current_view_v407";
+const REMS_VALID_VIEWS=new Set(["dashboard","students","projects","academic","calendar","schedule","industry"]);
+let currentView=(()=>{
+  try{
+    const saved=sessionStorage.getItem(REMS_VIEW_KEY);
+    return REMS_VALID_VIEWS.has(saved)?saved:"dashboard";
+  }catch{ return "dashboard"; }
+})();
+let currentProjectDetailId=null;
+const rememberCurrentView=v=>{
+  if(!REMS_VALID_VIEWS.has(v)) return;
+  currentView=v;
+  try{ sessionStorage.setItem(REMS_VIEW_KEY,v); }catch{}
+};
 
 const ACK_COLLECTION="rems_student_acknowledgements";
 const ackNameNorm=v=>String(v||"").toLowerCase().replace(/[’'`]/g,"").replace(/\s+/g," ").trim();
@@ -2172,14 +2185,16 @@ function updateQuickAddForView(v){
 }
 function switchView(v,label){
   if(v==="calendar"){
-    currentView="schedule";
+    rememberCurrentView("schedule");
+    currentProjectDetailId=null;
     $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view==="schedule"));
     $("#pageTitle").textContent="Участь у проєктах";
     updateQuickAddForView("schedule");
     openScheduleMatrix();
     return;
   }
-  currentView=v;
+  rememberCurrentView(v);
+  currentProjectDetailId=null;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
   $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",academic:"Розклад занять",calendar:"Зведений календар",schedule:"Участь у проєктах",industry:"Зустріч із індустрією"}[v]);
   updateQuickAddForView(v);
@@ -2195,10 +2210,14 @@ function switchView(v,label){
   }
 }
 function refreshCurrentView(){
-  const v=currentView && views[currentView] ? currentView : (document.querySelector(".nav.active")?.dataset.view||"dashboard");
-  currentView=v;
+  const v=REMS_VALID_VIEWS.has(currentView) && typeof views?.[currentView]==="function" ? currentView : "dashboard";
+  rememberCurrentView(v);
+  $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
+  const labels={dashboard:"Головна",students:"Студенти",projects:"Проєкти",academic:"Розклад занять",calendar:"Зведений календар",schedule:"Участь у проєктах",industry:"Зустріч із індустрією"};
+  const title=$("#pageTitle"); if(title) title.textContent=labels[v]||"REMS Control";
   updateQuickAddForView(v);
-  views[v]();
+  if(v==="projects" && currentProjectDetailId && pBy(currentProjectDetailId)) v40OpenProject(currentProjectDetailId);
+  else views[v]();
 }
 function dashboard(){
   const assigned=new Set(db.assignments.map(a=>String(a.studentId))).size;
@@ -6634,7 +6653,8 @@ function academicLegacyCalendar(){
 
 
 function openScheduleMatrix(){
-  currentView="schedule";
+  rememberCurrentView("schedule");
+  currentProjectDetailId=null;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view==="schedule"));
   $("#pageTitle").textContent="Участь у проєктах";
   calendar();
@@ -7673,7 +7693,7 @@ $("#backupBtn").onclick=()=>{
 };
 $("#restoreInput").onchange=async e=>{
   const file=e.target.files[0]; if(!file)return;
-  try{const obj=JSON.parse(await file.text()); if(!obj.students||!obj.projects)throw 0; db=obj;save();dashboard();alert("Резервну копію імпортовано.");}
+  try{const obj=JSON.parse(await file.text()); if(!obj.students||!obj.projects)throw 0; db=obj;await save();refreshCurrentView();alert("Резервну копію імпортовано.");}
   catch{alert("Не вдалося прочитати файл резервної копії.");}
   e.target.value="";
 };
@@ -8376,11 +8396,12 @@ functions=getFunctions(firebaseApp,"europe-west1");
     // v39 SAFE BOOT: never seed or repair project calendars automatically.
     // Existing project data in Firebase is authoritative and is not changed by code updates.
 
-    currentView="dashboard";
+    // v40.7: never force the user back to Home when cloud loading finishes.
+    // Keep whichever section the user is currently viewing (or the last section in this tab).
     try{
-      dashboard();
+      refreshCurrentView();
     }catch(renderErr){
-      console.error("Dashboard render error:",renderErr);
+      console.error("Current view render error:",renderErr);
       // UI rendering errors must not disable a healthy Firebase connection.
     }
 
@@ -8406,7 +8427,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       cache();
       applyingRemote=false;
 
-      currentView=document.querySelector(".nav.active")?.dataset.view||currentView||"dashboard";
+      // v40.7: a Firestore snapshot updates data only. It must never change navigation.
       loadAllStudentMedia().finally(()=>{
         try{
           refreshCurrentView();
@@ -8780,6 +8801,17 @@ function academicV39(){
 })();
 // ===== /REMS Control v39.3 =====
 
+// ===== v40.7 STABLE NAVIGATION =====
+// Cloud/auth/media callbacks may refresh the current screen, but only an explicit user
+// navigation action is allowed to change currentView. This prevents random jumps.
+window.addEventListener("pageshow",()=>{
+  try{
+    const saved=sessionStorage.getItem(REMS_VIEW_KEY);
+    if(REMS_VALID_VIEWS.has(saved)) currentView=saved;
+  }catch{}
+});
+// ===== /v40.7 STABLE NAVIGATION =====
+
 bootstrapAuth();
 /* === V40 SIMPLE PROJECTS: project -> work -> students. One source of truth = event.studentIds === */
 function v40EventStudentIds(ev){ return [...new Set((ev?.studentIds||[]).map(x=>String(resolveStudentId(x)??x)).filter(Boolean))]; }
@@ -8796,6 +8828,7 @@ function v40ProjectPeriod(p){
   return ds.length?`${fmt(ds[0])} — ${fmt(ds[ds.length-1])}`:"Ще без робіт";
 }
 function v40Projects(){
+  currentProjectDetailId=null;
   const ordered=sortedProjectsByRelevance();
   app.innerHTML=`<div class="v40-projects-head"><div><h2>Проєкти</h2><p>Проста система: проєкт → робота → студенти.</p></div></div>
   <div class="v40-project-grid">${ordered.map(p=>{const evs=eventsFor(p.id), ids=v40ProjectStudentIds(p.id);return `<button class="v40-project-card" data-v40-project="${esc(String(p.id))}" type="button" style="--pc:${esc(p.color||'#111827')}">
@@ -8804,7 +8837,9 @@ function v40Projects(){
   app.querySelectorAll("[data-v40-project]").forEach(b=>b.onclick=()=>v40OpenProject(b.dataset.v40Project));
 }
 function v40OpenProject(pid){
-  const p=pBy(pid); if(!p)return;
+  const p=pBy(pid); if(!p){ currentProjectDetailId=null; return; }
+  rememberCurrentView("projects");
+  currentProjectDetailId=String(pid);
   const evs=eventsFor(pid).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.startTime||"").localeCompare(String(b.startTime||"")));
   const ids=v40ProjectStudentIds(pid);
   app.innerHTML=`<div class="v40-detail">
@@ -8813,7 +8848,7 @@ function v40OpenProject(pid){
     <div class="v40-work-list">${evs.map((e,i)=>`<button type="button" class="v40-work" data-v40-event="${i}"><div class="v40-date"><b>${new Date(e.date+'T12:00:00').getDate()}</b><span>${new Date(e.date+'T12:00:00').toLocaleDateString('uk-UA',{month:'short'}).replace('.','')}</span></div><div class="v40-work-main"><h3>${esc(e.type||'Робота')}</h3><p>${e.timeUndetermined||(!e.startTime&&!e.endTime)?'Час не визначено':esc([e.startTime,e.endTime].filter(Boolean).join('–'))}</p><small>👥 ${v40EventStudentIds(e).length} студентів</small></div><span class="v40-arrow">→</span></button>`).join("")||'<div class="v40-empty"><b>У проєкті ще немає робіт</b><span>Додайте першу дату, назву роботи та студентів.</span></div>'}</div>
   </div>`;
   document.querySelector("#pageTitle").textContent="Проєкти";
-  document.querySelector("#v40BackProjects").onclick=()=>{v40Projects();};
+  document.querySelector("#v40BackProjects").onclick=()=>{currentProjectDetailId=null;v40Projects();};
   document.querySelector("#v40AddWork").onclick=()=>v40WorkEditor(pid,null);
   document.querySelector("#v40DeleteProject").onclick=async()=>{
     const workCount=eventsFor(pid).length;
