@@ -6183,8 +6183,6 @@ function openAcademicImportDialog(){
 const FISHER_INDIVIDUAL_SCHEDULE_VERSION="2026-09-09-v1";
 const FISHER_INDIVIDUAL_SCHEDULE_SOURCE="fisher-individual-dramaturgy-2026";
 const FISHER_INDIVIDUAL_SCHEDULE=[{"date":"28.09.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Жолуденко   Поліна Ігорівна","studentId":10},{"date":"28.09.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Рожанківська   Іванна Орестівна","studentId":32},{"date":"28.09.2026","pairNumber":"VI","startTime":"17:10","endTime":"17:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Кошелєва   Мирослава Сергіївна","studentId":18},{"date":"28.09.2026","pairNumber":"VI","startTime":"17:50","endTime":"18:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Максімова   Саміра Вадимівна","studentId":22},{"date":"29.09.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Краснянський   Ростислав Віталійович","studentId":19},{"date":"29.09.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Міленіна   Марія Олегівна","studentId":23},{"date":"29.09.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Мойсієнко   Віталіна Денисівна","studentId":24},{"date":"29.09.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Мостова   Яна Олегівна","studentId":26},{"date":"01.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Кропивка   Маргаріта Анатоліївна","studentId":20},{"date":"01.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Лещинський   Денис Віталійович","studentId":21},{"date":"01.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Мороз   Марія Геннадіївна","studentId":25},{"date":"01.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Павлова   Катерина Володимирівна","studentId":29},{"date":"05.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Неня   Анастасія Миколаївна","studentId":27},{"date":"05.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Олейников   Данііл Денисович","studentId":28},{"date":"05.10.2026","pairNumber":"VI","startTime":"17:10","endTime":"17:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Позняк   Артур Русланович","studentId":31},{"date":"05.10.2026","pairNumber":"VI","startTime":"17:50","endTime":"18:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Чиньонова   Дар`я Олексіївна","studentId":34},{"date":"06.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Вінцюк   Андрій Олександрович","studentId":2},{"date":"06.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Власенко   Дар`я Андріївна","studentId":3},{"date":"06.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Баленко   Ілля Вікторович","studentId":1},{"date":"06.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Вознюк   Олександра Миколаївна","studentId":4},{"date":"08.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Дубина   Віолетта Володимирівна","studentId":9},{"date":"08.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Карпенко   Рімма Романівна","studentId":12},{"date":"08.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Кириленко   Михайло Володимирович","studentId":14},{"date":"08.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Коткова   Анастасія Андріївна","studentId":16},{"date":"12.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Гострик   Катерина Юріївна","studentId":6},{"date":"12.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Заярна   Валерія Сергіївна","studentId":11},{"date":"12.10.2026","pairNumber":"VI","startTime":"17:10","endTime":"17:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Колишкін   Андрій Юрійович","studentId":15},{"date":"12.10.2026","pairNumber":"VI","startTime":"17:50","endTime":"18:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Кохан   Ольга Сергіївна","studentId":17},{"date":"13.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Касєєв   Данило Павлович","studentId":13},{"date":"13.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Кошелєва   Мирослава Сергіївна","studentId":18},{"date":"13.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Волошина   Дар'я Олександрівна","studentId":5},{"date":"13.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Данільчук   Катерина Павлівна","studentId":8},{"date":"15.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Піддубна   Марія Анатоліївна","studentId":30},{"date":"15.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Ташута   Артем Анатолійович","studentId":33},{"date":"15.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Мороз   Марія Геннадіївна","studentId":25},{"date":"15.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Павлова   Катерина Володимирівна","studentId":29},{"date":"19.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Жолуденко   Поліна Ігорівна","studentId":10},{"date":"19.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Краснянський   Ростислав Віталійович","studentId":19},{"date":"19.10.2026","pairNumber":"VI","startTime":"17:10","endTime":"17:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Максімова   Саміра Вадимівна","studentId":22},{"date":"19.10.2026","pairNumber":"VI","startTime":"17:50","endTime":"18:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Міленіна   Марія Олегівна","studentId":23},{"date":"20.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Мойсієнко   Віталіна Денисівна","studentId":24},{"date":"20.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Неня   Анастасія Миколаївна","studentId":27},{"date":"20.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Кропивка   Маргаріта Анатоліївна","studentId":20},{"date":"20.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Лещинський   Денис Віталійович","studentId":21},{"date":"21.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Мостова   Яна Олегівна","studentId":26},{"date":"21.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Олейников   Данііл Денисович","studentId":28},{"date":"21.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Позняк   Артур Русланович","studentId":31},{"date":"21.10.2026","pairNumber":"","startTime":"","endTime":"","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Чиньонова   Дар`я Олексіївна","studentId":34},{"date":"22.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Дубина   Віолетта Володимирівна","studentId":9},{"date":"22.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Карпенко   Рімма Романівна","studentId":12},{"date":"22.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Кириленко   Михайло Володимирович","studentId":14},{"date":"22.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Коткова   Анастасія Андріївна","studentId":16},{"date":"26.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Рожанківська   Іванна Орестівна","studentId":32},{"date":"26.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Вінцюк   Андрій Олександрович","studentId":2},{"date":"26.10.2026","pairNumber":"VI","startTime":"17:10","endTime":"17:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Власенко   Дар`я Андріївна","studentId":3},{"date":"26.10.2026","pairNumber":"VI","startTime":"17:50","endTime":"18:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Гострик   Катерина Юріївна","studentId":6},{"date":"27.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Заярна   Валерія Сергіївна","studentId":11},{"date":"27.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Кохан   Ольга Сергіївна","studentId":17},{"date":"27.10.2026","pairNumber":"V","startTime":"15:40","endTime":"16:20","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Баленко   Ілля Вікторович","studentId":1},{"date":"27.10.2026","pairNumber":"V","startTime":"16:20","endTime":"17:00","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Вознюк   Олександра Миколаївна","studentId":4},{"date":"28.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Колишкін   Андрій Юрійович","studentId":15},{"date":"28.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-44","teacher":"Фішер В.М.","room":"323","name":"Касєєв   Данило Павлович","studentId":13},{"date":"29.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Волошина   Дар'я Олександрівна","studentId":5},{"date":"29.10.2026","pairNumber":"IV","startTime":"14:10","endTime":"14:50","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Піддубна   Марія Анатоліївна","studentId":30},{"date":"29.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Данільчук   Катерина Павлівна","studentId":8},{"date":"29.10.2026","pairNumber":"IV","startTime":"14:50","endTime":"15:30","subject":"Драматургія   шоу","lessonType":"Індивідуальне заняття","group":"РЕМС-34","teacher":"Фішер В.М.","room":"323","name":"Ташута   Артем Анатолійович","studentId":33}];
-const FISHER_INDIVIDUAL_CLOUD_COLLECTION="rems_control_schedules";
-const FISHER_INDIVIDUAL_CLOUD_DOC="fisher_individual_dramaturgy_2026";
 const fisherIndividualIsoDate=value=>{
   const v=String(value||"").trim();
   if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
@@ -6209,57 +6207,25 @@ const mergeFisherIndividualLessons=lessons=>{
   db.lessons=[...keep,...(lessons||[])];
 };
 async function loadFisherIndividualScheduleCloud(){
-  // Відображаємо вбудований розклад одразу. Якщо в окремому документі є відредагована
-  // хмарна версія — вона замінить вбудовану.
+  // v40.4: цей розклад уже вбудований у сам застосунок. Ніякого окремого
+  // Firestore-документа не потрібно, тому Firebase Rules більше не можуть
+  // блокувати його завантаження.
   mergeFisherIndividualLessons(fisherBundledLessons());
-  if(!cloudDb) return {ok:true,source:"bundled"};
-  try{
-    const snap=await getDoc(doc(cloudDb,FISHER_INDIVIDUAL_CLOUD_COLLECTION,FISHER_INDIVIDUAL_CLOUD_DOC));
-    if(snap.exists()){
-      const data=snap.data()||{};
-      const rows=Array.isArray(data.lessons)?data.lessons:[];
-      if(rows.length) mergeFisherIndividualLessons(rows.map((l,i)=>({...l,date:fisherIndividualIsoDate(l.date),source:FISHER_INDIVIDUAL_SCHEDULE_SOURCE,id:l.id||`fisher-individual-cloud-${i}`})));
-    }
-    cache();
-    return {ok:true,source:snap.exists()?"cloud":"bundled"};
-  }catch(err){
-    console.error("Fisher individual schedule load failed:",err);
-    cache();
-    return {ok:true,source:"bundled",warning:String(err?.message||err||"")};
-  }
+  cache();
+  return {ok:true,source:"bundled",count:FISHER_INDIVIDUAL_SCHEDULE.length};
 }
 async function installFisherIndividualSchedule(force=false){
-  db.settings=db.settings||{};
-  const before=clone(academicLessons());
+  // v40.4: кнопка лише відновлює гарантований вбудований набір. Дані однакові
+  // на комп'ютері, iPad і телефоні, бо приходять разом з app.js.
   const added=fisherBundledLessons();
   mergeFisherIndividualLessons(added);
+  db.settings=db.settings||{};
   db.settings={...db.settings,fisherIndividualScheduleVersion:FISHER_INDIVIDUAL_SCHEDULE_VERSION,fisherIndividualScheduleUpdatedAt:new Date().toISOString()};
   cache();
-  if(!cloudReady||!cloudDb||!currentUser){
-    // Навіть без хмари розклад працює локально; це не вважаємо невдалим оновленням.
-    return {ok:true,changed:true,count:added.length,localOnly:true};
-  }
-  try{
-    cloudWriting=true;setStatus("v40.3 · збереження індивідуальних…");
-    await setDoc(doc(cloudDb,FISHER_INDIVIDUAL_CLOUD_COLLECTION,FISHER_INDIVIDUAL_CLOUD_DOC),{
-      lessons:added,
-      version:FISHER_INDIVIDUAL_SCHEDULE_VERSION,
-      updatedAt:new Date().toISOString()
-    },{merge:false});
-    // У головному документі зберігаємо лише settings; самі 66 записів туди не дублюємо.
-    await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{
-      settings:db.settings||{},updatedAt:new Date().toISOString()
-    },{merge:true});
-    cache();setStatus("v40.3 · хмара ✓");
-    return {ok:true,changed:true,count:added.length};
-  }catch(err){
-    console.error("Fisher individual schedule save failed:",err);
-    db.lessons=before;
-    cache();
-    setStatus("v40.3 · помилка індивідуальних");
-    return {ok:false,error:String(err?.message||err||"cloud-save-failed")};
-  }finally{setTimeout(()=>{cloudWriting=false;},250);}
+  setStatus(cloudReady?"v40.4 · хмара ✓":"v40.4 · локально");
+  return {ok:true,changed:true,count:added.length,bundled:true};
 }
+
 
 const OFFICIAL_REMS_SCHEDULE_VERSION="2026-09-01-docx-v2";
 const OFFICIAL_REMS_SCHEDULE_SOURCE="official-docx-rems34-44";
@@ -8301,6 +8267,8 @@ functions=getFunctions(firebaseApp,"europe-west1");
       const timeMigrationChanged=normalizeUndeterminedTimes(db);
       // Матеріалізуємо старі успадковані склади й чистимо лише тих, кого вже немає в команді.
       const rosterMigrationChanged=normalizeAllProjectEventRosters();
+      // v40.4: вбудовані індивідуальні завжди додаються ПІСЛЯ читання хмари.
+      mergeFisherIndividualLessons(fisherBundledLessons());
       cache();
       if(timeMigrationChanged || rosterMigrationChanged){
         // v39 SAFE BOOT: normalize only in memory. Persist only after an explicit user edit.
@@ -8430,6 +8398,8 @@ functions=getFunctions(firebaseApp,"europe-west1");
       };
       normalizeUndeterminedTimes(db);
       syncAllProjectRostersToEvents();
+      // v40.4: onSnapshot не має стирати вбудовані індивідуальні.
+      mergeFisherIndividualLessons(fisherBundledLessons());
       cache();
       applyingRemote=false;
 
@@ -8634,21 +8604,19 @@ async function saveAcademicV39(){
   normalizeUndeterminedTimes(db);cache();
   if(!cloudReady||!cloudDb||!currentUser){setStatus("v39.3 · немає з’єднання");return false;}
   try{
-    cloudWriting=true;setStatus("v39.3 · збереження розкладу…");
-    const fisherRows=(db.lessons||[]).filter(l=>l?.source===FISHER_INDIVIDUAL_SCHEDULE_SOURCE);
+    cloudWriting=true;setStatus("v40.4 · збереження розкладу…");
+    // Вбудовані індивідуальні не пишемо в окрему колекцію і не залежимо від
+    // Firestore Rules. Звичайні/офіційні/ручні заняття зберігаються як раніше.
     const coreLessons=(db.lessons||[]).filter(l=>l?.source!==FISHER_INDIVIDUAL_SCHEDULE_SOURCE);
     await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{
       lessons:coreLessons,settings:db.settings||{},academicImport:db.academicImport||null,updatedAt:new Date().toISOString()
     },{merge:true});
-    if(fisherRows.length){
-      await setDoc(doc(cloudDb,FISHER_INDIVIDUAL_CLOUD_COLLECTION,FISHER_INDIVIDUAL_CLOUD_DOC),{
-        lessons:fisherRows,version:FISHER_INDIVIDUAL_SCHEDULE_VERSION,updatedAt:new Date().toISOString()
-      },{merge:false});
-    }
-    cache();setStatus("v40.3 · хмара ✓");return true;
-  }catch(err){console.error(err);setStatus("v39.3 · помилка хмари");return false;}
+    mergeFisherIndividualLessons(fisherBundledLessons());
+    cache();setStatus("v40.4 · хмара ✓");return true;
+  }catch(err){console.error(err);setStatus("v40.4 · помилка хмари");return false;}
   finally{setTimeout(()=>{cloudWriting=false;},250);}
 }
+
 function ensureAcademicV39Dialog(){
   let d=document.querySelector("#academicV39Dialog");
   if(d)return d;

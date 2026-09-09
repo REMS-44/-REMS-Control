@@ -1,4 +1,4 @@
-const CACHE = 'rems-control-shell-v39';
+const CACHE = 'rems-control-shell-v40.4';
 const SHELL = ['./', './index.html', './styles.css', './responsive.css', './responsive.js'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))); self.clients.claim(); });
