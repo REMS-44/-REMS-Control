@@ -9047,7 +9047,27 @@ function academicPersonalExcelRows(){
       }
     });
   });
-  return [...groups.values()].map(g=>({...g,dates:[...g.dates].sort()}));
+  const rows=[...groups.values()].map(g=>({...g,dates:[...g.dates].sort()}));
+
+  // v41.3: якщо одна й та сама пара проводиться СПІЛЬНО для кількох груп,
+  // в Excel показуємо її одним рядком, а назви груп об’єднуємо в одній клітинці.
+  // Об’єднуємо лише записи з повністю однаковими днем, парою, дисципліною,
+  // видом заняття, аудиторією та набором дат — тобто справді спільне заняття.
+  const combined=new Map();
+  rows.forEach(g=>{
+    if(g.isIndividual){
+      combined.set(`individual|${Math.random()}|${g.day}|${g.pair}|${g.group}|${g.subject}`,g);
+      return;
+    }
+    const datesKey=g.dates.join(",");
+    const key=[g.day,g.pair,g.subject,g.kind,g.room,datesKey].map(x=>String(x||"").trim()).join("|");
+    if(!combined.has(key))combined.set(key,{...g,groups:[]});
+    const c=combined.get(key);
+    const incoming=String(g.group||"").split(/\s*[+,;/]\s*/).map(x=>x.trim()).filter(Boolean);
+    incoming.forEach(name=>{if(!c.groups.includes(name))c.groups.push(name);});
+    c.group=c.groups.join(" + ");
+  });
+  return [...combined.values()];
 }
 
 async function exportFisherScheduleXlsx(){
