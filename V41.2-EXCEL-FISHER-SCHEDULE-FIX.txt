@@ -1,0 +1,8 @@
+REMS Control v41.2
+
+Excel export rebuilt.
+- Pulls current Fisher V.M. lessons from academicLessons() (ordinary + individual).
+- Produces Monday-Friday, 7-pair grid like the supplied departmental schedule.
+- Groups recurring ordinary lessons into one row with dates.
+- Individual lessons remain compact and include student names by date in Notes.
+- Fixed SpreadsheetML XML node order that could make Excel repair/drop sheet data.

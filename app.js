@@ -8996,58 +8996,150 @@ const v40DeleteStyle=document.createElement('style');v40DeleteStyle.textContent=
 projects=v40Projects; views.projects=v40Projects; openProjectCard=v40OpenProject;
 const v40Quick=document.querySelector('#quickAdd'); if(v40Quick){const old=v40Quick.onclick;v40Quick.onclick=()=>{if(currentView==='projects'){if(!cloudReady){alert('Зачекайте, поки завантажиться хмарна база.');return;}v40NewProject();}else old?.();};}
 
-// ===== v41.0 · Експорт особистого розкладу викладача в Excel =====
+// ===== v41.2 · Експорт розкладу Фішера у форматі кафедральної Excel-таблиці =====
 const academicXmlEsc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const academicExcelCol=n=>{let s="";for(;n>0;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;};
 const academicExcelCell=(r,c,value,style=0)=>`<c r="${academicExcelCol(c)}${r}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${academicXmlEsc(value)}</t></is></c>`;
 const academicTeacherIsFisher=l=>academicV39TeacherNorm(String(l?.teacher||"")).includes("фішер");
+const academicExcelShortName=name=>{
+  const a=String(name||"").replace(/\s+/g," ").trim().split(" ").filter(Boolean);
+  if(!a.length)return "";
+  return a[0]+(a[1]?` ${a[1][0]}.`:"")+(a[2]?`${a[2][0]}.`:"");
+};
+const academicExcelKindPrefix=kind=>{
+  const n=academicV39TeacherNorm(kind||"");
+  if(n.includes("індивіду"))return "Інд.";
+  if(n.includes("лекц"))return "Лек.";
+  if(n.includes("лаборатор"))return "Лаб.";
+  if(n.includes("семінар"))return "Сем.";
+  if(n.includes("консульта"))return "Конс.";
+  if(n.includes("контроль"))return "Контр.";
+  return "Пр.";
+};
+const academicExcelUkDay=date=>{
+  const names=["Неділя","Понеділок","Вівторок","Середа","Четвер","П'ятниця","Субота"];
+  return names[new Date(date+"T12:00:00").getDay()]||"";
+};
+const academicExcelDateShort=d=>{const [y,m,dd]=String(d).split("-");return dd&&m?`${dd}.${m}`:String(d||"");};
+
 function academicPersonalExcelRows(){
+  // Беремо саме той розклад, який зараз реально бачить REMS Control:
+  // звичайні, офіційні, ручні та видимі індивідуальні заняття.
   const source=academicLessons().filter(academicTeacherIsFisher);
-  const map=new Map();
+  const groups=new Map();
   source.forEach(l=>{
+    const pair=String(academicV39Pair(l)||"");
+    if(!pair)return; // записи без визначеної пари не можна коректно поставити у сітку 1–7
+    const kind=academicDisplayLessonType(l.lessonType||"");
+    const isIndividual=academicV39TeacherNorm(kind).includes("індивіду");
     academicLessonDates(l).forEach(date=>{
-      const pair=academicV39Pair(l)||"";
-      const key=[date,pair,l.group,l.subject,l.lessonType,l.room].map(x=>String(x||"")).join("|");
-      if(!map.has(key)) map.set(key,{date,pair,group:l.group||"",subject:l.subject||"",kind:academicDisplayLessonType(l.lessonType),room:l.room||"",students:[]});
-      const x=map.get(key);
-      const names=lessonStudents(l).map(s=>s.name).filter(Boolean);
-      if(!names.length&&String(l.note||"").includes("Індивідуальне")) names.push(String(l.note).replace(/^Індивідуальне заняття ·\s*/,"").trim());
-      names.forEach(n=>{if(n&&!x.students.includes(n))x.students.push(n);});
+      const day=academicExcelUkDay(date);
+      if(!["Понеділок","Вівторок","Середа","Четвер","П'ятниця"].includes(day))return;
+      const key=[day,pair,l.group,l.subject,kind,l.room,isIndividual?"individual":"regular"].map(x=>String(x||"").trim()).join("|");
+      if(!groups.has(key))groups.set(key,{day,pair,group:String(l.group||""),subject:String(l.subject||"").replace(/\s+/g," ").trim(),kind,room:String(l.room||""),isIndividual,dates:new Set(),peopleByDate:new Map()});
+      const g=groups.get(key);g.dates.add(date);
+      if(isIndividual){
+        const names=lessonStudents(l).map(s=>s.name).filter(Boolean);
+        if(!names.length){const fallback=String(l.note||"").replace(/^Індивідуальне заняття\s*·\s*/i,"").trim();if(fallback)names.push(fallback);}
+        const list=g.peopleByDate.get(date)||[];
+        names.forEach(n=>{const short=academicExcelShortName(n);if(short&&!list.includes(short))list.push(short);});
+        g.peopleByDate.set(date,list);
+      }
     });
   });
-  return [...map.values()].sort((a,b)=>a.date.localeCompare(b.date)||Number(a.pair||99)-Number(b.pair||99)||a.group.localeCompare(b.group,"uk"));
+  return [...groups.values()].map(g=>({...g,dates:[...g.dates].sort()}));
 }
+
 async function exportFisherScheduleXlsx(){
   const JSZip=await ensureJsZipForWord();
-  const rows=academicPersonalExcelRows();
-  if(!rows.length) throw new Error("У розкладі не знайдено занять Фішера В.М.");
-  const grouped=[];
-  rows.forEach(x=>{
-    const day=new Date(x.date+"T12:00:00").toLocaleDateString("uk-UA",{weekday:"long"});
-    const key=[day,x.pair,x.group,x.subject,x.kind,x.room,x.students.join("; ")].join("|");
-    let g=grouped.find(y=>y.key===key);
-    if(!g){g={key,day,pair:x.pair,group:x.group,subject:x.subject,kind:x.kind,room:x.room,students:x.students,dates:[]};grouped.push(g);}
-    g.dates.push(x.date);
+  const lessons=academicPersonalExcelRows();
+  if(!lessons.length)throw new Error("У поточному розкладі не знайдено занять Фішера В.М.");
+
+  const dayOrder=["Понеділок","Вівторок","Середа","Четвер","П'ятниця"];
+  const times={1:"9:00-10:20",2:"10:40-12:00",3:"12:30-13:50",4:"14:10-15:30",5:"15:40-17:00",6:"17:10-18:30",7:"18:40-20:00"};
+  lessons.sort((a,b)=>dayOrder.indexOf(a.day)-dayOrder.indexOf(b.day)||Number(a.pair)-Number(b.pair)||a.group.localeCompare(b.group,"uk")||a.subject.localeCompare(b.subject,"uk"));
+
+  const bySlot=new Map();
+  lessons.forEach(g=>{const k=`${g.day}|${g.pair}`;if(!bySlot.has(k))bySlot.set(k,[]);bySlot.get(k).push(g);});
+
+  // Рядки аркуша: кожен день має всі 7 пар, навіть якщо вони порожні — як у зразку.
+  const body=[]; const merges=[]; let row=5;
+  dayOrder.forEach(day=>{
+    const dayStart=row;
+    for(let pair=1;pair<=7;pair++){
+      const entries=bySlot.get(`${day}|${pair}`)||[null];
+      const pairStart=row;
+      entries.forEach((g,idx)=>{
+        let dates="",notes="";
+        if(g){
+          const pref=academicExcelKindPrefix(g.kind);
+          dates=`${pref} ${g.dates.map(academicExcelDateShort).join("; ")}`;
+          const noteParts=[];
+          if(g.room)noteParts.push(`ауд. ${g.room}`);
+          if(g.isIndividual){
+            const people=g.dates.map(d=>{const names=g.peopleByDate.get(d)||[];return names.length?`${academicExcelDateShort(d)} — ${names.join(", ")}`:"";}).filter(Boolean);
+            if(people.length)noteParts.push(people.join("\n"));
+          }
+          notes=noteParts.join("\n");
+        }
+        body.push({r:row,day:idx===0?day:"",pair:idx===0?`${pair} пара\n${times[pair]}`:"",group:g?.group||"",subject:g?.subject||"",dates,notes,isIndividual:!!g?.isIndividual});
+        row++;
+      });
+      if(row-pairStart>1)merges.push(`B${pairStart}:B${row-1}`);
+    }
+    if(row-dayStart>1)merges.push(`A${dayStart}:A${row-1}`);
   });
-  const dayOrder={"понеділок":1,"вівторок":2,"середа":3,"четвер":4,"п’ятниця":5,"субота":6,"неділя":7};
-  grouped.sort((a,b)=>(dayOrder[a.day]||9)-(dayOrder[b.day]||9)||Number(a.pair||99)-Number(b.pair||99)||a.group.localeCompare(b.group,"uk"));
-  const fmtDate=d=>{const [y,m,dd]=d.split("-");return `${dd}.${m}.${y}`;};
-  const pairRoman={1:"I",2:"II",3:"III",4:"IV",5:"V",6:"VI",7:"VII"};
-  const data=grouped.map(g=>[g.day.charAt(0).toUpperCase()+g.day.slice(1),`${pairRoman[g.pair]||g.pair} пара`,g.group,g.subject,g.kind,g.dates.map(fmtDate).join(", "),g.room?`ауд. ${g.room}`:"",g.students.join("; ")]);
-  const headers=["День тижня","Пара","Група","Назва освітньої компоненти","Вид заняття","Дати","Аудиторія","Студенти (індивідуальні)"];
-  const all=[headers,...data];
+
   let sheetRows="";
-  all.forEach((arr,i)=>{const r=i+4;sheetRows+=`<row r="${r}" ht="${i===0?30:42}" customHeight="1">${arr.map((v,j)=>academicExcelCell(r,j+1,v,i===0?2:3)).join("")}</row>`;});
-  const last=all.length+3;
-  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="15" customWidth="1"/><col min="2" max="2" width="12" customWidth="1"/><col min="3" max="3" width="13" customWidth="1"/><col min="4" max="4" width="31" customWidth="1"/><col min="5" max="5" width="22" customWidth="1"/><col min="6" max="6" width="38" customWidth="1"/><col min="7" max="7" width="13" customWidth="1"/><col min="8" max="8" width="34" customWidth="1"/></cols><sheetData><row r="1" ht="28" customHeight="1">${academicExcelCell(1,1,"Розклад викладача Фішера В.М.",1)}</row><row r="2">${academicExcelCell(2,1,"Навчальний рік 2026/27",4)}</row>${sheetRows}</sheetData><mergeCells count="2"><mergeCell ref="A1:H1"/><mergeCell ref="A2:H2"/></mergeCells><autoFilter ref="A4:H${last}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
-  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="16"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment horizontal="left"/></xf></cellXfs></styleSheet>`;
+  sheetRows+=`<row r="1" ht="28" customHeight="1">${academicExcelCell(1,1,"Фішер В.М.",1)}</row>`;
+  sheetRows+=`<row r="2" ht="20" customHeight="1">${academicExcelCell(2,1,"Навчальний рік 2026/27 · особистий розклад",2)}</row>`;
+  sheetRows+=`<row r="4" ht="30" customHeight="1">${["День тижня","Пара","Група","Назва ОК","Дати","Примітки"].map((v,j)=>academicExcelCell(4,j+1,v,3)).join("")}</row>`;
+  body.forEach(x=>{
+    const style=x.isIndividual?7:6;
+    sheetRows+=`<row r="${x.r}" ht="42" customHeight="1">${academicExcelCell(x.r,1,x.day,4)}${academicExcelCell(x.r,2,x.pair,5)}${academicExcelCell(x.r,3,x.group,style)}${academicExcelCell(x.r,4,x.subject,style)}${academicExcelCell(x.r,5,x.dates,style)}${academicExcelCell(x.r,6,x.notes,style)}</row>`;
+  });
+  const last=row-1;
+  const mergeRefs=["A1:F1","A2:F2",...merges];
+  const mergeXml=`<mergeCells count="${mergeRefs.length}">${mergeRefs.map(ref=>`<mergeCell ref="${ref}"/>`).join("")}</mergeCells>`;
+  const printArea=`<definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">'Розклад Фішера'!$A$1:$F$${last}</definedName></definedNames>`;
+
+  // Порядок XML-вузлів тут навмисно відповідає SpreadsheetML; у v41.1 sheetViews стояв
+  // після sheetData, через що Excel міг "ремонтувати" файл і показувати порожній аркуш.
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+
+  `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`+
+  `<dimension ref="A1:F${last}"/>`+
+  `<sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`+
+  `<sheetFormatPr defaultRowHeight="15"/>`+
+  `<cols><col min="1" max="1" width="15" customWidth="1"/><col min="2" max="2" width="16" customWidth="1"/><col min="3" max="3" width="18" customWidth="1"/><col min="4" max="4" width="34" customWidth="1"/><col min="5" max="5" width="42" customWidth="1"/><col min="6" max="6" width="42" customWidth="1"/></cols>`+
+  `<sheetData>${sheetRows}</sheetData>${mergeXml}`+
+  `<pageMargins left="0.25" right="0.25" top="0.45" bottom="0.45" header="0.2" footer="0.2"/>`+
+  `<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0" paperSize="9"/>`+
+  `</worksheet>`;
+
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`+
+  `<fonts count="4"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="16"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><color rgb="FFC2185B"/><sz val="10"/><name val="Arial"/></font></fonts>`+
+  `<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7E6E6"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF3F3F3"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF0F6"/><bgColor indexed="64"/></patternFill></fill></fills>`+
+  `<borders count="2"><border/><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border></borders>`+
+  `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>`+
+  `<cellXfs count="8">`+
+  `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>`+
+  `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>`+
+  `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>`+
+  `<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>`+
+  `<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>`+
+  `<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>`+
+  `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>`+
+  `<xf numFmtId="0" fontId="3" fillId="4" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>`+
+  `</cellXfs></styleSheet>`;
+
   const zip=new JSZip();
   zip.file("[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`);
   zip.folder("_rels").file(".rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
-  zip.folder("xl").file("workbook.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Розклад Фішера" sheetId="1" r:id="rId1"/></sheets></workbook>`).file("styles.xml",styles).folder("worksheets").file("sheet1.xml",sheet);
+  zip.folder("xl").file("workbook.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Розклад Фішера" sheetId="1" r:id="rId1"/></sheets>${printArea}</workbook>`).file("styles.xml",styles).folder("worksheets").file("sheet1.xml",sheet);
   zip.folder("xl").folder("_rels").file("workbook.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
   const blob=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Розклад_Фішер_2026-27.xlsx";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
 }
-// v41.1: Excel button is rendered directly by academicV39, so it is always visible.
+// v41.2: Excel export repaired and rebuilt to match the кафедральний schedule layout.
+
 academic=academicV39;if(typeof views!=="undefined")views.academic=academicV39;
