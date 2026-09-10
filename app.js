@@ -8798,7 +8798,7 @@ function academicV39(){
   const monthNames={"2026-09":"Вересень 2026","2026-10":"Жовтень 2026","2026-11":"Листопад 2026","2026-12":"Грудень 2026"};
   const monthKeys=Object.keys(monthNames);if(!academicV39State.month){const cur=localIsoDate().slice(0,7);academicV39State.month=monthKeys.includes(cur)?cur:"2026-09";}
   const teacherOptions=academicV39AllTeachers();
-  app.innerHTML=`<div class="academic-page academic-v39-page"><div class="academic-topbar academic-v39-topbar"><div><h2>Розклад занять</h2><p>Календар РЕМС-34 / РЕМС-44. Натисніть на заняття для редагування або «+» для додавання.</p></div><div class="academic-filter-actions"><button type="button" class="primary" id="academicV39Add">+ Додати заняття</button><button type="button" class="ghost" id="academicRefreshIndividuals">↻ Оновити індивідуальні</button><button type="button" class="ghost" id="academicRefreshOfficial">↻ Офіційний розклад</button></div></div>
+  app.innerHTML=`<div class="academic-page academic-v39-page"><div class="academic-topbar academic-v39-topbar"><div><h2>Розклад занять</h2><p>Календар РЕМС-34 / РЕМС-44. Натисніть на заняття для редагування або «+» для додавання.</p></div><div class="academic-filter-actions"><button type="button" class="primary" id="academicV39Add">+ Додати заняття</button><button type="button" class="ghost" id="academicRefreshIndividuals">↻ Оновити індивідуальні</button><button type="button" class="ghost" id="academicRefreshOfficial">↻ Офіційний розклад</button><button type="button" class="ghost" id="academicExcelExport">⬇ Excel · мій розклад</button></div></div>
     <div class="academic-v39-filters"><div class="academic-v39-group-switch"><button data-g="both" class="${academicV39State.group==="both"?"active":""}">Обидві групи</button><button data-g="РЕМС-34" class="${academicV39State.group==="РЕМС-34"?"active":""}">РЕМС-34</button><button data-g="РЕМС-44" class="${academicV39State.group==="РЕМС-44"?"active":""}">РЕМС-44</button></div><select id="academicV39Teacher"><option value="">Усі викладачі</option>${teacherOptions.map(t=>`<option value="${esc(t)}" ${academicV39State.teacher===t?"selected":""}>${esc(t)}</option>`).join("")}</select><button type="button" class="ghost" id="academicV39Mine">Мій розклад · Фішер</button><button type="button" class="ghost" id="academicV39Clear">Скинути</button></div>
     <div id="academicDualMonthTabs" class="schedule-month-tabs academic-month-tabs"></div><div id="academicV39Mount"></div></div>`;
   const render=()=>{
@@ -8835,6 +8835,7 @@ function academicV39(){
   document.querySelector("#academicV39Add").onclick=()=>openAcademicV39Editor({date:localIsoDate(),pair:"1"});
   document.querySelector("#academicRefreshIndividuals").onclick=async()=>{if(!confirm("Відновити початковий набір індивідуальних занять Фішера? Ручні зміни саме в цих вбудованих заняттях буде скинуто."))return;const r=await installFisherIndividualSchedule(true);if(!r.ok)alert("Не вдалося оновити індивідуальні заняття.\n\n"+(r.error||"Невідома помилка"));else {academicV39();alert(`Готово. Додано/оновлено індивідуальних занять: ${r.count}.`);}};
   document.querySelector("#academicRefreshOfficial").onclick=async()=>{if(!confirm("Оновити офіційний розклад? Ручні записи з source=manual залишаться, але офіційні записи будуть замінені."))return;const r=await installOfficialRemsSchedule(true);if(!r.ok)alert("Не вдалося оновити: "+(r.error||"помилка"));else academicV39();};
+  const excelBtn=document.querySelector("#academicExcelExport");if(excelBtn)excelBtn.onclick=async()=>{const old=excelBtn.textContent;excelBtn.disabled=true;excelBtn.textContent="Формую Excel…";try{await exportFisherScheduleXlsx();}catch(err){console.error(err);alert("Не вдалося сформувати Excel: "+(err?.message||err));}finally{excelBtn.disabled=false;excelBtn.textContent=old;}};
   render();
 }
 (function installAcademicV39(){
@@ -9048,13 +9049,5 @@ async function exportFisherScheduleXlsx(){
   const blob=await zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Розклад_Фішер_2026-27.xlsx";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
 }
-const academicV39BaseV410=academicV39;
-academicV39=function(){
-  academicV39BaseV410();
-  const actions=document.querySelector(".academic-v39-topbar .academic-filter-actions");
-  if(actions&&!document.querySelector("#academicExcelExport")){
-    const b=document.createElement("button");b.type="button";b.className="ghost";b.id="academicExcelExport";b.textContent="⬇ Excel · мій розклад";
-    b.onclick=async()=>{const old=b.textContent;b.disabled=true;b.textContent="Формую Excel…";try{await exportFisherScheduleXlsx();}catch(err){console.error(err);alert("Не вдалося сформувати Excel: "+(err?.message||err));}finally{b.disabled=false;b.textContent=old;}};
-    actions.appendChild(b);
-  }
-};
+// v41.1: Excel button is rendered directly by academicV39, so it is always visible.
+academic=academicV39;if(typeof views!=="undefined")views.academic=academicV39;
