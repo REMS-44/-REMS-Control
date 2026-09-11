@@ -7610,43 +7610,74 @@ const LARGE_FORMS_STARTER_SEED=[
   {id:"lf-khto-ya",title:"Перформативна вистава «Хто я»",authorSurname:"Волошина",authorLabel:"Даша Волошина",members:["Волошина","Данільчук","Давидова","Баленко","Лещинський","Вознюк","Дубина","Кириленко"]},
   {id:"lf-literaturnyk",title:"Літературник",authorSurname:"Давидова",authorLabel:"Світлана Давидова",members:["Давидова","Мороз","Ташута","Коткова","Карпенко","Кропивка","Піддубна"]}
 ];
-async function ensureLargeFormsStarterSeed(){
-  if(!cloudDb||!cloudReady||!currentUser||largeFormsCache.length) return;
+async function persistLargeForms(){
+  db.largeForms=Array.isArray(db.largeForms)?db.largeForms:[];
+  db.settings=db.settings||{};
+  largeFormsCache=clone(db.largeForms);
+  cache();
+  if(!cloudDb||!cloudReady||!currentUser) return false;
   try{
-    const now=new Date().toISOString();
-    for(const seed of LARGE_FORMS_STARTER_SEED){
-      const author=lfFindStudentBySurname(seed.authorSurname);
-      const payload={id:seed.id,title:seed.title,originGroup:"unknown",status:"idea",idea:"",concept:"",notes:"",driveUrl:"",memberIds:lfSeedMemberIds(seed.members),authorId:author?String(author.id):"",authorLabel:seed.authorLabel,createdAt:now,updatedAt:now,updatedBy:currentUser.email||currentUser.uid||""};
-      await setDoc(doc(cloudDb,LARGE_FORMS_COLLECTION,seed.id),payload,{merge:false});
-    }
-    await loadLargeForms();
-  }catch(err){ console.error("Large forms starter seed failed",err); }
+    await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{
+      largeForms:clone(db.largeForms),
+      settings:clone(db.settings),
+      updatedAt:new Date().toISOString()
+    },{merge:true});
+    return true;
+  }catch(err){
+    console.error("Large forms persist failed",err);
+    return false;
+  }
+}
+async function ensureLargeFormsStarterSeed(){
+  db.largeForms=Array.isArray(db.largeForms)?db.largeForms:[];
+  db.settings=db.settings||{};
+  if(db.settings.largeFormsStarterSeedV1===true){
+    largeFormsCache=clone(db.largeForms);
+    return;
+  }
+  const now=new Date().toISOString();
+  const existing=new Map(db.largeForms.map(x=>[String(x.id),x]));
+  for(const seed of LARGE_FORMS_STARTER_SEED){
+    if(existing.has(seed.id)) continue;
+    const author=lfFindStudentBySurname(seed.authorSurname);
+    db.largeForms.push({
+      id:seed.id,title:seed.title,originGroup:"unknown",status:"idea",idea:"",concept:"",notes:"",driveUrl:"",
+      memberIds:lfSeedMemberIds(seed.members),authorId:author?String(author.id):"",authorLabel:seed.authorLabel,
+      createdAt:now,updatedAt:now,updatedBy:currentUser?.email||currentUser?.uid||""
+    });
+  }
+  db.settings.largeFormsStarterSeedV1=true;
+  largeFormsCache=clone(db.largeForms);
+  await persistLargeForms();
 }
 const lfStatusLabels={idea:"Ідея",concept:"Задум",development:"Розробка",script:"Сценарна робота",rehearsal:"Репетиції",production:"Продакшн",ready:"Готово",archive:"Архів"};
 const lfStatusPercent={idea:10,concept:20,development:35,script:50,rehearsal:70,production:85,ready:100,archive:100};
 
 async function loadLargeForms(){
-  if(!cloudDb||!cloudReady){ largeFormsCache=[]; return largeFormsCache; }
-  try{
-    const snap=await getDocs(collection(cloudDb,LARGE_FORMS_COLLECTION));
-    largeFormsCache=snap.docs.map(d=>({id:d.id,...(d.data()||{})})).sort((a,b)=>String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
-  }catch(err){ console.error("Large forms load failed",err); largeFormsCache=[]; }
+  db.largeForms=Array.isArray(db.largeForms)?db.largeForms:[];
+  largeFormsCache=clone(db.largeForms).sort((a,b)=>String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
   return largeFormsCache;
 }
 
 async function saveLargeForm(data){
-  if(!cloudDb||!cloudReady||!currentUser) throw new Error("Хмара ще не готова");
+  if(!cloudReady||!cloudDb||!currentUser) throw new Error("Хмара ще не готова");
+  db.largeForms=Array.isArray(db.largeForms)?db.largeForms:[];
   const id=String(data.id||(`lf-${Date.now()}-${Math.random().toString(36).slice(2,7)}`));
   const clean={...data,id,updatedAt:new Date().toISOString(),updatedBy:currentUser.email||currentUser.uid||""};
   if(!clean.createdAt) clean.createdAt=clean.updatedAt;
-  await setDoc(doc(cloudDb,LARGE_FORMS_COLLECTION,id),clean,{merge:false});
+  const i=db.largeForms.findIndex(x=>String(x.id)===id);
+  if(i>=0) db.largeForms[i]=clean; else db.largeForms.push(clean);
+  await persistLargeForms();
   await loadLargeForms();
   return clean;
 }
 async function deleteLargeForm(id){
-  if(!cloudDb||!cloudReady||!currentUser) return false;
-  await deleteDoc(doc(cloudDb,LARGE_FORMS_COLLECTION,String(id)));
-  await loadLargeForms(); return true;
+  if(!cloudReady||!cloudDb||!currentUser) return false;
+  db.largeForms=Array.isArray(db.largeForms)?db.largeForms:[];
+  db.largeForms=db.largeForms.filter(x=>String(x.id)!==String(id));
+  await persistLargeForms();
+  await loadLargeForms();
+  return true;
 }
 
 let lfFilter="all";
