@@ -7595,6 +7595,33 @@ let largeFormsCache=[];
 
 const lfEsc=v=>esc(String(v??""));
 const lfGroupLabel=v=>v==="43"?"РЕМС-43":v==="44"?"РЕМС-44":v==="mixed"?"РЕМС-43 + РЕМС-44":"Не визначено";
+const lfNorm=v=>String(v||"").toLowerCase().replace(/[’'`ʼ]/g,"").replace(/ґ/g,"г").replace(/\s+/g," ").trim();
+function lfFindStudentBySurname(surname){
+  const needle=lfNorm(surname);
+  return (db.students||[]).find(st=>lfNorm(String(st.name||"").split(/\s+/)[0])===needle)
+    ||(db.students||[]).find(st=>lfNorm(st.name||"").includes(needle));
+}
+function lfSeedMemberIds(surnames=[]){
+  return [...new Set(surnames.map(x=>lfFindStudentBySurname(x)?.id).filter(v=>v!==undefined&&v!==null).map(String))];
+}
+const LARGE_FORMS_STARTER_SEED=[
+  {id:"lf-zori",title:"Перформативна вистава «Зорі»",authorSurname:"Баленко",authorLabel:"Ілля Баленко",members:["Баленко","Волошина","Давидова","Павлова","Мороз"]},
+  {id:"lf-mify",title:"Вистава «Слов’янська міфологія»",authorSurname:"Кропивка",authorLabel:"Маргаріта Кропивка",members:["Кропивка","Павлова","Карпенко","Данільчук","Кириленко","Піддубна","Давидова"]},
+  {id:"lf-khto-ya",title:"Перформативна вистава «Хто я»",authorSurname:"Волошина",authorLabel:"Даша Волошина",members:["Волошина","Данільчук","Давидова","Баленко","Лещинський","Вознюк","Дубина","Кириленко"]},
+  {id:"lf-literaturnyk",title:"Літературник",authorSurname:"Давидова",authorLabel:"Світлана Давидова",members:["Давидова","Мороз","Ташута","Коткова","Карпенко","Кропивка","Піддубна"]}
+];
+async function ensureLargeFormsStarterSeed(){
+  if(!cloudDb||!cloudReady||!currentUser||largeFormsCache.length) return;
+  try{
+    const now=new Date().toISOString();
+    for(const seed of LARGE_FORMS_STARTER_SEED){
+      const author=lfFindStudentBySurname(seed.authorSurname);
+      const payload={id:seed.id,title:seed.title,originGroup:"unknown",status:"idea",idea:"",concept:"",notes:"",driveUrl:"",memberIds:lfSeedMemberIds(seed.members),authorId:author?String(author.id):"",authorLabel:seed.authorLabel,createdAt:now,updatedAt:now,updatedBy:currentUser.email||currentUser.uid||""};
+      await setDoc(doc(cloudDb,LARGE_FORMS_COLLECTION,seed.id),payload,{merge:false});
+    }
+    await loadLargeForms();
+  }catch(err){ console.error("Large forms starter seed failed",err); }
+}
 const lfStatusLabels={idea:"Ідея",concept:"Задум",development:"Розробка",script:"Сценарна робота",rehearsal:"Репетиції",production:"Продакшн",ready:"Готово",archive:"Архів"};
 const lfStatusPercent={idea:10,concept:20,development:35,script:50,rehearsal:70,production:85,ready:100,archive:100};
 
@@ -7626,12 +7653,13 @@ let lfFilter="all";
 async function largeforms(){
   app.innerHTML='<div class="loading">Завантаження великих форм…</div>';
   await loadLargeForms();
+  await ensureLargeFormsStarterSeed();
   renderLargeFormsList();
 }
 function renderLargeFormsList(){
   const rows=largeFormsCache.filter(x=>lfFilter==="all"||(lfFilter==="mixed"?x.originGroup==="mixed":x.originGroup===lfFilter));
   app.innerHTML=`<div class="lf-toolbar"><div><span class="eyebrow">Навчальні постановочні проєкти</span><h2 style="margin:4px 0 3px">Великі форми</h2><div class="muted">Окремий робочий простір для проєктів РЕМС-43 і РЕМС-44. Індустрійні «Проєкти» тут не використовуються.</div></div><div class="lf-tabs"><button class="lf-tab ${lfFilter==='all'?'active':''}" data-lf-filter="all">Усі</button><button class="lf-tab ${lfFilter==='43'?'active':''}" data-lf-filter="43">РЕМС-43</button><button class="lf-tab ${lfFilter==='44'?'active':''}" data-lf-filter="44">РЕМС-44</button><button class="lf-tab ${lfFilter==='mixed'?'active':''}" data-lf-filter="mixed">Спільні</button></div></div>
-  <div class="lf-grid">${rows.map(x=>{const members=(x.memberIds||[]).map(id=>db.students.find(s=>String(s.id)===String(id))).filter(Boolean);const pct=lfStatusPercent[x.status]||10;return `<button class="lf-card" data-lf-open="${lfEsc(x.id)}" style="--lf-color:${x.originGroup==='43'?'#2563eb':x.originGroup==='44'?'#7c3aed':'#0f766e'}"><div class="lf-card-head"><div><div class="lf-meta"><span class="lf-chip">${lfGroupLabel(x.originGroup)}</span><span class="lf-chip">${lfStatusLabels[x.status]||'Ідея'}</span></div><h3>${lfEsc(x.title||'Без назви')}</h3></div><span>→</span></div><div class="lf-team">${members.length?`Команда: ${members.slice(0,4).map(s=>lfEsc(s.name)).join(', ')}${members.length>4?` +${members.length-4}`:''}`:'Команда ще не сформована'}</div><div class="lf-progress"><i style="width:${pct}%"></i></div>${x.driveUrl?'<div class="muted">☁ Папка Google Drive підключена</div>':'<div class="muted">Папка Google Drive ще не додана</div>'}</button>`}).join('')||'<div class="lf-empty">Поки немає жодної великої форми. Натисніть «+ Нова велика форма».</div>'}</div>`;
+  <div class="lf-grid">${rows.map(x=>{const members=(x.memberIds||[]).map(id=>db.students.find(s=>String(s.id)===String(id))).filter(Boolean);const pct=lfStatusPercent[x.status]||10;return `<button class="lf-card" data-lf-open="${lfEsc(x.id)}" style="--lf-color:${x.originGroup==='43'?'#2563eb':x.originGroup==='44'?'#7c3aed':x.originGroup==='mixed'?'#0f766e':'#64748b'}"><div class="lf-card-head"><div><div class="lf-meta"><span class="lf-chip">${lfGroupLabel(x.originGroup)}</span><span class="lf-chip">${lfStatusLabels[x.status]||'Ідея'}</span></div><h3>${lfEsc(x.title||'Без назви')}</h3></div><span>→</span></div>${(x.authorLabel||x.authorId)?`<div class="lf-team"><b>Автор ідеї:</b> ${lfEsc((db.students||[]).find(s=>String(s.id)===String(x.authorId))?.name||x.authorLabel||'—')}</div>`:''}<div class="lf-team">${members.length?`Команда: ${members.slice(0,4).map(s=>lfEsc(s.name)).join(', ')}${members.length>4?` +${members.length-4}`:''}`:'Команда ще не сформована'}</div><div class="lf-progress"><i style="width:${pct}%"></i></div>${x.driveUrl?'<div class="muted">☁ Папка Google Drive підключена</div>':'<div class="muted">Папка Google Drive ще не додана</div>'}</button>`}).join('')||'<div class="lf-empty">Поки немає жодної великої форми. Натисніть «+ Нова велика форма».</div>'}</div>`;
   app.querySelectorAll('[data-lf-filter]').forEach(b=>b.onclick=()=>{lfFilter=b.dataset.lfFilter;renderLargeFormsList();});
   app.querySelectorAll('[data-lf-open]').forEach(b=>b.onclick=()=>openLargeForm(b.dataset.lfOpen));
 }
@@ -7643,7 +7671,7 @@ function lfMembersHtml(selected=[]){
 function openLargeForm(id){
   const x=largeFormsCache.find(v=>String(v.id)===String(id)); if(!x) return;
   const members=(x.memberIds||[]).map(mid=>db.students.find(s=>String(s.id)===String(mid))).filter(Boolean);
-  app.innerHTML=`<div class="lf-detail"><div class="lf-detail-head"><div><button class="ghost" id="lfBack">← Усі великі форми</button><div style="margin-top:12px"><span class="eyebrow">${lfGroupLabel(x.originGroup)}</span><h2 style="margin:4px 0">${lfEsc(x.title||'Без назви')}</h2><div class="lf-meta"><span class="lf-chip">${lfStatusLabels[x.status]||'Ідея'}</span><span class="lf-chip">${members.length} учасників</span></div></div></div><div class="lf-actions">${x.driveUrl?`<a class="primary" href="${lfEsc(x.driveUrl)}" target="_blank" rel="noopener">Відкрити Google Drive ↗</a>`:''}<button class="ghost" id="lfEdit">Редагувати</button><button class="danger" id="lfDelete">Видалити</button></div></div>
+  app.innerHTML=`<div class="lf-detail"><div class="lf-detail-head"><div><button class="ghost" id="lfBack">← Усі великі форми</button><div style="margin-top:12px"><span class="eyebrow">${lfGroupLabel(x.originGroup)}</span><h2 style="margin:4px 0">${lfEsc(x.title||'Без назви')}</h2><div class="lf-meta"><span class="lf-chip">${lfStatusLabels[x.status]||'Ідея'}</span><span class="lf-chip">${members.length} учасників</span>${(x.authorLabel||x.authorId)?`<span class="lf-chip">Автор ідеї: ${lfEsc((db.students||[]).find(s=>String(s.id)===String(x.authorId))?.name||x.authorLabel||'—')}</span>`:''}</div></div></div><div class="lf-actions">${x.driveUrl?`<a class="primary" href="${lfEsc(x.driveUrl)}" target="_blank" rel="noopener">Відкрити Google Drive ↗</a>`:''}<button class="ghost" id="lfEdit">Редагувати</button><button class="danger" id="lfDelete">Видалити</button></div></div>
   <section class="lf-section"><h3>Ідея та задум</h3><div><b>Ідея</b><p>${lfEsc(x.idea||'Ще не заповнено')}</p><b>Режисерський задум</b><p>${lfEsc(x.concept||'Ще не заповнено')}</p></div></section>
   <section class="lf-section"><h3>Команда</h3><div class="lf-meta">${members.map(s=>`<span class="lf-chip">${lfEsc(s.name)} · ${lfEsc(studentGroupLabel(s)||s.group||'')}</span>`).join('')||'<span class="muted">Команда ще не сформована.</span>'}</div></section>
   <section class="lf-section"><h3>Google Drive</h3>${x.driveUrl?`<div class="lf-drive"><span>☁ Уся робоча документація та матеріали проєкту зберігаються в окремій папці.</span><a href="${lfEsc(x.driveUrl)}" target="_blank" rel="noopener">Перейти до папки ↗</a></div>`:'<div class="lf-drive">Папку ще не підключено. У режимі редагування вставте посилання на окрему папку Google Drive цього проєкту.</div>'}</section>
@@ -7653,15 +7681,15 @@ function openLargeForm(id){
   app.querySelector('#lfDelete').onclick=async()=>{if(!confirm(`Видалити велику форму «${x.title||'Без назви'}»? Папка Google Drive не видаляється.`))return;await deleteLargeForm(x.id);renderLargeFormsList();};
 }
 function largeFormEditor(existing=null){
-  const x=existing||{originGroup:'44',status:'idea',memberIds:[]};
+  const x=existing||{originGroup:'unknown',status:'idea',memberIds:[]};
   app.innerHTML=`<div class="lf-detail"><div class="lf-detail-head"><div><button class="ghost" id="lfCancel">← Назад</button><h2>${existing?'Редагування великої форми':'Нова велика форма'}</h2></div></div><form id="lfForm">
-    <section class="lf-section"><div class="lf-form"><label class="full">Назва / робоча назва<input id="lfTitle" required value="${lfEsc(x.title||'')}" placeholder="Назва проєкту"></label><label>Група походження<select id="lfOrigin"><option value="43" ${x.originGroup==='43'?'selected':''}>РЕМС-43</option><option value="44" ${x.originGroup==='44'?'selected':''}>РЕМС-44</option><option value="mixed" ${x.originGroup==='mixed'?'selected':''}>Спільний РЕМС-43 + РЕМС-44</option></select></label><label>Етап роботи<select id="lfStatus">${Object.entries(lfStatusLabels).map(([k,v])=>`<option value="${k}" ${x.status===k?'selected':''}>${v}</option>`).join('')}</select></label><label class="full">Ідея<textarea id="lfIdea" placeholder="Що ми хочемо створити?">${lfEsc(x.idea||'')}</textarea></label><label class="full">Режисерський задум<textarea id="lfConcept" placeholder="Образ, прийом, форма, головна логіка майбутнього проєкту">${lfEsc(x.concept||'')}</textarea></label></div></section>
+    <section class="lf-section"><div class="lf-form"><label class="full">Назва / робоча назва<input id="lfTitle" required value="${lfEsc(x.title||'')}" placeholder="Назва проєкту"></label><label>Автор ідеї<select id="lfAuthor"><option value="">Не визначено</option>${(db.students||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'uk')).map(s=>`<option value="${lfEsc(s.id)}" ${String(x.authorId||'')===String(s.id)?'selected':''}>${lfEsc(s.name)}</option>`).join('')}</select></label><label>Група походження<select id="lfOrigin"><option value="unknown" ${!x.originGroup||x.originGroup==='unknown'?'selected':''}>Не визначено</option><option value="43" ${x.originGroup==='43'?'selected':''}>РЕМС-43</option><option value="44" ${x.originGroup==='44'?'selected':''}>РЕМС-44</option><option value="mixed" ${x.originGroup==='mixed'?'selected':''}>Спільний РЕМС-43 + РЕМС-44</option></select></label><label>Етап роботи<select id="lfStatus">${Object.entries(lfStatusLabels).map(([k,v])=>`<option value="${k}" ${x.status===k?'selected':''}>${v}</option>`).join('')}</select></label><label class="full">Ідея<textarea id="lfIdea" placeholder="Що ми хочемо створити?">${lfEsc(x.idea||'')}</textarea></label><label class="full">Режисерський задум<textarea id="lfConcept" placeholder="Образ, прийом, форма, головна логіка майбутнього проєкту">${lfEsc(x.concept||'')}</textarea></label></div></section>
     <section class="lf-section"><h3>Команда</h3><div class="muted" style="margin-bottom:8px">Студент може бути одночасно учасником кількох великих форм.</div><div class="lf-member-grid">${lfMembersHtml(x.memberIds)}</div></section>
     <section class="lf-section"><h3>Папка проєкту в Google Drive</h3><div class="lf-form"><label class="full">Посилання на папку<input id="lfDrive" type="url" value="${lfEsc(x.driveUrl||'')}" placeholder="https://drive.google.com/drive/folders/..."></label><div class="full muted">Тут зберігатимуться сценарії, режисерські документи, фото, відео, референси та інші матеріали. REMS Control зберігає посилання і структуру проєкту, а файли залишаються в Google Drive.</div></div></section>
     <section class="lf-section"><h3>Робочі нотатки</h3><textarea id="lfNotes" style="width:100%;box-sizing:border-box;min-height:150px;border:1px solid #dfe3e8;border-radius:10px;padding:10px;font:inherit">${lfEsc(x.notes||'')}</textarea></section>
     <div class="profile-actions" style="margin-top:14px"><button type="button" class="ghost" id="lfCancel2">Скасувати</button><button type="submit" class="primary">Зберегти</button></div></form></div>`;
   const cancel=()=>existing?openLargeForm(existing.id):renderLargeFormsList(); app.querySelector('#lfCancel').onclick=cancel;app.querySelector('#lfCancel2').onclick=cancel;
-  app.querySelector('#lfForm').onsubmit=async e=>{e.preventDefault();const btn=e.submitter; if(btn){btn.disabled=true;btn.textContent='Збереження…';}try{const memberIds=[...app.querySelectorAll('[data-lf-member]:checked')].map(el=>el.value);const saved=await saveLargeForm({...x,title:app.querySelector('#lfTitle').value.trim(),originGroup:app.querySelector('#lfOrigin').value,status:app.querySelector('#lfStatus').value,idea:app.querySelector('#lfIdea').value.trim(),concept:app.querySelector('#lfConcept').value.trim(),driveUrl:app.querySelector('#lfDrive').value.trim(),notes:app.querySelector('#lfNotes').value.trim(),memberIds});openLargeForm(saved.id);}catch(err){console.error(err);alert('Не вдалося зберегти велику форму в хмару.');if(btn){btn.disabled=false;btn.textContent='Зберегти';}}};
+  app.querySelector('#lfForm').onsubmit=async e=>{e.preventDefault();const btn=e.submitter; if(btn){btn.disabled=true;btn.textContent='Збереження…';}try{const memberIds=[...app.querySelectorAll('[data-lf-member]:checked')].map(el=>el.value);const authorId=app.querySelector('#lfAuthor').value;const authorStudent=(db.students||[]).find(s=>String(s.id)===String(authorId));const saved=await saveLargeForm({...x,title:app.querySelector('#lfTitle').value.trim(),authorId,authorLabel:authorStudent?.name||x.authorLabel||'',originGroup:app.querySelector('#lfOrigin').value,status:app.querySelector('#lfStatus').value,idea:app.querySelector('#lfIdea').value.trim(),concept:app.querySelector('#lfConcept').value.trim(),driveUrl:app.querySelector('#lfDrive').value.trim(),notes:app.querySelector('#lfNotes').value.trim(),memberIds});openLargeForm(saved.id);}catch(err){console.error(err);alert('Не вдалося зберегти велику форму в хмару.');if(btn){btn.disabled=false;btn.textContent='Зберегти';}}};
 }
 
 const views={dashboard,students,projects,largeforms,academic,calendar,schedule,industry};
