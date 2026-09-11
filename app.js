@@ -7605,10 +7605,10 @@ function lfSeedMemberIds(surnames=[]){
   return [...new Set(surnames.map(x=>lfFindStudentBySurname(x)?.id).filter(v=>v!==undefined&&v!==null).map(String))];
 }
 const LARGE_FORMS_STARTER_SEED=[
-  {id:"lf-zori",title:"Перформативна вистава «Зорі»",authorSurname:"Баленко",authorLabel:"Ілля Баленко",members:["Баленко","Волошина","Давидова","Павлова","Мороз"]},
-  {id:"lf-mify",title:"Вистава «Слов’янська міфологія»",authorSurname:"Кропивка",authorLabel:"Маргаріта Кропивка",members:["Кропивка","Павлова","Карпенко","Данільчук","Кириленко","Піддубна","Давидова"]},
-  {id:"lf-khto-ya",title:"Перформативна вистава «Хто я»",authorSurname:"Волошина",authorLabel:"Даша Волошина",members:["Волошина","Данільчук","Давидова","Баленко","Лещинський","Вознюк","Дубина","Кириленко"]},
-  {id:"lf-literaturnyk",title:"Літературник",authorSurname:"Давидова",authorLabel:"Світлана Давидова",members:["Давидова","Мороз","Ташута","Коткова","Карпенко","Кропивка","Піддубна"]}
+  {id:"lf-zori",title:"Перформативна вистава «Зорі»",authorSurname:"Баленко",authorLabel:"Ілля Баленко",driveUrl:"https://drive.google.com/drive/folders/1bYyOtB_gc85Ez9i50yP6Li5VYXZ-kHMK",members:["Баленко","Волошина","Давидова","Павлова","Мороз"]},
+  {id:"lf-mify",title:"Вистава «Слов’янська міфологія»",authorSurname:"Кропивка",authorLabel:"Маргаріта Кропивка",driveUrl:"https://drive.google.com/drive/folders/1if11uoH2xK669KE-7hJxTLqr80_l-7on",members:["Кропивка","Павлова","Карпенко","Данільчук","Кириленко","Піддубна","Давидова"]},
+  {id:"lf-khto-ya",title:"Перформативна вистава «Хто я»",authorSurname:"Волошина",authorLabel:"Даша Волошина",driveUrl:"https://drive.google.com/drive/folders/1DJFIZdsMzVRNBR3qGwbO0kMTmIHHyzb5",members:["Волошина","Данільчук","Давидова","Баленко","Лещинський","Вознюк","Дубина","Кириленко"]},
+  {id:"lf-literaturnyk",title:"Літературник",authorSurname:"Давидова",authorLabel:"Світлана Давидова",driveUrl:"https://drive.google.com/drive/folders/1M8NXhAhDTwc5pf3avzRRj9lNRpelxUpX",members:["Давидова","Мороз","Ташута","Коткова","Карпенко","Кропивка","Піддубна"]}
 ];
 async function persistLargeForms(){
   db.largeForms=Array.isArray(db.largeForms)?db.largeForms:[];
@@ -7641,7 +7641,7 @@ async function ensureLargeFormsStarterSeed(){
     if(existing.has(seed.id)) continue;
     const author=lfFindStudentBySurname(seed.authorSurname);
     db.largeForms.push({
-      id:seed.id,title:seed.title,originGroup:"unknown",status:"active",driveUrl:"",
+      id:seed.id,title:seed.title,originGroup:"unknown",status:"active",driveUrl:seed.driveUrl||"",
       memberIds:lfSeedMemberIds(seed.members),authorId:author?String(author.id):"",authorLabel:seed.authorLabel,
       createdAt:now,updatedAt:now,updatedBy:currentUser?.email||currentUser?.uid||""
     });
@@ -7657,11 +7657,15 @@ async function loadLargeForms(){
   db.largeForms=Array.isArray(db.largeForms)?db.largeForms:[];
   // v42.4: спрощуємо картку великої форми. Старі службові поля більше не використовуються.
   let changed=false;
+  const starterById=new Map(LARGE_FORMS_STARTER_SEED.map(seed=>[String(seed.id),seed]));
   db.largeForms=db.largeForms.map(item=>{
     const x={...item};
     const normalized=lfNormalizeStatus(x.status);
     if(x.status!==normalized){ x.status=normalized; changed=true; }
     for(const k of ["idea","concept","notes"]){ if(k in x){ delete x[k]; changed=true; } }
+    // v42.5: підключаємо створені Google Drive папки до 4 стартових великих форм.
+    const starter=starterById.get(String(x.id));
+    if(starter?.driveUrl && !String(x.driveUrl||"").trim()){ x.driveUrl=starter.driveUrl; changed=true; }
     return x;
   });
   largeFormsCache=clone(db.largeForms).sort((a,b)=>String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
