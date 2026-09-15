@@ -7611,8 +7611,8 @@ const LARGE_FORMS_STARTER_SEED=[
   {id:"lf-literaturnyk",title:"Літературник",authorSurnames:["Давидова"],authorLabels:["Світлана Давидова"],driveUrl:"https://drive.google.com/drive/folders/1M8NXhAhDTwc5pf3avzRRj9lNRpelxUpX",members:["Давидова","Мороз","Ташута","Коткова","Карпенко","Кропивка","Піддубна"]},
   {id:"lf-sixtiers",title:"Шістдесятники",originGroup:"44",authorSurnames:["Колишкін"],authorLabels:["Андрій Колишкін"],driveUrl:"https://drive.google.com/drive/folders/1MQ56Mg6ez08B_qCNkLnz5IfRDgYSJiPR",members:["Жолуденко","Вінцюк","Колишкін","Касєєв","Міленіна","Олейников","Чиньонова","Позняк","Власенко","Мостова","Мойсієнко","Гострик","Кошелєва"]},
   {id:"lf-rosalia",title:"Хореографічна вистава на пісні Rosalía",originGroup:"44",authorSurnames:["Власенко"],authorLabels:["Дарʼя Власенко"],driveUrl:"https://drive.google.com/drive/folders/1e6DrAm8BpgzbaclGd8ljFw3i2dLDxLxN",members:["Жолуденко","Касєєв","Колишкін","Заярна","Міленіна","Позняк","Власенко","Кохан","Гострик","Краснянський"]},
-  {id:"lf-live-again",title:"Інтерактивна вистава «Прожити ще раз»",originGroup:"44",authorSurnames:["Неня","Мойсієнко","Кохан"],authorLabels:["Анастасія Неня","Віталіна Мойсієнко","Ольга Кохан"],driveUrl:"https://drive.google.com/drive/folders/1w8CbtwCWflpQpHPVqhwB77VLdjkegZUh",members:["Заярна","Позняк","Максімова","Кохан","Мойсієнко"]},
-  {id:"lf-golden-chair",title:"Церемонія нагородження «Золотий стілець»",originGroup:"44",authorSurnames:["Позняк","Заярна","Рожанківська"],authorLabels:["Артур Позняк","Валерія Заярна","Іванна Рожанківська"],driveUrl:"https://drive.google.com/drive/folders/1ghNZkTAdwjhc50bz0_tbw76CXmdhdy0R",members:["Міленіна","Власенко","Колишкін","Рожанківська","Жолуденко","Вінцюк","Мостова","Кошелєва"]}
+  {id:"lf-live-again",title:"Інтерактивна вистава «Прожити ще раз»",originGroup:"44",authorSurnames:["Неня","Мойсієнко","Кохан"],authorLabels:["Анастасія Неня","Віталіна Мойсієнко","Ольга Кохан"],driveUrl:"https://drive.google.com/drive/folders/1w8CbtwCWflpQpHPVqhwB77VLdjkegZUh",members:["Заярна","Позняк","Максімова","Кохан","Мойсієнко","Неня"]},
+  {id:"lf-golden-chair",title:"Церемонія нагородження «Золотий стілець»",originGroup:"44",authorSurnames:["Позняк","Заярна","Рожанківська"],authorLabels:["Артур Позняк","Валерія Заярна","Іванна Рожанківська"],driveUrl:"https://drive.google.com/drive/folders/1ghNZkTAdwjhc50bz0_tbw76CXmdhdy0R",members:["Міленіна","Власенко","Колишкін","Рожанківська","Жолуденко","Вінцюк","Мостова","Кошелєва","Позняк","Заярна"]}
 ];
 async function persistLargeForms(){
   db.largeForms=Array.isArray(db.largeForms)?db.largeForms:[];
@@ -7635,22 +7635,33 @@ async function persistLargeForms(){
 async function ensureLargeFormsStarterSeed(){
   db.largeForms=Array.isArray(db.largeForms)?db.largeForms:[];
   db.settings=db.settings||{};
-  if(db.settings.largeFormsStarterSeedV2===true){
+  if(db.settings.largeFormsStarterSeedV3===true){
     largeFormsCache=clone(db.largeForms);
     return;
   }
   const now=new Date().toISOString();
   const existing=new Map(db.largeForms.map(x=>[String(x.id),x]));
   for(const seed of LARGE_FORMS_STARTER_SEED){
-    if(existing.has(seed.id)) continue;
     const authorIds=lfSeedMemberIds(seed.authorSurnames||[]);
+    const memberIds=lfSeedMemberIds(seed.members);
+    if(existing.has(seed.id)){
+      const item=existing.get(seed.id);
+      item.memberIds=[...new Set([...(Array.isArray(item.memberIds)?item.memberIds.map(String):[]),...memberIds.map(String),...authorIds.map(String)])];
+      item.authorIds=[...new Set([...(Array.isArray(item.authorIds)?item.authorIds.map(String):[]),...authorIds.map(String)])];
+      if(!item.authorId&&item.authorIds.length) item.authorId=item.authorIds[0];
+      item.authorLabel=(seed.authorLabels||[]).join(", ")||item.authorLabel||"";
+      if(seed.originGroup) item.originGroup=seed.originGroup;
+      if(seed.driveUrl) item.driveUrl=seed.driveUrl;
+      item.updatedAt=now;
+      continue;
+    }
     db.largeForms.push({
       id:seed.id,title:seed.title,originGroup:seed.originGroup||"unknown",status:"active",driveUrl:seed.driveUrl||"",
-      memberIds:lfSeedMemberIds(seed.members),authorIds,authorId:authorIds[0]||"",authorLabel:(seed.authorLabels||[]).join(", "),
+      memberIds:[...new Set([...memberIds.map(String),...authorIds.map(String)])],authorIds,authorId:authorIds[0]||"",authorLabel:(seed.authorLabels||[]).join(", "),
       createdAt:now,updatedAt:now,updatedBy:currentUser?.email||currentUser?.uid||""
     });
   }
-  db.settings.largeFormsStarterSeedV2=true;
+  db.settings.largeFormsStarterSeedV3=true;
   largeFormsCache=clone(db.largeForms);
   await persistLargeForms();
 }
