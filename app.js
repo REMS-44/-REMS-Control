@@ -2196,8 +2196,9 @@ function updateQuickAddForView(v){
     btn.textContent="+ Новий проєкт";
     btn.title="Створити новий проєкт";
   }else if(v==="largeforms"){
-    btn.textContent="+ Нова велика форма";
-    btn.title="Створити навчальний проєкт великої форми";
+    btn.hidden=true;
+    btn.textContent="";
+    btn.title="";
   }else if(v==="academic"){
     btn.textContent="+ Додати заняття";
     btn.title="Додати заняття до студентського розкладу";
@@ -2223,7 +2224,7 @@ function switchView(v,label){
   rememberCurrentView(v);
   currentProjectDetailId=null;
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
-  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",academic:"Розклад занять",calendar:"Зведений календар",schedule:"Участь у проєктах",industry:"Зустріч із індустрією",largeforms:"Великі форми"}[v]);
+  $("#pageTitle").textContent=label||({dashboard:"Головна",students:"Студенти",projects:"Проєкти",academic:"Розклад занять",calendar:"Зведений календар",schedule:"Участь у проєктах",industry:"Зустріч із індустрією",largeforms:"Режисерська лабораторія"}[v]);
   updateQuickAddForView(v);
   try{
     if(typeof views?.[v]!=="function") throw new Error(`Немає представлення ${v}`);
@@ -2240,7 +2241,7 @@ function refreshCurrentView(){
   const v=REMS_VALID_VIEWS.has(currentView) && typeof views?.[currentView]==="function" ? currentView : "dashboard";
   rememberCurrentView(v);
   $$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
-  const labels={dashboard:"Головна",students:"Студенти",projects:"Проєкти",largeforms:"Великі форми",academic:"Розклад занять",calendar:"Зведений календар",schedule:"Участь у проєктах",industry:"Зустріч із індустрією"};
+  const labels={dashboard:"Головна",students:"Студенти",projects:"Проєкти",largeforms:"Режисерська лабораторія",academic:"Розклад занять",calendar:"Зведений календар",schedule:"Участь у проєктах",industry:"Зустріч із індустрією"};
   const title=$("#pageTitle"); if(title) title.textContent=labels[v]||"REMS Control";
   updateQuickAddForView(v);
   if(v==="projects" && currentProjectDetailId && pBy(currentProjectDetailId)) v40OpenProject(currentProjectDetailId);
@@ -7723,12 +7724,88 @@ async function deleteLargeForm(id){
   return true;
 }
 
+// v43 — «Режисерська лабораторія»: персональний простір кожного студента РЕМС-43 / РЕМС-44.
+// Старі «Великі форми» не видаляються: вони лишаються джерелом уже створених навчальних проєктів.
+// Якщо автор один — проєкт відображається в лабораторії цього студента.
+// Якщо авторів кілька — той самий спільний проєкт тимчасово відображається в лабораторіях усіх авторів.
+const DIRECTING_LABS_KEY="directingLabs";
+let directingLabFilter="44";
+
+function dlStudentGroup(st){
+  const raw=String(studentGroupLabel(st)||st?.group||"").toUpperCase().replace(/\s+/g,"");
+  if(raw.includes("РЕМС-44")||raw.includes("REMS-44")) return "44";
+  if(raw.includes("РЕМС-43")||raw.includes("REMS-43")) return "43";
+  return "";
+}
+function dlEligibleStudents(){
+  return (db.students||[]).filter(st=>["43","44"].includes(dlStudentGroup(st)))
+    .slice().sort((a,b)=>dlStudentGroup(b).localeCompare(dlStudentGroup(a))||String(a.name||"").localeCompare(String(b.name||""),"uk"));
+}
+function dlLabId(studentId){ return `dl-${String(studentId)}`; }
+function dlLabForStudent(studentId){
+  db[DIRECTING_LABS_KEY]=Array.isArray(db[DIRECTING_LABS_KEY])?db[DIRECTING_LABS_KEY]:[];
+  return db[DIRECTING_LABS_KEY].find(x=>String(x.studentId)===String(studentId))||null;
+}
+function dlProjectsForStudent(studentId){
+  const sid=String(studentId);
+  return (largeFormsCache||[]).filter(x=>lfAuthorIds(x).includes(sid));
+}
+async function ensureDirectingLabs(){
+  db[DIRECTING_LABS_KEY]=Array.isArray(db[DIRECTING_LABS_KEY])?db[DIRECTING_LABS_KEY]:[];
+  const byStudent=new Map(db[DIRECTING_LABS_KEY].map(x=>[String(x.studentId),x]));
+  const now=new Date().toISOString();
+  let changed=false;
+  for(const st of dlEligibleStudents()){
+    const sid=String(st.id);
+    if(byStudent.has(sid)) continue;
+    const lab={id:dlLabId(sid),studentId:sid,status:"not_started",createdAt:now,updatedAt:now};
+    db[DIRECTING_LABS_KEY].push(lab); byStudent.set(sid,lab); changed=true;
+  }
+  if(changed){
+    cache();
+    if(cloudDb&&cloudReady&&currentUser){
+      try{await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:now},{merge:true});}
+      catch(err){console.error("Directing labs persist failed",err);}
+    }
+  }
+}
+const dlStatusLabel={not_started:"Не розпочато",in_progress:"У роботі",review:"На перевірці",revision:"Доопрацювання",approved:"Погоджено"};
+function dlProjectOwnershipText(project){
+  const names=lfAuthorNames(project);
+  if(names.length<=1) return "Індивідуальний проєкт";
+  return `Спільний проєкт · ${names.length} автори`;
+}
+function renderDirectingLaboratory(){
+  const all=dlEligibleStudents();
+  const rows=all.filter(st=>directingLabFilter==="all"||dlStudentGroup(st)===directingLabFilter);
+  const counts={"43":all.filter(st=>dlStudentGroup(st)==="43").length,"44":all.filter(st=>dlStudentGroup(st)==="44").length};
+  app.innerHTML=`<div class="lf-toolbar"><div><span class="eyebrow">Індивідуальна робота</span><h2 style="margin:4px 0 3px">Режисерська лабораторія</h2><div class="muted">Персональна сторінка кожного студента РЕМС-43 і РЕМС-44. Уже створені навчальні проєкти збережені та прив’язані за авторами ідеї.</div></div><div class="lf-tabs"><button class="lf-tab ${directingLabFilter==='44'?'active':''}" data-dl-filter="44">РЕМС-44 · ${counts['44']}</button><button class="lf-tab ${directingLabFilter==='43'?'active':''}" data-dl-filter="43">РЕМС-43 · ${counts['43']}</button><button class="lf-tab ${directingLabFilter==='all'?'active':''}" data-dl-filter="all">Усі · ${all.length}</button></div></div>
+  <div class="lf-grid">${rows.map(st=>{const lab=dlLabForStudent(st.id)||{};const projects=dlProjectsForStudent(st.id);const single=projects.filter(p=>lfAuthorIds(p).length===1);const shared=projects.filter(p=>lfAuthorIds(p).length>1);return `<button class="lf-card" data-dl-open="${lfEsc(st.id)}" style="--lf-color:${dlStudentGroup(st)==='44'?'#7c3aed':'#2563eb'}"><div class="lf-card-head"><div><div class="lf-meta"><span class="lf-chip">РЕМС-${dlStudentGroup(st)}</span><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span></div><h3>${lfEsc(st.name||'Студент')}</h3></div><span>→</span></div><div class="lf-team">${single.length?`Закріплено: <b>${lfEsc(single.map(p=>p.title||'Без назви').join(', '))}</b>`:shared.length?`Поки спільний проєкт: <b>${lfEsc(shared.map(p=>p.title||'Без назви').join(', '))}</b>`:'Індивідуальний проєкт ще не визначено'}</div>${shared.length?`<div class="muted">Спільних проєктів до уточнення авторства: ${shared.length}</div>`:''}</button>`}).join('')||'<div class="lf-empty">У контингенті не знайдено студентів РЕМС-43 / РЕМС-44.</div>'}</div>`;
+  app.querySelectorAll('[data-dl-filter]').forEach(b=>b.onclick=()=>{directingLabFilter=b.dataset.dlFilter;renderDirectingLaboratory();});
+  app.querySelectorAll('[data-dl-open]').forEach(b=>b.onclick=()=>openDirectingLab(b.dataset.dlOpen));
+}
+function openDirectingLab(studentId){
+  const st=(db.students||[]).find(s=>String(s.id)===String(studentId)); if(!st) return;
+  const lab=dlLabForStudent(st.id)||{};
+  const projects=dlProjectsForStudent(st.id);
+  const owned=projects.filter(p=>lfAuthorIds(p).length===1);
+  const shared=projects.filter(p=>lfAuthorIds(p).length>1);
+  const projectCard=p=>`<article class="lf-section" style="margin-top:10px"><div class="lf-detail-head"><div><div class="lf-meta"><span class="lf-chip">${lfEsc(dlProjectOwnershipText(p))}</span><span class="lf-chip">${lfEsc(lfStatusLabels[lfNormalizeStatus(p.status)])}</span></div><h3 style="margin:8px 0 4px">${lfEsc(p.title||'Без назви')}</h3>${lfAuthorNames(p).length>1?`<div class="muted">Автори ідеї: ${lfEsc(lfAuthorNames(p).join(', '))}</div>`:''}</div>${p.driveUrl?`<a class="ghost" href="${lfEsc(p.driveUrl)}" target="_blank" rel="noopener">Google Drive ↗</a>`:''}</div></article>`;
+  app.innerHTML=`<div class="lf-detail"><div class="lf-detail-head"><div><button class="ghost" id="dlBack">← Усі студенти</button><div style="margin-top:12px"><span class="eyebrow">РЕМС-${dlStudentGroup(st)} · персональна лабораторія</span><h2 style="margin:4px 0">${lfEsc(st.name||'Студент')}</h2><div class="lf-meta"><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span><span class="lf-chip">${projects.length?`${projects.length} пов’язаних проєктів`:'Проєкт ще не визначено'}</span></div></div></div></div>
+  ${owned.length?`<section class="lf-section"><h3>Індивідуальний проєкт</h3><div class="muted">Проєкт має одного автора і автоматично закріплений за цим студентом.</div>${owned.map(projectCard).join('')}</section>`:''}
+  ${shared.length?`<section class="lf-section"><h3>Спільний проєкт — тимчасово</h3><div class="muted">Проєкт поки залишається спільним. Він показується в персональних лабораторіях усіх авторів ідеї. Коли визначимо остаточного автора, змінимо прив’язку без створення дубля.</div>${shared.map(projectCard).join('')}</section>`:''}
+  ${!projects.length?`<section class="lf-section"><h3>Індивідуальний режисерський проєкт</h3><div class="lf-empty">Для цього студента сторінку лабораторії вже створено. Назву та структуру нового індивідуального проєкту додамо наступним кроком.</div></section>`:''}
+  <section class="lf-section"><h3>Етапи лабораторії</h3><div class="muted">Каркас персональної сторінки створено. Наступним кроком сюди можна додати етапи режисерської розробки, версії, коментарі та погодження.</div></section></div>`;
+  app.querySelector('#dlBack').onclick=renderDirectingLaboratory;
+}
+
 let lfFilter="all";
 async function largeforms(){
-  app.innerHTML='<div class="loading">Завантаження великих форм…</div>';
+  app.innerHTML='<div class="loading">Завантаження режисерської лабораторії…</div>';
   await loadLargeForms();
   await ensureLargeFormsStarterSeed();
-  renderLargeFormsList();
+  await ensureDirectingLabs();
+  renderDirectingLaboratory();
 }
 function renderLargeFormsList(){
   const rows=largeFormsCache.filter(x=>lfFilter==="all"||(lfFilter==="mixed"?x.originGroup==="mixed":x.originGroup===lfFilter));
@@ -7777,7 +7854,6 @@ $("#quickAdd").onclick=()=>{
     return;
   }
   if(currentView==="largeforms"){
-    largeFormEditor();
     return;
   }
   if(currentView==="academic"){
