@@ -7907,7 +7907,7 @@ const DIRECTING_LAB_REMS34_NAMES=[
 const dlNormPerson=v=>String(v||"").toLowerCase().replace(/[’'`ʼ]/g,"").replace(/ґ/g,"г").replace(/\s+/g," ").trim();
 const DIRECTING_LAB_REMS34_KEYS=new Set(DIRECTING_LAB_REMS34_NAMES.map(dlNormPerson));
 
-// v44.6: персональні папки Google Drive для індивідуальних лабораторій.
+// v44.7: персональні папки Google Drive для індивідуальних лабораторій, включно з Максімовою та Мостовою.
 // Ключі дублюються у повній та короткій формі, щоб зіставлення не залежало від по батькові / апострофів.
 const DIRECTING_LAB_PERSONAL_DRIVE_ENTRIES=[
   ["Баленко Ілля","https://drive.google.com/drive/folders/1k4qJ0kU1tkhRW4C66HV7oPT3iE3MXLwM"],
@@ -7941,7 +7941,9 @@ const DIRECTING_LAB_PERSONAL_DRIVE_ENTRIES=[
   ["Олейников Данііл Денисович","https://drive.google.com/drive/folders/1AibjkdVGhuprtdy8O4lJWeIzYrflmg1_"],
   ["Позняк Артур Русланович","https://drive.google.com/drive/folders/1nmwVxRvAo4efozetcx2Hin8JbOCVr184"],
   ["Рожанківська Іванна Орестівна","https://drive.google.com/drive/folders/1GYPdAVJ57UoXa7Xe341SXemE_v-Z5hz6"],
-  ["Чиньонова Дар`я Олексіївна","https://drive.google.com/drive/folders/13eC4Ci8ueoYgeJX7iJ8wc59otcvW9GzP"]
+  ["Чиньонова Дар`я Олексіївна","https://drive.google.com/drive/folders/13eC4Ci8ueoYgeJX7iJ8wc59otcvW9GzP"],
+  ["Максімова Саміра Вадимівна","https://drive.google.com/drive/folders/18zQmUe5IwwLEYQLsUxEFopbUeWD18o5k"],
+  ["Мостова Яна Олегівна","https://drive.google.com/drive/folders/1IZbDTZIOkimGe44w-50XfY50RWUa9Ch4"]
 ];
 const DIRECTING_LAB_PERSONAL_DRIVE_MAP=(()=>{const m=new Map();for(const[name,url]of DIRECTING_LAB_PERSONAL_DRIVE_ENTRIES){const full=dlNormPerson(name),p=full.split(" ").filter(Boolean);m.set(full,url);if(p.length>=2)m.set(`${p[0]} ${p[1]}`,url)}return m})();
 function dlPersonalDriveForStudent(st){const full=dlNormPerson(st?.name||"");const p=full.split(" ").filter(Boolean);return DIRECTING_LAB_PERSONAL_DRIVE_MAP.get(full)||DIRECTING_LAB_PERSONAL_DRIVE_MAP.get(p.slice(0,2).join(" "))||""}
