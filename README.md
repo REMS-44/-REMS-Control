@@ -1,4 +1,4 @@
-# REMS Control v44.8
+# REMS Control v44.9
 
 - Підключено Google Drive upload bridge.
 - Максімова Саміра та Мостова Яна виправлені на РЕМС-44.
