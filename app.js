@@ -7831,38 +7831,42 @@ function dlRandomAccessKey(){
   crypto.getRandomValues(bytes);
   return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
 }
-async function dlScheduleDocForStudent(studentId){
-  if(!cloudDb) return null;
-  const sid=String(studentId);
-  const snap=await getDocs(collection(cloudDb,"rems_student_schedules"));
-  const hit=snap.docs.find(d=>String((d.data()||{}).studentId||"")===sid);
-  return hit?{id:hit.id,data:hit.data()||{}}:null;
+async function dlPersistLabAccessKey(studentId,key){
+  const lab=dlLabForStudent(studentId);
+  if(!lab) throw new Error("Лабораторію студента не знайдено");
+  if(lab.accessKey===key) return;
+  lab.accessKey=key;
+  lab.updatedAt=new Date().toISOString();
+  cache();
+  if(cloudDb&&cloudReady&&currentUser){
+    await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:new Date().toISOString()},{merge:true});
+  }
 }
 async function dlEnsureStudentAccess(st){
   if(!cloudDb||!currentUser) throw new Error("Потрібен вхід викладача");
-  let schedule=await dlScheduleDocForStudent(st.id);
-  if(!schedule){
-    const key=dlRandomAccessKey();
-    const now=new Date().toISOString();
-    const payload={studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),items:[],projects:{},createdAt:now,updatedAt:now};
-    await setDoc(doc(cloudDb,"rems_student_schedules",key),payload,{merge:false});
-    schedule={id:key,data:payload};
-  }
+  const lab=dlLabForStudent(st.id);
+  if(!lab) throw new Error("Лабораторію студента не знайдено");
+  const key=String(lab.accessKey||"").trim()||dlRandomAccessKey();
+  const now=new Date().toISOString();
+  const scheduleRef=doc(cloudDb,"rems_student_schedules",key);
+  await setDoc(scheduleRef,{studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),items:[],projects:{},updatedAt:now,createdAt:lab.accessKey?undefined:now},{merge:true});
+  if(!lab.accessKey) await dlPersistLabAccessKey(st.id,key);
+
   const projects=dlProjectsForStudent(st.id);
   const owned=projects.filter(p=>lfAuthorIds(p).length===1);
   const shared=projects.filter(p=>lfAuthorIds(p).length>1);
   const currentProject=owned[0]||shared[0]||null;
-  const workRef=doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,schedule.id);
+  const workRef=doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,key);
   const workSnap=await getDoc(workRef);
   if(!workSnap.exists()){
     await setDoc(workRef,{
       studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),
       projectId:String(currentProject?.id||""),projectTitle:String(currentProject?.title||""),
       sharedProject:!!(currentProject&&lfAuthorIds(currentProject).length>1),
-      stages:{},createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()
+      stages:{},createdAt:now,updatedAt:now
     },{merge:false});
   }
-  return schedule.id;
+  return key;
 }
 function dlStudentLabUrl(key){
   const u=new URL("lab.html",location.href);
@@ -7904,33 +7908,56 @@ async function openDirectingLab(studentId){
   app.querySelector('#dlBack').onclick=renderDirectingLaboratory;
 
   const access=app.querySelector('#dlAccessSection');
-  const schedule=await dlScheduleDocForStudent(st.id).catch(()=>null);
-  if(!schedule){
-    access.innerHTML=`<div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Персонального ключа ще немає.</div></div><button class="primary" id="dlActivateAccess">Активувати доступ</button></div>`;
-    app.querySelector('#dlActivateAccess').onclick=async()=>{const b=app.querySelector('#dlActivateAccess');b.disabled=true;b.textContent='Створення…';try{await dlEnsureStudentAccess(st);await openDirectingLab(st.id)}catch(e){console.error(e);alert('Не вдалося створити доступ. '+(e?.message||''));b.disabled=false;b.textContent='Активувати доступ'}};
+  const holder=app.querySelector('#dlAdminWork');
+  const labAccessKey=String((dlLabForStudent(st.id)||{}).accessKey||'').trim();
+
+  const showAccessLink=(key)=>{
+    const url=dlStudentLabUrl(key);
+    access.innerHTML=`<div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Це приватне посилання студента. Його не потрібно вводити в REMS-Control.</div></div><span class="lf-chip">Активовано</span></div><div class="dl-access-row"><input id="dlAccessUrl" readonly value="${lfEsc(url)}"><button class="ghost" id="dlCopyAccess">Копіювати</button><a class="ghost" href="${lfEsc(url)}" target="_blank" rel="noopener">Відкрити ↗</a></div>`;
+    app.querySelector('#dlCopyAccess').onclick=async()=>{try{await navigator.clipboard.writeText(url);app.querySelector('#dlCopyAccess').textContent='Скопійовано ✓'}catch{app.querySelector('#dlAccessUrl').select();document.execCommand('copy')}};
+  };
+
+  const loadAdminWork=async(key)=>{
+    holder.innerHTML='<div class="lf-empty">Завантаження роботи…</div>';
+    try{
+      const {work,feedback}=await dlLoadStudentWork(key);
+      holder.innerHTML=dlRenderAdminWork(work,feedback);
+      holder.querySelectorAll('[data-save-feedback]').forEach(btn=>btn.onclick=async()=>{
+        const stageId=btn.dataset.saveFeedback;
+        const comment=holder.querySelector(`[data-feedback-comment="${stageId}"]`)?.value||'';
+        const status=holder.querySelector(`[data-feedback-status="${stageId}"]`)?.value||'draft';
+        btn.disabled=true;btn.textContent='Збереження…';
+        try{
+          const ref=doc(cloudDb,DIRECTING_LAB_FEEDBACK_COLLECTION,key);
+          const snap=await getDoc(ref); const data=snap.exists()?snap.data():{};
+          const stages={...(data.stages||{}),[stageId]:{comment,status,updatedAt:new Date().toISOString(),updatedBy:currentUser?.email||currentUser?.uid||''}};
+          await setDoc(ref,{studentId:String(st.id),name:String(st.name||''),stages,updatedAt:new Date().toISOString()},{merge:true});
+          btn.textContent='Збережено ✓'; setTimeout(()=>{btn.textContent='Зберегти відгук';btn.disabled=false},1200);
+        }catch(e){console.error(e);alert('Не вдалося зберегти відгук.');btn.disabled=false;btn.textContent='Зберегти відгук'}
+      });
+    }catch(e){console.error(e);holder.innerHTML='<div class="lf-empty">Не вдалося завантажити роботу студента.</div>';}
+  };
+
+  if(labAccessKey){
+    showAccessLink(labAccessKey);
+    await loadAdminWork(labAccessKey);
     return;
   }
-  const key=await dlEnsureStudentAccess(st);
-  const url=dlStudentLabUrl(key);
-  access.innerHTML=`<div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Це приватне посилання студента. Його не потрібно вводити в REMS-Control.</div></div><span class="lf-chip">Активовано</span></div><div class="dl-access-row"><input id="dlAccessUrl" readonly value="${lfEsc(url)}"><button class="ghost" id="dlCopyAccess">Копіювати</button><a class="ghost" href="${lfEsc(url)}" target="_blank" rel="noopener">Відкрити ↗</a></div>`;
-  app.querySelector('#dlCopyAccess').onclick=async()=>{try{await navigator.clipboard.writeText(url);app.querySelector('#dlCopyAccess').textContent='Скопійовано ✓'}catch{app.querySelector('#dlAccessUrl').select();document.execCommand('copy')}};
-  const holder=app.querySelector('#dlAdminWork');
-  holder.innerHTML='<div class="lf-empty">Завантаження роботи…</div>';
-  const {work,feedback}=await dlLoadStudentWork(key);
-  holder.innerHTML=dlRenderAdminWork(work,feedback);
-  holder.querySelectorAll('[data-save-feedback]').forEach(btn=>btn.onclick=async()=>{
-    const stageId=btn.dataset.saveFeedback;
-    const comment=holder.querySelector(`[data-feedback-comment="${stageId}"]`)?.value||'';
-    const status=holder.querySelector(`[data-feedback-status="${stageId}"]`)?.value||'draft';
-    btn.disabled=true;btn.textContent='Збереження…';
+
+  access.innerHTML=`<div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Створи приватне посилання і надішли його студенту.</div></div><button class="primary" id="dlActivateAccess">Створити студентське посилання</button></div>`;
+  holder.innerHTML='<div class="lf-empty">Студентський доступ ще не створено.</div>';
+  app.querySelector('#dlActivateAccess').onclick=async()=>{
+    const b=app.querySelector('#dlActivateAccess');
+    b.disabled=true;b.textContent='Створення…';
     try{
-      const ref=doc(cloudDb,DIRECTING_LAB_FEEDBACK_COLLECTION,key);
-      const snap=await getDoc(ref); const data=snap.exists()?snap.data():{};
-      const stages={...(data.stages||{}),[stageId]:{comment,status,updatedAt:new Date().toISOString(),updatedBy:currentUser?.email||currentUser?.uid||''}};
-      await setDoc(ref,{studentId:String(st.id),name:String(st.name||''),stages,updatedAt:new Date().toISOString()},{merge:true});
-      btn.textContent='Збережено ✓'; setTimeout(()=>{btn.textContent='Зберегти відгук';btn.disabled=false},1200);
-    }catch(e){console.error(e);alert('Не вдалося зберегти відгук.');btn.disabled=false;btn.textContent='Зберегти відгук'}
-  });
+      const key=await dlEnsureStudentAccess(st);
+      showAccessLink(key);
+      await loadAdminWork(key);
+    }catch(e){
+      console.error(e);alert('Не вдалося створити студентське посилання. '+(e?.message||''));
+      b.disabled=false;b.textContent='Створити студентське посилання';
+    }
+  };
 }
 
 (function injectDirectingLabV431Styles(){
