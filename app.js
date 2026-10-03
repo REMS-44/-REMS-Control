@@ -7903,7 +7903,7 @@ async function openDirectingLab(studentId){
   ${owned.length?`<section class="lf-section"><h3>Індивідуальний проєкт</h3><div class="muted">Проєкт має одного автора і автоматично закріплений за цим студентом.</div>${owned.map(projectCard).join('')}</section>`:''}
   ${shared.length?`<section class="lf-section"><h3>Спільний проєкт — тимчасово</h3><div class="muted">Проєкт поки залишається спільним. Він показується в персональних лабораторіях усіх авторів ідеї.</div>${shared.map(projectCard).join('')}</section>`:''}
   ${!projects.length?`<section class="lf-section"><h3>Індивідуальний режисерський проєкт</h3><div class="lf-empty">Проєкт ще не визначено. Студентський простір можна активувати вже зараз.</div></section>`:''}
-  <section class="lf-section" id="dlAccessSection"><div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Окреме персональне посилання. Студент не бачить REMS-Control.</div></div></div><div class="lf-empty">Перевіряю персональний доступ…</div></section>
+  <section class="lf-section" id="dlAccessSection"><div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Окреме персональне посилання. Студент не бачить REMS-Control.</div></div><button class="primary" id="dlActivateAccessInitial" type="button">Створити студентське посилання</button></div></section>
   <section class="lf-section"><h3>Робота студента</h3><div id="dlAdminWork"><div class="lf-empty">Активуй студентський доступ, щоб почати роботу.</div></div></section></div>`;
   app.querySelector('#dlBack').onclick=renderDirectingLaboratory;
 
