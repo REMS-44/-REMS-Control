@@ -7906,6 +7906,46 @@ const DIRECTING_LAB_REMS34_NAMES=[
 ];
 const dlNormPerson=v=>String(v||"").toLowerCase().replace(/[’'`ʼ]/g,"").replace(/ґ/g,"г").replace(/\s+/g," ").trim();
 const DIRECTING_LAB_REMS34_KEYS=new Set(DIRECTING_LAB_REMS34_NAMES.map(dlNormPerson));
+
+// v44.6: персональні папки Google Drive для індивідуальних лабораторій.
+// Ключі дублюються у повній та короткій формі, щоб зіставлення не залежало від по батькові / апострофів.
+const DIRECTING_LAB_PERSONAL_DRIVE_ENTRIES=[
+  ["Баленко Ілля","https://drive.google.com/drive/folders/1k4qJ0kU1tkhRW4C66HV7oPT3iE3MXLwM"],
+  ["Вознюк Олександра","https://drive.google.com/drive/folders/18PTitSgloN_PgQ12EZkrA5_CTe2SvMtE"],
+  ["Волошина Дар’я","https://drive.google.com/drive/folders/1W0TIbui4mP8p2t0Zoo0yRDnkl0AZPU6p"],
+  ["Давидова Світлана","https://drive.google.com/drive/folders/1QLiJuXQD-DdykFxkHMQR5KxZKpdU3Qd3"],
+  ["Данільчук Катерина","https://drive.google.com/drive/folders/1Q-4BsG67rdyBtz8xrRmeJyPcrfhqHB2W"],
+  ["Дубина Віолетта","https://drive.google.com/drive/folders/1S2kanJP53Sk50po1mFy9yikZbOSQ95mv"],
+  ["Карпенко Рімма","https://drive.google.com/drive/folders/1oCoCpxOtFzRwRQM9dL14l2C7qdkNo6Ru"],
+  ["Кириленко Михайло","https://drive.google.com/drive/folders/1VlD2rzr2Gf0E2n8A054qooWkOLr3jg_P"],
+  ["Коткова Анастасія","https://drive.google.com/drive/folders/1H9qiz6ySQ5XpXs-rhs_opMnw05-YLWjJ"],
+  ["Кропивка Маргарита","https://drive.google.com/drive/folders/1d3HzS7ffIAYU8LY9pMbggXvSfm2rdvuN"],
+  ["Лещинський Денис","https://drive.google.com/drive/folders/19JMX6sIJSK3nkU6LQq46nqhwccLms5d8"],
+  ["Мороз Марія","https://drive.google.com/drive/folders/1qNOFpOElj5YePW1rQyt5tPtSecnqzykI"],
+  ["Павлова Катерина","https://drive.google.com/drive/folders/1LqLCmLMesOiqEofb2J17gWRm6JgEWRY9"],
+  ["Піддубна Марія","https://drive.google.com/drive/folders/1cy3fi0iri0fZOXBap0ZSpQSir664bZK0"],
+  ["Ташута Артем","https://drive.google.com/drive/folders/17dR9qkcESksSu7c5-s-TquGuLRESwLXQ"],
+  ["Вінцюк Андрій Олександрович","https://drive.google.com/drive/folders/14lS1-EnkxZOm-oTaVojaSErlfeC61a1X"],
+  ["Власенко Дар`я Андріївна","https://drive.google.com/drive/folders/1XwXD7tcO3PEI9DWjuhYLg5QASuATdfnY"],
+  ["Гострик Катерина Юріївна","https://drive.google.com/drive/folders/1JIURnH1K2uarPkrRIruyGI_rJuy8yt5-"],
+  ["Жолуденко Поліна Ігорівна","https://drive.google.com/drive/folders/1B-cEkOTwwW0DjnHO1qdxm-k4FLpkc4Xc"],
+  ["Заярна Валерія Сергіївна","https://drive.google.com/drive/folders/1bBkTgq_p-LW4Av98F4QWtk7XtkjyjYyq"],
+  ["Касєєв Данило Павлович","https://drive.google.com/drive/folders/19zr4W8qe8xRwHVIbZFiajncF64NrTY9A"],
+  ["Колишкін Андрій Юрійович","https://drive.google.com/drive/folders/1Zt3BO4OMFICBcPWeEWF0UAS0ltKC4xX4"],
+  ["Кохан Ольга Сергіївна","https://drive.google.com/drive/folders/1Z4FjOQqbky9aXkn8aeydw6umzajSNPIK"],
+  ["Кошелєва Мирослава Сергіївна","https://drive.google.com/drive/folders/1Y8QzRBHFQyJgejrQ8ZNh3zqtTWBRx1vD"],
+  ["Краснянський Ростислав Віталійович","https://drive.google.com/drive/folders/1adw5tsSapXZN0VZL_cjtxcU1nC962XB5"],
+  ["Міленіна Марія Олегівна","https://drive.google.com/drive/folders/1efvRRI6-oaJIGN8YyNXjBqlxQUL6qDUH"],
+  ["Мойсієнко Віталіна Денисівна","https://drive.google.com/drive/folders/1a-Z70zOPLoCuIwJQyxcnJqgHmhM9kNRD"],
+  ["Неня Анастасія Миколаївна","https://drive.google.com/drive/folders/1PIjKTUeoOlUF8RzGqfQfgO1SXVgTbwjj"],
+  ["Олейников Данііл Денисович","https://drive.google.com/drive/folders/1AibjkdVGhuprtdy8O4lJWeIzYrflmg1_"],
+  ["Позняк Артур Русланович","https://drive.google.com/drive/folders/1nmwVxRvAo4efozetcx2Hin8JbOCVr184"],
+  ["Рожанківська Іванна Орестівна","https://drive.google.com/drive/folders/1GYPdAVJ57UoXa7Xe341SXemE_v-Z5hz6"],
+  ["Чиньонова Дар`я Олексіївна","https://drive.google.com/drive/folders/13eC4Ci8ueoYgeJX7iJ8wc59otcvW9GzP"]
+];
+const DIRECTING_LAB_PERSONAL_DRIVE_MAP=(()=>{const m=new Map();for(const[name,url]of DIRECTING_LAB_PERSONAL_DRIVE_ENTRIES){const full=dlNormPerson(name),p=full.split(" ").filter(Boolean);m.set(full,url);if(p.length>=2)m.set(`${p[0]} ${p[1]}`,url)}return m})();
+function dlPersonalDriveForStudent(st){const full=dlNormPerson(st?.name||"");const p=full.split(" ").filter(Boolean);return DIRECTING_LAB_PERSONAL_DRIVE_MAP.get(full)||DIRECTING_LAB_PERSONAL_DRIVE_MAP.get(p.slice(0,2).join(" "))||""}
+function dlLegacyProjectDriveForStudent(st,url){const u=String(url||"").trim();if(!u)return false;return dlProjectsForStudent(st).some(p=>String(p?.driveUrl||"").trim()===u)}
 function dlIsNamedRems34(st){const full=dlNormPerson(st?.name||"");if(DIRECTING_LAB_REMS34_KEYS.has(full))return true;const parts=full.split(" ").filter(Boolean);return parts.length>=2&&DIRECTING_LAB_REMS34_KEYS.has(`${parts[0]} ${parts[1]}`)}
 function dlStudentGroup(st){const raw=String(studentGroupLabel(st)||st?.group||"").toUpperCase().replace(/\s+/g,"");if(raw.includes("РЕМС-44")||raw.includes("REMS-44"))return"44";if(dlIsNamedRems34(st))return"34";return""}
 function dlEligibleStudents(){return(db.students||[]).filter(st=>["34","44"].includes(dlStudentGroup(st))).slice().sort((a,b)=>dlStudentGroup(b).localeCompare(dlStudentGroup(a))||String(a.name||"").localeCompare(String(b.name||""),"uk"))}
@@ -7927,7 +7967,7 @@ function dlProjectsForStudent(studentOrId){
     });
   });
 }
-async function ensureDirectingLabs(){db[DIRECTING_LABS_KEY]=Array.isArray(db[DIRECTING_LABS_KEY])?db[DIRECTING_LABS_KEY]:[];const byStudent=new Map(db[DIRECTING_LABS_KEY].map(x=>[String(x.studentId),x]));const now=new Date().toISOString();let changed=false;for(const st of dlEligibleStudents()){const sid=String(st.id);if(byStudent.has(sid))continue;const lab={id:dlLabId(sid),studentId:sid,status:"not_started",createdAt:now,updatedAt:now,driveUrl:""};db[DIRECTING_LABS_KEY].push(lab);byStudent.set(sid,lab);changed=true}if(changed){cache();if(cloudDb&&cloudReady&&currentUser){try{await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:now},{merge:true})}catch(err){console.error("Directing labs persist failed",err)}}}}
+async function ensureDirectingLabs(){db[DIRECTING_LABS_KEY]=Array.isArray(db[DIRECTING_LABS_KEY])?db[DIRECTING_LABS_KEY]:[];const byStudent=new Map(db[DIRECTING_LABS_KEY].map(x=>[String(x.studentId),x]));const now=new Date().toISOString();let changed=false;for(const st of dlEligibleStudents()){const sid=String(st.id),personalDrive=dlPersonalDriveForStudent(st);let lab=byStudent.get(sid);if(!lab){lab={id:dlLabId(sid),studentId:sid,status:"not_started",createdAt:now,updatedAt:now,driveUrl:personalDrive||""};db[DIRECTING_LABS_KEY].push(lab);byStudent.set(sid,lab);changed=true}else if(personalDrive&&(!String(lab.driveUrl||"").trim()||dlLegacyProjectDriveForStudent(st,lab.driveUrl))){lab.driveUrl=personalDrive;lab.updatedAt=now;changed=true}}if(changed){cache();if(cloudDb&&cloudReady&&currentUser){try{await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:now},{merge:true})}catch(err){console.error("Directing labs persist failed",err)}}}}
 function dlProjectOwnershipText(project){const names=lfAuthorNames(project);return names.length<=1?"Індивідуальний проєкт":`Спільний проєкт · ${names.length} автори`}
 function dlPhotoOrInitial(st,detail=false){const photo=sharedStudentPhoto(st);const cls=detail?"dl-detail-photo":"dl-student-photo";if(photo)return`<img class="${cls}" src="${lfEsc(photo)}" alt="${lfEsc(st.name||'Студент')}">`;return`<span class="${cls} dl-student-photo-empty">${lfEsc(String(st.name||'?').trim().charAt(0)||'?')}</span>`}
 const dlNewId=(prefix="x")=>`${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
@@ -7984,7 +8024,7 @@ async function dlEnsureStudentAccess(st){
       studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),mediaId:studentMediaId(st),
       projectId:String(currentProject?.id||""),projectTitle:String(currentProject?.title||""),
       sharedProject:!!(currentProject&&!(lfAuthorIds(currentProject).length===1||lfAuthorNames(currentProject).length===1)),
-      driveUrl:String(lab.driveUrl||currentProject?.driveUrl||""),updatedAt:now
+      driveUrl:String(dlPersonalDriveForStudent(st)||lab.driveUrl||currentProject?.driveUrl||""),updatedAt:now
     };
     await setDoc(workRef,{...base,answers:{},sectionStates:{},stages:{},createdAt:now},{merge:false});
   }else{
@@ -7997,10 +8037,10 @@ async function dlEnsureStudentAccess(st){
       patch.projectTitle=String(currentProject.title||"");
       patch.sharedProject=!(lfAuthorIds(currentProject).length===1||lfAuthorNames(currentProject).length===1);
     }
-    if(!String(old.driveUrl||"").trim()){
-      const recoveredDrive=String(lab.driveUrl||currentProject?.driveUrl||"").trim();
-      if(recoveredDrive)patch.driveUrl=recoveredDrive;
-    }
+    const personalDrive=String(dlPersonalDriveForStudent(st)||lab.driveUrl||"").trim();
+    const oldDrive=String(old.driveUrl||"").trim();
+    if(personalDrive&&(!oldDrive||dlLegacyProjectDriveForStudent(st,oldDrive)))patch.driveUrl=personalDrive;
+    else if(!oldDrive){const recoveredDrive=String(currentProject?.driveUrl||"").trim();if(recoveredDrive)patch.driveUrl=recoveredDrive}
     await setDoc(workRef,patch,{merge:true});
   }
   return key;
@@ -8015,10 +8055,10 @@ function dlRenderAdminWork(work,feedback,schema){if(!work)return`<div class="lf-
 async function dlSaveDriveForStudent(st,url,key){const lab=dlLabForStudent(st.id);if(lab){lab.driveUrl=url;lab.updatedAt=new Date().toISOString();cache();await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:new Date().toISOString()},{merge:true})}if(key)await setDoc(doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,key),{driveUrl:url,updatedAt:new Date().toISOString()},{merge:true})}
 
 async function openDirectingLab(studentId){
-  const st=(db.students||[]).find(s=>String(s.id)===String(studentId));if(!st)return;const lab=dlLabForStudent(st.id)||{},projects=dlProjectsForStudent(st.id),owned=projects.filter(p=>lfAuthorIds(p).length===1),shared=projects.filter(p=>lfAuthorIds(p).length>1),schema=await dlLoadSchema();const projectCard=p=>`<article class="lf-section" style="margin-top:10px"><div class="lf-detail-head"><div><div class="lf-meta"><span class="lf-chip">${lfEsc(dlProjectOwnershipText(p))}</span></div><h3 style="margin:8px 0 4px">${lfEsc(p.title||'Без назви')}</h3></div>${p.driveUrl?`<a class="ghost" href="${lfEsc(p.driveUrl)}" target="_blank" rel="noopener">Google Drive ↗</a>`:''}</div></article>`;
+  const st=(db.students||[]).find(s=>String(s.id)===String(studentId));if(!st)return;const lab=dlLabForStudent(st.id)||{},personalDrive=dlPersonalDriveForStudent(st),projects=dlProjectsForStudent(st.id),owned=projects.filter(p=>lfAuthorIds(p).length===1),shared=projects.filter(p=>lfAuthorIds(p).length>1),schema=await dlLoadSchema();const projectCard=p=>`<article class="lf-section" style="margin-top:10px"><div class="lf-detail-head"><div><div class="lf-meta"><span class="lf-chip">${lfEsc(dlProjectOwnershipText(p))}</span></div><h3 style="margin:8px 0 4px">${lfEsc(p.title||'Без назви')}</h3></div>${p.driveUrl?`<a class="ghost" href="${lfEsc(p.driveUrl)}" target="_blank" rel="noopener">Google Drive ↗</a>`:''}</div></article>`;
   app.innerHTML=`<div class="lf-detail"><div class="lf-detail-head"><div><button class="ghost" id="dlBack">← Усі студенти</button><div class="dl-detail-person" style="margin-top:12px">${dlPhotoOrInitial(st,true)}<div><span class="eyebrow">РЕМС-${dlStudentGroup(st)} · персональна лабораторія</span><h2 style="margin:4px 0">${lfEsc(st.name||'Студент')}</h2><div class="lf-meta"><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span><span class="lf-chip">${projects.length?`${projects.length} пов’язаних проєктів`:'Проєкт ще не визначено'}</span></div></div></div></div><button class="ghost" id="dlGoBuilder">⚙ Конструктор</button></div>
   ${owned.length?`<section class="lf-section"><h3>Індивідуальний проєкт</h3>${owned.map(projectCard).join('')}</section>`:''}${shared.length?`<section class="lf-section"><h3>Спільний проєкт — тимчасово</h3>${shared.map(projectCard).join('')}</section>`:''}${!projects.length?`<section class="lf-section"><h3>Індивідуальний режисерський проєкт</h3><div class="lf-empty">Проєкт ще не визначено. Студент може почати з паспорта й сформулювати робочу назву.</div></section>`:''}
-  <section class="lf-section"><div class="dl-stage-head"><div><h3 style="margin:0">Персональна папка Google Drive</h3><div class="muted">Посилання бачить студент у своїй лабораторії. Туди можна складати сценарії, таблиці, референси й фінальні матеріали.</div></div></div><div class="dl-access-row"><input id="dlDriveUrl" type="url" value="${lfEsc(lab.driveUrl||owned[0]?.driveUrl||shared[0]?.driveUrl||'')}" placeholder="https://drive.google.com/drive/folders/…"><button class="ghost" id="dlSaveDrive">Зберегти</button><a class="ghost" id="dlOpenDrive" href="${lfEsc(lab.driveUrl||owned[0]?.driveUrl||shared[0]?.driveUrl||'#')}" target="_blank" rel="noopener">Відкрити ↗</a></div></section>
+  <section class="lf-section"><div class="dl-stage-head"><div><h3 style="margin:0">Персональна папка Google Drive</h3><div class="muted">Посилання бачить студент у своїй лабораторії. Туди можна складати сценарії, таблиці, референси й фінальні матеріали.</div></div></div><div class="dl-access-row"><input id="dlDriveUrl" type="url" value="${lfEsc(personalDrive||lab.driveUrl||owned[0]?.driveUrl||shared[0]?.driveUrl||'')}" placeholder="https://drive.google.com/drive/folders/…"><button class="ghost" id="dlSaveDrive">Зберегти</button><a class="ghost" id="dlOpenDrive" href="${lfEsc(personalDrive||lab.driveUrl||owned[0]?.driveUrl||shared[0]?.driveUrl||'#')}" target="_blank" rel="noopener">Відкрити ↗</a></div></section>
   <section class="lf-section" id="dlAccessSection"></section><section class="lf-section"><h3>Робота студента</h3><div id="dlAdminWork"><div class="lf-empty">Активуй студентський доступ, щоб почати роботу.</div></div></section></div>`;
   app.querySelector('#dlBack').onclick=renderDirectingLaboratory;app.querySelector('#dlGoBuilder').onclick=openDirectingLabConstructor;const access=app.querySelector('#dlAccessSection'),holder=app.querySelector('#dlAdminWork');let key=String((dlLabForStudent(st.id)||{}).accessKey||'').trim();
   const showAccessLink=k=>{const url=dlStudentLabUrl(k);access.innerHTML=`<div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Приватне персональне посилання. Студент бачить тільки власну лабораторію.</div></div><span class="lf-chip">Активовано</span></div><div class="dl-access-row"><input id="dlAccessUrl" readonly value="${lfEsc(url)}"><button class="ghost" id="dlCopyAccess">Копіювати</button><a class="ghost" href="${lfEsc(url)}" target="_blank" rel="noopener">Відкрити ↗</a></div>`;app.querySelector('#dlCopyAccess').onclick=async()=>{try{await navigator.clipboard.writeText(url);app.querySelector('#dlCopyAccess').textContent='Скопійовано ✓'}catch{app.querySelector('#dlAccessUrl').select();document.execCommand('copy')}}};
