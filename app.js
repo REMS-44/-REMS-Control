@@ -911,7 +911,7 @@ const save=async()=>{
     cache();
     // Main REMS Control save must finish immediately. Personal pages refresh in the background.
     syncExistingPersonalSchedules().catch(err=>console.error("Background personal schedule sync failed:",err));
-    setStatus("v39.3 · хмара ✓");
+    setStatus("v44.8 · хмара ✓");
     // Every derived screen should reflect the edited cloud data.
     // A rendering error must not turn a successful Firestore write into a failed save.
     try{
@@ -7907,7 +7907,7 @@ const DIRECTING_LAB_REMS34_NAMES=[
 const dlNormPerson=v=>String(v||"").toLowerCase().replace(/[’'`ʼ]/g,"").replace(/ґ/g,"г").replace(/\s+/g," ").trim();
 const DIRECTING_LAB_REMS34_KEYS=new Set(DIRECTING_LAB_REMS34_NAMES.map(dlNormPerson));
 
-// v44.7: персональні папки Google Drive для індивідуальних лабораторій, включно з Максімовою та Мостовою.
+// v44.8: персональні папки Google Drive для індивідуальних лабораторій, включно з Максімовою та Мостовою.
 // Ключі дублюються у повній та короткій формі, щоб зіставлення не залежало від по батькові / апострофів.
 const DIRECTING_LAB_PERSONAL_DRIVE_ENTRIES=[
   ["Баленко Ілля","https://drive.google.com/drive/folders/1k4qJ0kU1tkhRW4C66HV7oPT3iE3MXLwM"],
@@ -8842,14 +8842,14 @@ async function initCloud(){
 
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.9 · Firebase не налаштовано");
+    setStatus("v44.8 · Firebase не налаштовано");
     dashboard();
     cloudInitializing=false;
     return;
   }
 
   try{
-    setStatus("v7.0 · завантаження хмари…");
+    setStatus("v44.8 · завантаження хмари…");
     if(!firebaseApp) firebaseApp=initializeApp(cfg);
 functions=getFunctions(firebaseApp,"europe-west1");
     cloudDb=getFirestore(firebaseApp);
@@ -8896,16 +8896,16 @@ functions=getFunctions(firebaseApp,"europe-west1");
     // One-time acknowledgement reset. Only old confirmations are removed;
     // projects, events, assignments and students remain untouched.
     try{
-      setStatus("v7.0 · обнулення ознайомлень…");
+      setStatus("v44.8 · обнулення ознайомлень…");
       const resetCount=await resetAllAcknowledgementsOnce(ref);
       if(resetCount>0) console.info(`Обнулено ознайомлень: ${resetCount}`);
     }catch(err){
       console.error("Acknowledgement reset failed:",err);
-      setStatus("v7.0 · помилка обнулення ознайомлень");
+      setStatus("v44.8 · помилка обнулення ознайомлень");
       throw err;
     }
 
-    setStatus("v39.3 · хмара ✓");
+    setStatus("v44.8 · хмара ✓");
 
     if(!localStorage.getItem("rems_public_existing_profiles_v37")){
       let changed=false;
@@ -9017,19 +9017,19 @@ functions=getFunctions(firebaseApp,"europe-west1");
           console.error("View refresh error:",renderErr);
         }
       });
-      setStatus("v39.3 · хмара ✓");
+      setStatus("v44.8 · хмара ✓");
     },err=>{
       console.error(err);
       cloudReady=false;
       setWriteUiReady(false);
-      setStatus("v5.9 · хмара недоступна");
+      setStatus("v44.8 · хмара недоступна");
     });
 
   }catch(err){
     console.error(err);
     cloudReady=false;
     setWriteUiReady(false);
-    setStatus("v5.9 · хмара недоступна");
+    setStatus("v44.8 · хмара недоступна");
     try{ dashboard(); }catch(renderErr){ console.error("Offline dashboard render error:",renderErr); }
   }finally{
     cloudInitializing=false;
@@ -9040,7 +9040,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
 async function bootstrapAuth(){
   const cfg=window.REMS_FIREBASE_CONFIG;
   if(!cfg){
-    setStatus("v5.9 · Firebase не налаштовано");
+    setStatus("v44.8 · Firebase не налаштовано");
     showLogin();
     return;
   }
@@ -9056,19 +9056,19 @@ async function bootstrapAuth(){
       if(currentUser){
         hideLogin();
         ensureLogout();
-        setStatus("v5.9 · вхід ✓");
+        setStatus("v44.8 · вхід ✓");
         if(!cloudReady) await initCloud();
       }else{
         cloudReady=false;
         setWriteUiReady(false);
         clearLogout();
         showLogin();
-        setStatus("v5.9 · потрібен вхід");
+        setStatus("v44.8 · потрібен вхід");
       }
     });
   }catch(err){
     console.error(err);
-    setStatus("v5.9 · помилка авторизації");
+    setStatus("v44.8 · помилка авторизації");
     showLogin();
   }
 }
