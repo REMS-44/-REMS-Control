@@ -7785,7 +7785,22 @@ function dlStudentGroup(st){const raw=String(studentGroupLabel(st)||st?.group||"
 function dlEligibleStudents(){return(db.students||[]).filter(st=>["34","44"].includes(dlStudentGroup(st))).slice().sort((a,b)=>dlStudentGroup(b).localeCompare(dlStudentGroup(a))||String(a.name||"").localeCompare(String(b.name||""),"uk"))}
 function dlLabId(studentId){return`dl-${String(studentId)}`}
 function dlLabForStudent(studentId){db[DIRECTING_LABS_KEY]=Array.isArray(db[DIRECTING_LABS_KEY])?db[DIRECTING_LABS_KEY]:[];return db[DIRECTING_LABS_KEY].find(x=>String(x.studentId)===String(studentId))||null}
-function dlProjectsForStudent(studentId){const sid=String(studentId);return(largeFormsCache||[]).filter(x=>lfAuthorIds(x).includes(sid))}
+function dlProjectsForStudent(studentOrId){
+  const st=(studentOrId&&typeof studentOrId==="object")?studentOrId:(db.students||[]).find(s=>String(s.id)===String(studentOrId));
+  const sid=String(st?.id??studentOrId??"");
+  const studentName=dlNormPerson(st?.name||"");
+  const compactName=v=>{const parts=dlNormPerson(v).split(" ").filter(Boolean);return parts.slice(0,2).join(" ")};
+  const studentShort=compactName(st?.name||"");
+  return(largeFormsCache||[]).filter(x=>{
+    if(sid&&lfAuthorIds(x).includes(sid))return true;
+    if(!studentName)return false;
+    const authorNames=lfAuthorNames(x);
+    return authorNames.some(name=>{
+      const full=dlNormPerson(name),short=compactName(name);
+      return full===studentName||(studentShort&&short===studentShort);
+    });
+  });
+}
 async function ensureDirectingLabs(){db[DIRECTING_LABS_KEY]=Array.isArray(db[DIRECTING_LABS_KEY])?db[DIRECTING_LABS_KEY]:[];const byStudent=new Map(db[DIRECTING_LABS_KEY].map(x=>[String(x.studentId),x]));const now=new Date().toISOString();let changed=false;for(const st of dlEligibleStudents()){const sid=String(st.id);if(byStudent.has(sid))continue;const lab={id:dlLabId(sid),studentId:sid,status:"not_started",createdAt:now,updatedAt:now,driveUrl:""};db[DIRECTING_LABS_KEY].push(lab);byStudent.set(sid,lab);changed=true}if(changed){cache();if(cloudDb&&cloudReady&&currentUser){try{await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:now},{merge:true})}catch(err){console.error("Directing labs persist failed",err)}}}}
 function dlProjectOwnershipText(project){const names=lfAuthorNames(project);return names.length<=1?"Індивідуальний проєкт":`Спільний проєкт · ${names.length} автори`}
 function dlPhotoOrInitial(st,detail=false){const photo=sharedStudentPhoto(st);const cls=detail?"dl-detail-photo":"dl-student-photo";if(photo)return`<img class="${cls}" src="${lfEsc(photo)}" alt="${lfEsc(st.name||'Студент')}">`;return`<span class="${cls} dl-student-photo-empty">${lfEsc(String(st.name||'?').trim().charAt(0)||'?')}</span>`}
@@ -7814,7 +7829,56 @@ async function openDirectingLabConstructor(){
 
 function dlRandomAccessKey(){const bytes=new Uint8Array(24);crypto.getRandomValues(bytes);return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("")}
 async function dlPersistLabAccessKey(studentId,key){const lab=dlLabForStudent(studentId);if(!lab)throw new Error("Лабораторію студента не знайдено");if(lab.accessKey===key)return;lab.accessKey=key;lab.updatedAt=new Date().toISOString();cache();if(cloudDb&&cloudReady&&currentUser)await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:new Date().toISOString()},{merge:true})}
-async function dlEnsureStudentAccess(st){if(!cloudDb||!currentUser)throw new Error("Потрібен вхід викладача");const lab=dlLabForStudent(st.id);if(!lab)throw new Error("Лабораторію студента не знайдено");const key=String(lab.accessKey||"").trim()||dlRandomAccessKey();const now=new Date().toISOString();await setDoc(doc(cloudDb,"rems_student_schedules",key),{studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),items:[],projects:{},updatedAt:now,createdAt:lab.accessKey?undefined:now},{merge:true});if(!lab.accessKey)await dlPersistLabAccessKey(st.id,key);const projects=dlProjectsForStudent(st.id),owned=projects.filter(p=>lfAuthorIds(p).length===1),shared=projects.filter(p=>lfAuthorIds(p).length>1),currentProject=owned[0]||shared[0]||null;const workRef=doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,key);const snap=await getDoc(workRef);const base={studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),mediaId:studentMediaId(st),projectId:String(currentProject?.id||""),projectTitle:String(currentProject?.title||""),sharedProject:!!(currentProject&&lfAuthorIds(currentProject).length>1),driveUrl:String(lab.driveUrl||currentProject?.driveUrl||""),updatedAt:now};if(!snap.exists())await setDoc(workRef,{...base,answers:{},sectionStates:{},stages:{},createdAt:now},{merge:false});else await setDoc(workRef,base,{merge:true});return key}
+async function dlEnsureStudentAccess(st){
+  if(!cloudDb||!currentUser)throw new Error("Потрібен вхід викладача");
+  const lab=dlLabForStudent(st.id);if(!lab)throw new Error("Лабораторію студента не знайдено");
+  const key=String(lab.accessKey||"").trim()||dlRandomAccessKey();
+  const now=new Date().toISOString();
+
+  // IMPORTANT: activation must never wipe an already existing personal schedule.
+  const scheduleRef=doc(cloudDb,"rems_student_schedules",key);
+  const scheduleSnap=await getDoc(scheduleRef);
+  if(!scheduleSnap.exists()){
+    await setDoc(scheduleRef,{studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),items:[],projects:{},updatedAt:now,createdAt:now},{merge:false});
+  }else{
+    await setDoc(scheduleRef,{studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),updatedAt:now},{merge:true});
+  }
+  if(!lab.accessKey)await dlPersistLabAccessKey(st.id,key);
+
+  // Project recovery works by current student ID and, as a fallback, by author name.
+  const projects=dlProjectsForStudent(st);
+  const owned=projects.filter(p=>lfAuthorIds(p).length===1||lfAuthorNames(p).length===1);
+  const shared=projects.filter(p=>!owned.includes(p));
+  const currentProject=owned[0]||shared[0]||null;
+  const workRef=doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,key);
+  const snap=await getDoc(workRef);
+
+  if(!snap.exists()){
+    const base={
+      studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),mediaId:studentMediaId(st),
+      projectId:String(currentProject?.id||""),projectTitle:String(currentProject?.title||""),
+      sharedProject:!!(currentProject&&!(lfAuthorIds(currentProject).length===1||lfAuthorNames(currentProject).length===1)),
+      driveUrl:String(lab.driveUrl||currentProject?.driveUrl||""),updatedAt:now
+    };
+    await setDoc(workRef,{...base,answers:{},sectionStates:{},stages:{},createdAt:now},{merge:false});
+  }else{
+    const old=snap.data()||{};
+    // Existing work is sacred: never replace a non-empty project, Drive URL, answers or stages with blanks.
+    const patch={studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),mediaId:studentMediaId(st),updatedAt:now};
+    const oldProjectId=String(old.projectId||"").trim(),oldProjectTitle=String(old.projectTitle||"").trim();
+    if(!oldProjectId&&!oldProjectTitle&&currentProject){
+      patch.projectId=String(currentProject.id||"");
+      patch.projectTitle=String(currentProject.title||"");
+      patch.sharedProject=!(lfAuthorIds(currentProject).length===1||lfAuthorNames(currentProject).length===1);
+    }
+    if(!String(old.driveUrl||"").trim()){
+      const recoveredDrive=String(lab.driveUrl||currentProject?.driveUrl||"").trim();
+      if(recoveredDrive)patch.driveUrl=recoveredDrive;
+    }
+    await setDoc(workRef,patch,{merge:true});
+  }
+  return key;
+}
 async function dlActivateAllStudents(button){if(!cloudDb||!currentUser){alert("Потрібен вхід викладача.");return}const students=dlEligibleStudents();if(!students.length){alert("Не знайдено студентів РЕМС-34 / РЕМС-44.");return}const already=students.filter(st=>String((dlLabForStudent(st.id)||{}).accessKey||"").trim()).length;if(!confirm(`Активувати персональні лабораторії для всіх ${students.length} студентів?\n\nНових доступів: ${students.length-already}. Уже активовані: ${already}.`))return;const original=button?.textContent||"Активувати лабораторії всім";if(button)button.disabled=true;let created=0,repaired=0,failed=[];for(let i=0;i<students.length;i++){const st=students[i],hadKey=!!String((dlLabForStudent(st.id)||{}).accessKey||"").trim();if(button)button.textContent=`Активація ${i+1}/${students.length}…`;try{await dlEnsureStudentAccess(st);hadKey?repaired++:created++}catch(e){console.error(e);failed.push(st.name)}}if(button){button.disabled=false;button.textContent=original}renderDirectingLaboratory();alert(`Готово. Нових: ${created}. Перевірено: ${repaired}.${failed.length?`\nПомилки: ${failed.join(', ')}`:''}`)}
 function dlStudentLabUrl(key){const u=new URL("lab.html",location.href);u.searchParams.set("key",key);return u.href}
 async function dlLoadStudentWork(key){if(!cloudDb||!key)return{work:null,feedback:null};const[w,f]=await Promise.all([getDoc(doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,key)),getDoc(doc(cloudDb,DIRECTING_LAB_FEEDBACK_COLLECTION,key))]);return{work:w.exists()?w.data():null,feedback:f.exists()?f.data():null}}
