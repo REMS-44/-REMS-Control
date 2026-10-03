@@ -7724,21 +7724,35 @@ async function deleteLargeForm(id){
   return true;
 }
 
-// v43 — «Режисерська лабораторія»: персональний простір кожного студента РЕМС-43 / РЕМС-44.
+// v43.1 — «Режисерська лабораторія»: персональний простір студентів РЕМС-34 / РЕМС-44.
 // Старі «Великі форми» не видаляються: вони лишаються джерелом уже створених навчальних проєктів.
 // Якщо автор один — проєкт відображається в лабораторії цього студента.
 // Якщо авторів кілька — той самий спільний проєкт тимчасово відображається в лабораторіях усіх авторів.
 const DIRECTING_LABS_KEY="directingLabs";
 let directingLabFilter="44";
 
+// Точний актуальний склад РЕМС-34 для лабораторії.
+const DIRECTING_LAB_REMS34_NAMES=[
+  "Баленко Ілля","Вознюк Олександра","Волошина Дар’я","Давидова Світлана","Данільчук Катерина",
+  "Дубина Віолетта","Карпенко Рімма","Кириленко Михайло","Коткова Анастасія","Кропивка Маргарита",
+  "Лещинський Денис","Мороз Марія","Павлова Катерина","Піддубна Марія","Ташута Артем"
+];
+const dlNormPerson=v=>String(v||"").toLowerCase().replace(/[’'`ʼ]/g,"").replace(/ґ/g,"г").replace(/\s+/g," ").trim();
+const DIRECTING_LAB_REMS34_KEYS=new Set(DIRECTING_LAB_REMS34_NAMES.map(dlNormPerson));
+function dlIsNamedRems34(st){
+  const full=dlNormPerson(st?.name||"");
+  if(DIRECTING_LAB_REMS34_KEYS.has(full)) return true;
+  const parts=full.split(" ").filter(Boolean);
+  return parts.length>=2 && DIRECTING_LAB_REMS34_KEYS.has(`${parts[0]} ${parts[1]}`);
+}
 function dlStudentGroup(st){
   const raw=String(studentGroupLabel(st)||st?.group||"").toUpperCase().replace(/\s+/g,"");
   if(raw.includes("РЕМС-44")||raw.includes("REMS-44")) return "44";
-  if(raw.includes("РЕМС-43")||raw.includes("REMS-43")) return "43";
+  if(dlIsNamedRems34(st)) return "34";
   return "";
 }
 function dlEligibleStudents(){
-  return (db.students||[]).filter(st=>["43","44"].includes(dlStudentGroup(st)))
+  return (db.students||[]).filter(st=>["34","44"].includes(dlStudentGroup(st)))
     .slice().sort((a,b)=>dlStudentGroup(b).localeCompare(dlStudentGroup(a))||String(a.name||"").localeCompare(String(b.name||""),"uk"));
 }
 function dlLabId(studentId){ return `dl-${String(studentId)}`; }
@@ -7775,12 +7789,18 @@ function dlProjectOwnershipText(project){
   if(names.length<=1) return "Індивідуальний проєкт";
   return `Спільний проєкт · ${names.length} автори`;
 }
+function dlPhotoOrInitial(st,detail=false){
+  const photo=sharedStudentPhoto(st);
+  const cls=detail?"dl-detail-photo":"dl-student-photo";
+  if(photo) return `<img class="${cls}" src="${lfEsc(photo)}" alt="${lfEsc(st.name||'Студент')}">`;
+  return `<span class="${cls} dl-student-photo-empty">${lfEsc(String(st.name||'?').trim().charAt(0)||'?')}</span>`;
+}
 function renderDirectingLaboratory(){
   const all=dlEligibleStudents();
   const rows=all.filter(st=>directingLabFilter==="all"||dlStudentGroup(st)===directingLabFilter);
-  const counts={"43":all.filter(st=>dlStudentGroup(st)==="43").length,"44":all.filter(st=>dlStudentGroup(st)==="44").length};
-  app.innerHTML=`<div class="lf-toolbar"><div><span class="eyebrow">Індивідуальна робота</span><h2 style="margin:4px 0 3px">Режисерська лабораторія</h2><div class="muted">Персональна сторінка кожного студента РЕМС-43 і РЕМС-44. Уже створені навчальні проєкти збережені та прив’язані за авторами ідеї.</div></div><div class="lf-tabs"><button class="lf-tab ${directingLabFilter==='44'?'active':''}" data-dl-filter="44">РЕМС-44 · ${counts['44']}</button><button class="lf-tab ${directingLabFilter==='43'?'active':''}" data-dl-filter="43">РЕМС-43 · ${counts['43']}</button><button class="lf-tab ${directingLabFilter==='all'?'active':''}" data-dl-filter="all">Усі · ${all.length}</button></div></div>
-  <div class="lf-grid">${rows.map(st=>{const lab=dlLabForStudent(st.id)||{};const projects=dlProjectsForStudent(st.id);const single=projects.filter(p=>lfAuthorIds(p).length===1);const shared=projects.filter(p=>lfAuthorIds(p).length>1);return `<button class="lf-card" data-dl-open="${lfEsc(st.id)}" style="--lf-color:${dlStudentGroup(st)==='44'?'#7c3aed':'#2563eb'}"><div class="lf-card-head"><div><div class="lf-meta"><span class="lf-chip">РЕМС-${dlStudentGroup(st)}</span><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span></div><h3>${lfEsc(st.name||'Студент')}</h3></div><span>→</span></div><div class="lf-team">${single.length?`Закріплено: <b>${lfEsc(single.map(p=>p.title||'Без назви').join(', '))}</b>`:shared.length?`Поки спільний проєкт: <b>${lfEsc(shared.map(p=>p.title||'Без назви').join(', '))}</b>`:'Індивідуальний проєкт ще не визначено'}</div>${shared.length?`<div class="muted">Спільних проєктів до уточнення авторства: ${shared.length}</div>`:''}</button>`}).join('')||'<div class="lf-empty">У контингенті не знайдено студентів РЕМС-43 / РЕМС-44.</div>'}</div>`;
+  const counts={"34":all.filter(st=>dlStudentGroup(st)==="34").length,"44":all.filter(st=>dlStudentGroup(st)==="44").length};
+  app.innerHTML=`<div class="lf-toolbar"><div><span class="eyebrow">Індивідуальна робота</span><h2 style="margin:4px 0 3px">Режисерська лабораторія</h2><div class="muted">Персональна сторінка кожного студента РЕМС-34 і РЕМС-44. Фото підтягуються з тих самих карток, що й у вкладці «Студенти». Уже створені навчальні проєкти збережені та прив’язані за авторами ідеї.</div></div><div class="lf-tabs"><button class="lf-tab ${directingLabFilter==='44'?'active':''}" data-dl-filter="44">РЕМС-44 · ${counts['44']}</button><button class="lf-tab ${directingLabFilter==='34'?'active':''}" data-dl-filter="34">РЕМС-34 · ${counts['34']}</button><button class="lf-tab ${directingLabFilter==='all'?'active':''}" data-dl-filter="all">Усі · ${all.length}</button></div></div>
+  <div class="lf-grid">${rows.map(st=>{const lab=dlLabForStudent(st.id)||{};const projects=dlProjectsForStudent(st.id);const single=projects.filter(p=>lfAuthorIds(p).length===1);const shared=projects.filter(p=>lfAuthorIds(p).length>1);return `<button class="lf-card dl-student-card" data-dl-open="${lfEsc(st.id)}" style="--lf-color:${dlStudentGroup(st)==='44'?'#7c3aed':'#2563eb'}"><div class="dl-card-row">${dlPhotoOrInitial(st)}<div class="dl-card-main"><div class="lf-card-head"><div><div class="lf-meta"><span class="lf-chip">РЕМС-${dlStudentGroup(st)}</span><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span></div><h3>${lfEsc(st.name||'Студент')}</h3></div><span>→</span></div><div class="lf-team">${single.length?`Закріплено: <b>${lfEsc(single.map(p=>p.title||'Без назви').join(', '))}</b>`:shared.length?`Поки спільний проєкт: <b>${lfEsc(shared.map(p=>p.title||'Без назви').join(', '))}</b>`:'Індивідуальний проєкт ще не визначено'}</div>${shared.length?`<div class="muted">Спільних проєктів до уточнення авторства: ${shared.length}</div>`:''}</div></div></button>`}).join('')||'<div class="lf-empty">У контингенті не знайдено студентів РЕМС-34 / РЕМС-44.</div>'}</div>`;
   app.querySelectorAll('[data-dl-filter]').forEach(b=>b.onclick=()=>{directingLabFilter=b.dataset.dlFilter;renderDirectingLaboratory();});
   app.querySelectorAll('[data-dl-open]').forEach(b=>b.onclick=()=>openDirectingLab(b.dataset.dlOpen));
 }
@@ -7791,7 +7811,7 @@ function openDirectingLab(studentId){
   const owned=projects.filter(p=>lfAuthorIds(p).length===1);
   const shared=projects.filter(p=>lfAuthorIds(p).length>1);
   const projectCard=p=>`<article class="lf-section" style="margin-top:10px"><div class="lf-detail-head"><div><div class="lf-meta"><span class="lf-chip">${lfEsc(dlProjectOwnershipText(p))}</span><span class="lf-chip">${lfEsc(lfStatusLabels[lfNormalizeStatus(p.status)])}</span></div><h3 style="margin:8px 0 4px">${lfEsc(p.title||'Без назви')}</h3>${lfAuthorNames(p).length>1?`<div class="muted">Автори ідеї: ${lfEsc(lfAuthorNames(p).join(', '))}</div>`:''}</div>${p.driveUrl?`<a class="ghost" href="${lfEsc(p.driveUrl)}" target="_blank" rel="noopener">Google Drive ↗</a>`:''}</div></article>`;
-  app.innerHTML=`<div class="lf-detail"><div class="lf-detail-head"><div><button class="ghost" id="dlBack">← Усі студенти</button><div style="margin-top:12px"><span class="eyebrow">РЕМС-${dlStudentGroup(st)} · персональна лабораторія</span><h2 style="margin:4px 0">${lfEsc(st.name||'Студент')}</h2><div class="lf-meta"><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span><span class="lf-chip">${projects.length?`${projects.length} пов’язаних проєктів`:'Проєкт ще не визначено'}</span></div></div></div></div>
+  app.innerHTML=`<div class="lf-detail"><div class="lf-detail-head"><div><button class="ghost" id="dlBack">← Усі студенти</button><div class="dl-detail-person" style="margin-top:12px">${dlPhotoOrInitial(st,true)}<div><span class="eyebrow">РЕМС-${dlStudentGroup(st)} · персональна лабораторія</span><h2 style="margin:4px 0">${lfEsc(st.name||'Студент')}</h2><div class="lf-meta"><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span><span class="lf-chip">${projects.length?`${projects.length} пов’язаних проєктів`:'Проєкт ще не визначено'}</span></div></div></div></div></div>
   ${owned.length?`<section class="lf-section"><h3>Індивідуальний проєкт</h3><div class="muted">Проєкт має одного автора і автоматично закріплений за цим студентом.</div>${owned.map(projectCard).join('')}</section>`:''}
   ${shared.length?`<section class="lf-section"><h3>Спільний проєкт — тимчасово</h3><div class="muted">Проєкт поки залишається спільним. Він показується в персональних лабораторіях усіх авторів ідеї. Коли визначимо остаточного автора, змінимо прив’язку без створення дубля.</div>${shared.map(projectCard).join('')}</section>`:''}
   ${!projects.length?`<section class="lf-section"><h3>Індивідуальний режисерський проєкт</h3><div class="lf-empty">Для цього студента сторінку лабораторії вже створено. Назву та структуру нового індивідуального проєкту додамо наступним кроком.</div></section>`:''}
@@ -7799,11 +7819,24 @@ function openDirectingLab(studentId){
   app.querySelector('#dlBack').onclick=renderDirectingLaboratory;
 }
 
+(function injectDirectingLabV431Styles(){
+  if(document.getElementById("remsDirectingLabV431Styles")) return;
+  const st=document.createElement("style");st.id="remsDirectingLabV431Styles";
+  st.textContent=`
+    .dl-card-row{display:flex;gap:14px;align-items:flex-start}.dl-card-main{min-width:0;flex:1}
+    .dl-student-photo,.dl-detail-photo{width:72px;height:88px;object-fit:cover;border-radius:14px;background:#eef2f7;border:1px solid #e5e7eb;flex:0 0 auto}
+    .dl-student-photo-empty{display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#64748b}
+    .dl-detail-person{display:flex;gap:16px;align-items:center}.dl-detail-photo{width:86px;height:106px}
+    @media(max-width:800px){.dl-student-photo{width:62px;height:76px}.dl-detail-photo{width:72px;height:88px}}
+  `;document.head.appendChild(st);
+})();
+
 let lfFilter="all";
 async function largeforms(){
   app.innerHTML='<div class="loading">Завантаження режисерської лабораторії…</div>';
   await loadLargeForms();
   await ensureLargeFormsStarterSeed();
+  await loadAllStudentMedia();
   await ensureDirectingLabs();
   renderDirectingLaboratory();
 }
