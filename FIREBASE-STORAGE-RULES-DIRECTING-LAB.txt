@@ -1,0 +1,24 @@
+REMS Control v44.0 — правила Firebase Storage для студентських файлів лабораторії
+
+ЦЕ ОКРЕМІ правила Cloud Storage (Firebase Console → Storage → Rules), не Firestore Rules.
+Їх треба ОБ'ЄДНАТИ з чинними Storage Rules.
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Залиште тут інші чинні match-блоки вашого Storage, якщо вони є.
+
+    match /directing-lab/{labKey}/{allPaths=**} {
+      // Доступ дозволено лише тоді, коли існує персональний робочий документ
+      // з таким секретним ключем. Максимальний розмір одного файла — 25 МБ.
+      allow read: if firestore.exists(
+        /databases/(default)/documents/rems_directing_lab_work/$(labKey)
+      );
+
+      allow write: if firestore.exists(
+        /databases/(default)/documents/rems_directing_lab_work/$(labKey)
+      ) && request.resource.size < 25 * 1024 * 1024;
+    }
+  }
+}

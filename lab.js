@@ -1,5 +1,6 @@
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
-import { getFirestore, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-storage.js";
 
 const cfg=window.REMS_FIREBASE_CONFIG;
 const appEl=document.getElementById("labApp");
@@ -9,65 +10,54 @@ const STORAGE_KEY="rems_directing_lab_access_key";
 const urlKey=String(params.get("key")||"").trim();
 if(urlKey){try{localStorage.setItem(STORAGE_KEY,urlKey)}catch{}}
 const key=urlKey||(()=>{try{return localStorage.getItem(STORAGE_KEY)||""}catch{return ""}})();
-const STAGES=[
-  {id:"passport",title:"1. Паспорт проєкту",fields:[["projectTitle","Робоча назва проєкту"],["format","Форма / жанр"],["concept","Коротка концепція"]]},
-  {id:"dramaturgy",title:"2. Драматургічна основа",fields:[["theme","Тема"],["idea","Ідея"],["problem","Проблематика"],["conflict","Конфлікт"],["structure","Архітектоніка / структура"]]},
-  {id:"director",title:"3. Режисерський задум",fields:[["directorConcept","Режисерський задум"],["image","Образ проєкту"],["techniques","Режисерські прийоми та засоби виразності"]]},
-  {id:"staging",title:"4. Постановочне рішення",fields:[["space","Простір і мізансценування"],["visual","Сценографія / візуальне рішення"],["tech","Світло, звук, відео"],["rhythm","Темпоритм"]]},
-  {id:"plan",title:"5. Режисерсько-постановочний план",fields:[["plan","Постановочний план / послідовність епізодів"],["links","Посилання на сценарій, референси, Drive / Canva / відео"]]}
-];
 const STATUS={draft:"Чернетка",submitted:"Подано",revision:"Доопрацювати",approved:"Погоджено"};
+const DEFAULT_SCHEMA={version:1,title:"Режисерська лабораторія",subtitle:"Індивідуальна траєкторія розробки режисерського проєкту",sections:[
+{id:"passport",title:"1. Паспорт проєкту",intro:"Це стартова картка майбутнього проєкту. Визнач робочу назву, форму та коротко сформулюй задум.",published:true,blocks:[{id:"projectTitle",type:"text",title:"Робоча назва проєкту",help:"Назва може бути робочою і змінюватися в процесі.",placeholder:"Введи робочу назву",required:true},{id:"format",type:"text",title:"Форма / жанр",help:"Визнач сценічну форму або жанрову природу задуму.",placeholder:"Наприклад: музично-сценічний перформанс"},{id:"concept",type:"textarea",title:"Коротка концепція",help:"Стисло опиши, що саме ти хочеш створити і чому цей задум важливий.",placeholder:"2–5 абзаців"}]},
+{id:"dramaturgy",title:"2. Драматургічна основа",intro:"У цьому розділі формується смислова й драматургічна основа майбутнього проєкту.",published:true,blocks:[{id:"theme",type:"textarea",title:"Тема",help:"Сформулюй предмет художнього осмислення."},{id:"idea",type:"textarea",title:"Ідея",help:"Сформулюй основну авторську думку."},{id:"problem",type:"textarea",title:"Проблематика",help:"Які питання та суперечності досліджує проєкт?"},{id:"conflict",type:"textarea",title:"Конфлікт",help:"Опиши головне зіткнення сил, позицій або цінностей."},{id:"structure",type:"textarea",title:"Архітектоніка / структура",help:"Опиши великі частини або логіку розвитку дії."}]},
+{id:"director",title:"3. Режисерський задум",intro:"Розділ переводить драматургічну основу у мову режисури.",published:true,blocks:[{id:"directorConcept",type:"textarea",title:"Режисерський задум"},{id:"image",type:"textarea",title:"Образ проєкту"},{id:"techniques",type:"textarea",title:"Режисерські прийоми та засоби виразності"}]},
+{id:"staging",title:"4. Постановочне рішення",intro:"Тут задум конкретизується через простір, мізансцену, сценографію, світло, звук, відео та темпоритм.",published:true,blocks:[{id:"space",type:"textarea",title:"Простір і мізансценування"},{id:"visual",type:"textarea",title:"Сценографія / візуальне рішення"},{id:"tech",type:"textarea",title:"Світло, звук, відео"},{id:"rhythm",type:"textarea",title:"Темпоритм"}]},
+{id:"plan",title:"5. Режисерсько-постановочний план",intro:"Фінальний робочий розділ збирає матеріал у постановочну документацію.",published:true,blocks:[{id:"plan",type:"textarea",title:"Постановочний план / послідовність епізодів"},{id:"links",type:"link",title:"Робочі посилання",help:"Сценарій, Canva, відео, референси або інші матеріали."}]}
+]};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let work=null,feedback=null,rendering=false;
-
+const nl=s=>esc(s).replace(/\n/g,"<br>");
+let work=null,feedback={},schema=null,photo="",rendering=false;
 function fail(title,text){appEl.innerHTML=`<div class="error-card"><b>${esc(title)}</b><p>${esc(text)}</p></div>`}
 if(!cfg){fail("Firebase не налаштовано","Звернися до викладача.");throw new Error("No Firebase config")}
-if(!key){fail("Персональне посилання відсутнє","Відкрий посилання на режисерську лабораторію, яке надіслав викладач.");throw new Error("No key")}
+if(!key){fail("Персональне посилання відсутнє","Відкрий посилання, яке надіслав викладач.");throw new Error("No key")}
 const fbApp=getApps().length?getApps()[0]:initializeApp(cfg);
-const db=getFirestore(fbApp);
-const workRef=doc(db,"rems_directing_lab_work",key);
-const feedbackRef=doc(db,"rems_directing_lab_feedback",key);
-
-function stageStatus(stageId){return String(feedback?.stages?.[stageId]?.status||work?.stages?.[stageId]?.status||"draft")}
-function progress(){
-  let total=0,filled=0;
-  STAGES.forEach(st=>st.fields.forEach(([k])=>{total++;if(String(work?.stages?.[st.id]?.[k]||"").trim())filled++}));
-  return {total,filled,pct:total?Math.round(filled/total*100):0};
+const db=getFirestore(fbApp),storage=getStorage(fbApp);
+const workRef=doc(db,"rems_directing_lab_work",key),feedbackRef=doc(db,"rems_directing_lab_feedback",key),schemaRef=doc(db,"rems_directing_lab_schema","current");
+const sectionState=id=>work?.sectionStates?.[id]||work?.stages?.[id]||{};
+const sectionFeedback=id=>feedback?.sections?.[id]||feedback?.stages?.[id]||{};
+const answerFor=(section,block)=>{const a=work?.answers?.[block.id];if(a!==undefined)return a;const old=work?.stages?.[section.id]?.[block.id];return old!==undefined?{value:old}:{}};
+function publishedSections(){return(schema?.sections||[]).filter(s=>s.published!==false)}
+function progress(){const blocks=publishedSections().flatMap(s=>(s.blocks||[]).filter(b=>b.type!=="theory"));let filled=0;for(const b of blocks){const s=publishedSections().find(x=>(x.blocks||[]).some(y=>y.id===b.id));const a=answerFor(s,b)||{};if(b.type==='table'&&Array.isArray(a.rows)&&a.rows.some(r=>r.some(v=>String(v||'').trim())))filled++;else if(b.type==='file'&&Array.isArray(a.files)&&a.files.length)filled++;else if(b.type==='checklist'&&Array.isArray(a.values)&&a.values.length)filled++;else if(String(a.value||'').trim())filled++}return{total:blocks.length,filled,pct:blocks.length?Math.round(filled/blocks.length*100):0}}
+function renderBlock(section,block,state){
+ const a=answerFor(section,block)||{},disabled=state==='approved'?'disabled':'';
+ const help=block.help?`<div class="block-help">${nl(block.help)}</div>`:"";
+ const sample=block.templateUrl?`<a class="template-link" href="${esc(block.templateUrl)}" target="_blank" rel="noopener">Зразок / шаблон ↗</a>`:"";
+ if(block.type==='theory')return`<div class="work-block theory-block"><div class="block-title">${esc(block.title||'Матеріал')}</div>${help}${sample}</div>`;
+ if(block.type==='text'||block.type==='link')return`<div class="work-block"><div class="block-title">${esc(block.title)}${block.required?'<span class="req">*</span>':''}</div>${help}${sample}<input data-answer="${esc(block.id)}" data-type="${esc(block.type)}" ${disabled} value="${esc(a.value||'')}" placeholder="${esc(block.placeholder||'')}"></div>`;
+ if(block.type==='textarea')return`<div class="work-block"><div class="block-title">${esc(block.title)}${block.required?'<span class="req">*</span>':''}</div>${help}${sample}<textarea data-answer="${esc(block.id)}" data-type="textarea" ${disabled} placeholder="${esc(block.placeholder||'')}" rows="6">${esc(a.value||'')}</textarea></div>`;
+ if(block.type==='checklist'){const opts=block.options||[];const vals=new Set(a.values||[]);return`<div class="work-block"><div class="block-title">${esc(block.title)}</div>${help}${sample}<div class="check-grid">${opts.map(o=>`<label><input type="checkbox" data-check="${esc(block.id)}" value="${esc(o)}" ${vals.has(o)?'checked':''} ${disabled}><span>${esc(o)}</span></label>`).join('')}</div></div>`}
+ if(block.type==='table'){const cols=(block.columns||[]).length?block.columns:["Колонка 1","Колонка 2"];const rows=Array.isArray(a.rows)&&a.rows.length?a.rows:[Array(cols.length).fill("")];return`<div class="work-block"><div class="block-title">${esc(block.title)}</div>${help}${sample}<div class="table-shell"><table data-table="${esc(block.id)}"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map((r,ri)=>`<tr>${cols.map((c,ci)=>`<td><textarea data-cell="${ri}:${ci}" ${disabled}>${esc(r[ci]||'')}</textarea></td>`).join('')}</tr>`).join('')}</tbody></table></div>${state==='approved'?'':`<button class="inline-btn" type="button" data-add-row="${esc(block.id)}">＋ Додати рядок</button>`}</div>`}
+ if(block.type==='file'){const files=Array.isArray(a.files)?a.files:[];return`<div class="work-block"><div class="block-title">${esc(block.title)}</div>${help}${sample}<div class="file-list">${files.map(f=>`<a href="${esc(f.url||'#')}" target="_blank" rel="noopener">📎 ${esc(f.name||'Файл')}</a>`).join('')||'<span class="muted">Файлів ще немає</span>'}</div>${state==='approved'?'':`<label class="upload-box"><input type="file" data-file="${esc(block.id)}"><span>＋ Додати файл</span><small>до 25 МБ</small></label><div class="upload-note" data-upload-note="${esc(block.id)}"></div>`}</div>`}
+ return'';
 }
-function render(){
-  if(rendering||!work)return; rendering=true;
-  const p=progress();
-  groupEl.textContent=work.group||"";
-  document.title=`${work.name||"Студент"} — Режисерська лабораторія`;
-  appEl.innerHTML=`<section class="profile"><div><div class="eyebrow">Персональна режисерська лабораторія · ${esc(work.group||"")}</div><h1>${esc(work.name||"Студент")}</h1><div class="muted">Працюй безпосередньо на цій сторінці. Зберігай чернетки, а готовий етап подавай викладачу.</div></div><div class="project-badge"><small>Поточний проєкт</small><br><b>${esc(work.projectTitle||"Назва ще не визначена")}</b>${work.sharedProject?'<br><small>Поки що спільний проєкт</small>':''}</div></section>
-  <section class="progress-card"><div class="progress-head"><b>Заповнення лабораторії</b><span>${p.filled}/${p.total} · ${p.pct}%</span></div><div class="progress-track"><i style="width:${p.pct}%"></i></div></section>
-  ${STAGES.map(stage=>{
-    const val=work.stages?.[stage.id]||{}; const fb=feedback?.stages?.[stage.id]||{}; const st=stageStatus(stage.id);
-    return `<section class="stage ${esc(st)}" data-stage="${esc(stage.id)}"><div class="stage-head"><div><h2>${esc(stage.title)}</h2><small>${st==='approved'?'Етап погоджено викладачем':st==='revision'?'Є коментар викладача — внеси зміни':st==='submitted'?'Етап подано на перевірку':'Можна редагувати та зберігати як чернетку'}</small></div><span class="status ${esc(st)}">${esc(STATUS[st]||STATUS.draft)}</span></div><div class="stage-body">
-      ${stage.fields.map(([k,label])=>`<label class="field"><span>${esc(label)}</span><textarea data-field="${esc(k)}" ${st==='approved'?'readonly':''}>${esc(val[k]||"")}</textarea></label>`).join('')}
-      ${fb.comment?`<div class="feedback"><b>Коментар викладача</b><p>${esc(fb.comment)}</p></div>`:''}
-      <div class="stage-actions"><button class="btn secondary" data-save="${esc(stage.id)}" ${st==='approved'?'disabled':''}>Зберегти чернетку</button><button class="btn primary" data-submit="${esc(stage.id)}" ${st==='approved'?'disabled':''}>${st==='revision'?'Подати повторно':'Подати на перевірку'}</button></div><div class="save-note" data-note="${esc(stage.id)}">${val.updatedAt?`Останнє збереження: ${esc(new Date(val.updatedAt).toLocaleString('uk-UA'))}`:''}</div>
-    </div></section>`}).join('')}
-  <div class="footer-note">Режисерська лабораторія · REMS</div>`;
-  bind(); rendering=false;
+function render(){if(rendering||!work||!schema)return;rendering=true;const p=progress(),sections=publishedSections();groupEl.textContent=work.group||"";document.title=`${work.name||'Студент'} — Режисерська лабораторія`;
+ appEl.innerHTML=`<section class="student-hero"><div class="student-id">${photo?`<img src="${esc(photo)}" alt="${esc(work.name||'Студент')}">`:`<div class="photo-placeholder">${esc(String(work.name||'?').trim().charAt(0))}</div>`}<div><div class="eyebrow">${esc(work.group||'')} · персональна лабораторія</div><h1>${esc(work.name||'Студент')}</h1><div class="project-title">${esc(work.projectTitle||'Назва проєкту ще не визначена')}</div></div></div><div class="hero-actions">${work.driveUrl?`<a class="drive-btn" href="${esc(work.driveUrl)}" target="_blank" rel="noopener">☁ Мій Google Drive</a>`:''}<button class="export-btn" id="exportLab">↓ Завантажити все</button></div></section>
+ <section class="progress-card"><div class="progress-head"><b>Прогрес лабораторії</b><span>${p.filled}/${p.total} · ${p.pct}%</span></div><div class="progress-track"><i style="width:${p.pct}%"></i></div><div class="section-nav">${sections.map((s,i)=>`<a href="#section-${esc(s.id)}"><span>${i+1}</span>${esc(s.title.replace(/^\d+\.\s*/,''))}</a>`).join('')}</div></section>
+ ${sections.map((section,i)=>{const st=String(sectionFeedback(section.id).status||sectionState(section.id).status||'draft');const fb=sectionFeedback(section.id);return`<section class="section-card ${esc(st)}" id="section-${esc(section.id)}" data-section="${esc(section.id)}"><div class="section-top"><div><div class="section-no">Розділ ${i+1}</div><h2>${esc(section.title)}</h2></div><span class="status ${esc(st)}">${esc(STATUS[st]||STATUS.draft)}</span></div>${section.intro?`<details class="theory-panel" open><summary>Теорія та вступ до розділу</summary><div class="theory-copy">${nl(section.intro)}</div></details>`:''}<div class="blocks">${(section.blocks||[]).map(b=>renderBlock(section,b,st)).join('')}</div>${fb.comment?`<div class="feedback"><b>Коментар викладача</b><p>${nl(fb.comment)}</p></div>`:''}<div class="section-actions"><button class="btn secondary" data-save="${esc(section.id)}" ${st==='approved'?'disabled':''}>Зберегти чернетку</button><button class="btn primary" data-submit="${esc(section.id)}" ${st==='approved'?'disabled':''}>${st==='revision'?'Подати повторно':'Подати на перевірку'}</button><span class="save-note" data-note="${esc(section.id)}"></span></div></section>`}).join('')}<div class="footer-note">REMS · Режисерська лабораторія</div>`;
+ bind();rendering=false;
 }
-function collect(stageId){
-  const box=appEl.querySelector(`[data-stage="${CSS.escape(stageId)}"]`); const data={...(work.stages?.[stageId]||{})};
-  box?.querySelectorAll('[data-field]').forEach(el=>data[el.dataset.field]=el.value.trim());
-  data.updatedAt=new Date().toISOString(); return data;
-}
-async function saveStage(stageId,submit=false){
-  const stage=collect(stageId); stage.status=submit?"submitted":"draft"; if(submit)stage.submittedAt=new Date().toISOString();
-  const note=appEl.querySelector(`[data-note="${CSS.escape(stageId)}"]`); if(note)note.textContent="Збереження…";
-  const update={}; update[`stages.${stageId}`]=stage; update.updatedAt=new Date().toISOString(); update.studentUpdatedAt=new Date().toISOString();
-  if(stageId==="passport"&&stage.projectTitle) update.projectTitle=stage.projectTitle;
-  try{await updateDoc(workRef,update);if(note)note.textContent=submit?"Подано викладачу ✓":"Збережено ✓"}
-  catch(err){console.error(err);if(note)note.textContent="Не вдалося зберегти";alert("Не вдалося зберегти роботу. Перевір інтернет або звернися до викладача.")}
-}
-function bind(){
-  appEl.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{b.disabled=true;await saveStage(b.dataset.save,false);setTimeout(()=>b.disabled=false,400)});
-  appEl.querySelectorAll('[data-submit]').forEach(b=>b.onclick=async()=>{if(!confirm("Подати цей етап викладачу на перевірку?"))return;b.disabled=true;await saveStage(b.dataset.submit,true);setTimeout(()=>b.disabled=false,400)});
-}
-
-onSnapshot(workRef,snap=>{if(!snap.exists()){fail("Лабораторію ще не активовано","Попроси викладача активувати персональний доступ у REMS-Control.");return}work=snap.data()||{};render()},err=>{console.error(err);fail("Не вдалося відкрити лабораторію","Перевір посилання та інтернет-з’єднання.")});
-onSnapshot(feedbackRef,snap=>{feedback=snap.exists()?snap.data()||{}:{};if(work)render()},err=>{console.error("Feedback:",err);feedback={};if(work)render()});
+function collectSection(sectionId){const section=schema.sections.find(s=>s.id===sectionId),box=appEl.querySelector(`[data-section="${CSS.escape(sectionId)}"]`),answers={};for(const block of(section.blocks||[])){if(block.type==='theory')continue;if(block.type==='checklist'){answers[block.id]={values:[...box.querySelectorAll(`[data-check="${CSS.escape(block.id)}"]:checked`)].map(x=>x.value)}}else if(block.type==='table'){const t=box.querySelector(`[data-table="${CSS.escape(block.id)}"]`),rows=[];t?.querySelectorAll('tbody tr').forEach(tr=>rows.push([...tr.querySelectorAll('textarea')].map(x=>x.value.trim())));answers[block.id]={rows}}else if(block.type==='file'){answers[block.id]=answerFor(section,block)||{files:[]}}else{const el=box.querySelector(`[data-answer="${CSS.escape(block.id)}"]`);answers[block.id]={value:el?.value.trim()||''}}}return answers}
+async function saveSection(sectionId,submit=false){const section=schema.sections.find(s=>s.id===sectionId),answers=collectSection(sectionId),now=new Date().toISOString(),state={...(work.sectionStates?.[sectionId]||{}),status:submit?'submitted':'draft',updatedAt:now};if(submit)state.submittedAt=now;const update={updatedAt:now,studentUpdatedAt:now};for(const [bid,val] of Object.entries(answers))update[`answers.${bid}`]=val;update[`sectionStates.${sectionId}`]=state;const ptitle=answers.projectTitle?.value;if(ptitle)update.projectTitle=ptitle;const note=appEl.querySelector(`[data-note="${CSS.escape(sectionId)}"]`);if(note)note.textContent='Збереження…';try{await updateDoc(workRef,update);if(note)note.textContent=submit?'Подано викладачу ✓':'Збережено ✓'}catch(err){console.error(err);if(note)note.textContent='Не вдалося зберегти';alert('Не вдалося зберегти. Перевір інтернет або звернися до викладача.')}}
+async function uploadFile(blockId,file){if(!file)return;if(file.size>25*1024*1024){alert('Файл завеликий. Максимум 25 МБ.');return}const note=appEl.querySelector(`[data-upload-note="${CSS.escape(blockId)}"]`);if(note)note.textContent='Завантаження…';try{const safe=file.name.replace(/[^a-zA-Z0-9а-яА-ЯіїєґІЇЄҐ._-]+/g,'_');const path=`directing-lab/${key}/${blockId}/${Date.now()}-${safe}`;const r=storageRef(storage,path);await uploadBytes(r,file,{contentType:file.type||'application/octet-stream'});const url=await getDownloadURL(r);const section=schema.sections.find(s=>(s.blocks||[]).some(b=>b.id===blockId)),block=section.blocks.find(b=>b.id===blockId),prev=answerFor(section,block)||{},files=[...(prev.files||[]),{name:file.name,url,size:file.size,type:file.type,uploadedAt:new Date().toISOString()}];await updateDoc(workRef,{[`answers.${blockId}`]:{...prev,files},updatedAt:new Date().toISOString(),studentUpdatedAt:new Date().toISOString()});if(note)note.textContent='Файл додано ✓'}catch(err){console.error(err);if(note)note.textContent='Не вдалося завантажити';alert('Не вдалося завантажити файл. Можливо, ще не опубліковані правила Firebase Storage.')}}
+function addTableRow(blockId){const t=appEl.querySelector(`[data-table="${CSS.escape(blockId)}"]`);if(!t)return;const cols=t.querySelectorAll('thead th').length,tr=document.createElement('tr');tr.innerHTML=Array.from({length:cols},()=>'<td><textarea></textarea></td>').join('');t.querySelector('tbody').appendChild(tr)}
+async function exportAll(){const zip=new JSZip(),texts=[],links=[],files=[];for(const section of publishedSections()){texts.push(`# ${section.title}\n`);if(section.intro)texts.push(`${section.intro}\n`);for(const block of(section.blocks||[])){if(block.type==='theory')continue;const a=answerFor(section,block)||{};if(block.type==='table'){const cols=block.columns||[],rows=a.rows||[];const csv=[cols,...rows].map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');zip.file(`tables/${section.id}-${block.id}.csv`,csv)}else if(block.type==='file'){for(const f of(a.files||[]))files.push(`${section.title} — ${block.title}: ${f.name} — ${f.url}`)}else if(block.type==='checklist'){texts.push(`${block.title}: ${(a.values||[]).join(', ')}\n`)}else{const v=String(a.value||'');texts.push(`${block.title}\n${v}\n`);if(block.type==='link'&&v)links.push(`${block.title}: ${v}`)}}texts.push('\n')}zip.file('texts.txt',texts.join('\n'));zip.file('links.txt',links.join('\n'));zip.file('files-list.txt',files.join('\n'));const blob=await zip.generateAsync({type:'blob'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(work.name||'student').replace(/\s+/g,'_')}-режисерська-лабораторія.zip`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function bind(){appEl.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{b.disabled=true;await saveSection(b.dataset.save,false);setTimeout(()=>b.disabled=false,300)});appEl.querySelectorAll('[data-submit]').forEach(b=>b.onclick=async()=>{if(!confirm('Подати цей розділ викладачу на перевірку?'))return;b.disabled=true;await saveSection(b.dataset.submit,true);setTimeout(()=>b.disabled=false,300)});appEl.querySelectorAll('[data-add-row]').forEach(b=>b.onclick=()=>addTableRow(b.dataset.addRow));appEl.querySelectorAll('[data-file]').forEach(inp=>inp.onchange=async()=>{const f=inp.files?.[0];inp.value='';await uploadFile(inp.dataset.file,f)});appEl.querySelector('#exportLab')?.addEventListener('click',exportAll)}
+async function loadSchema(){try{const s=await getDoc(schemaRef);schema=s.exists()?s.data():DEFAULT_SCHEMA}catch(e){console.error(e);schema=DEFAULT_SCHEMA}}
+async function loadPhoto(){if(!work?.mediaId)return;try{const s=await getDoc(doc(db,'rems_student_media',work.mediaId));photo=s.exists()?String(s.data()?.photoData||''):''}catch(e){console.error('Photo',e)}}
+await loadSchema();
+onSnapshot(workRef,async snap=>{if(!snap.exists()){fail('Лабораторію ще не активовано','Попроси викладача активувати персональний доступ у REMS-Control.');return}work=snap.data()||{};await loadPhoto();render()},err=>{console.error(err);fail('Не вдалося відкрити лабораторію','Перевір посилання та інтернет-з’єднання.')});
+onSnapshot(feedbackRef,snap=>{feedback=snap.exists()?snap.data()||{}:{};if(work)render()},err=>{console.error('Feedback:',err);feedback={};if(work)render()});

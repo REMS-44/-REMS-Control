@@ -7724,36 +7724,55 @@ async function deleteLargeForm(id){
   return true;
 }
 
-// v43.1 — «Режисерська лабораторія»: персональний простір студентів РЕМС-34 / РЕМС-44.
-// Старі «Великі форми» не видаляються: вони лишаються джерелом уже створених навчальних проєктів.
-// Якщо автор один — проєкт відображається в лабораторії цього студента.
-// Якщо авторів кілька — той самий спільний проєкт тимчасово відображається в лабораторіях усіх авторів.
+// v44.0 — «Режисерська лабораторія»: живий конструктор навчальної траєкторії.
+// Структура лабораторії зберігається окремо від відповідей студентів, тому її можна
+// розширювати впродовж семестру без втрати вже заповнених матеріалів.
 const DIRECTING_LABS_KEY="directingLabs";
 const DIRECTING_LAB_WORK_COLLECTION="rems_directing_lab_work";
 const DIRECTING_LAB_FEEDBACK_COLLECTION="rems_directing_lab_feedback";
+const DIRECTING_LAB_SCHEMA_COLLECTION="rems_directing_lab_schema";
+const DIRECTING_LAB_SCHEMA_DOC="current";
 let directingLabFilter="44";
+let directingLabSchemaCache=null;
 
-const DIRECTING_LAB_STAGES=[
-  {id:"passport",title:"1. Паспорт проєкту",fields:[
-    ["projectTitle","Робоча назва проєкту"],["format","Форма / жанр"],["concept","Коротка концепція"]
-  ]},
-  {id:"dramaturgy",title:"2. Драматургічна основа",fields:[
-    ["theme","Тема"],["idea","Ідея"],["problem","Проблематика"],["conflict","Конфлікт"],["structure","Архітектоніка / структура"]
-  ]},
-  {id:"director",title:"3. Режисерський задум",fields:[
-    ["directorConcept","Режисерський задум"],["image","Образ проєкту"],["techniques","Режисерські прийоми та засоби виразності"]
-  ]},
-  {id:"staging",title:"4. Постановочне рішення",fields:[
-    ["space","Простір і мізансценування"],["visual","Сценографія / візуальне рішення"],["tech","Світло, звук, відео"],["rhythm","Темпоритм"]
-  ]},
-  {id:"plan",title:"5. Режисерсько-постановочний план",fields:[
-    ["plan","Постановочний план / послідовність епізодів"],["links","Посилання на сценарій, референси, Drive / Canva / відео"]
-  ]}
-];
+const DIRECTING_LAB_DEFAULT_SCHEMA={
+  version:1,
+  title:"Режисерська лабораторія",
+  subtitle:"Індивідуальна траєкторія розробки режисерського проєкту",
+  sections:[
+    {id:"passport",title:"1. Паспорт проєкту",intro:"Це стартова картка майбутнього проєкту. Визнач робочу назву, форму та коротко сформулюй задум. Теоретичний матеріал і приклади до цього розділу викладач поступово доповнюватиме.",published:true,blocks:[
+      {id:"projectTitle",type:"text",title:"Робоча назва проєкту",help:"Назва може бути робочою і змінюватися в процесі.",placeholder:"Введи робочу назву",required:true},
+      {id:"format",type:"text",title:"Форма / жанр",help:"Визнач сценічну форму або жанрову природу задуму.",placeholder:"Наприклад: музично-сценічний перформанс",required:false},
+      {id:"concept",type:"textarea",title:"Коротка концепція",help:"Стисло опиши, що саме ти хочеш створити і чому цей задум важливий.",placeholder:"2–5 абзаців",required:false}
+    ]},
+    {id:"dramaturgy",title:"2. Драматургічна основа",intro:"У цьому розділі формується смислова й драматургічна основа майбутнього проєкту. Перед заповненням окремих пунктів ознайомся з теоретичним матеріалом до розділу.",published:true,blocks:[
+      {id:"theme",type:"textarea",title:"Тема",help:"Сформулюй предмет художнього осмислення.",placeholder:"Тема проєкту",required:false},
+      {id:"idea",type:"textarea",title:"Ідея",help:"Сформулюй основну авторську думку, до якої має привести проєкт.",placeholder:"Ідея проєкту",required:false},
+      {id:"problem",type:"textarea",title:"Проблематика",help:"Які питання та суперечності досліджує проєкт?",placeholder:"Проблематика",required:false},
+      {id:"conflict",type:"textarea",title:"Конфлікт",help:"Опиши головне зіткнення сил, позицій або цінностей.",placeholder:"Конфлікт",required:false},
+      {id:"structure",type:"textarea",title:"Архітектоніка / структура",help:"Опиши великі частини, епізоди або логіку розвитку дії.",placeholder:"Структура проєкту",required:false}
+    ]},
+    {id:"director",title:"3. Режисерський задум",intro:"Розділ переводить драматургічну основу у мову режисури: образ, спосіб сценічного існування, прийоми та систему виразних засобів.",published:true,blocks:[
+      {id:"directorConcept",type:"textarea",title:"Режисерський задум",help:"Опиши, яким способом задум буде втілено на сцені.",placeholder:"Режисерський задум",required:false},
+      {id:"image",type:"textarea",title:"Образ проєкту",help:"Сформулюй центральний образ або образну систему.",placeholder:"Образне рішення",required:false},
+      {id:"techniques",type:"textarea",title:"Режисерські прийоми та засоби виразності",help:"Переліч і поясни прийоми, які працюватимуть на задум.",placeholder:"Прийоми, монтаж, пластика, взаємодія з глядачем…",required:false}
+    ]},
+    {id:"staging",title:"4. Постановочне рішення",intro:"Тут задум конкретизується через простір, мізансцену, сценографію, світло, звук, відео та темпоритм.",published:true,blocks:[
+      {id:"space",type:"textarea",title:"Простір і мізансценування",help:"Опиши принцип організації сценічного простору та руху.",placeholder:"Просторове рішення",required:false},
+      {id:"visual",type:"textarea",title:"Сценографія / візуальне рішення",help:"Опиши візуальну систему проєкту.",placeholder:"Сценографія, костюм, графіка…",required:false},
+      {id:"tech",type:"textarea",title:"Світло, звук, відео",help:"Які технічні засоби є частиною режисерського рішення?",placeholder:"Технічне рішення",required:false},
+      {id:"rhythm",type:"textarea",title:"Темпоритм",help:"Опиши принцип темпоритмічної побудови.",placeholder:"Темпоритм",required:false}
+    ]},
+    {id:"plan",title:"5. Режисерсько-постановочний план",intro:"Фінальний робочий розділ збирає матеріал у постановочну документацію. Тут можуть з’являтися таблиці, шаблони й файли, які викладач додаватиме поступово.",published:true,blocks:[
+      {id:"plan",type:"textarea",title:"Постановочний план / послідовність епізодів",help:"Опиши або встав структуру постановочного плану.",placeholder:"План",required:false},
+      {id:"links",type:"link",title:"Робочі посилання",help:"Додай посилання на сценарій, Canva, відео, референси або інші матеріали.",placeholder:"https://…",required:false}
+    ]}
+  ]
+};
 const dlFeedbackStatusLabels={draft:"Чернетка",submitted:"Подано",revision:"Доопрацювати",approved:"Погоджено"};
+const dlStatusLabel={not_started:"Не розпочато",in_progress:"У роботі",review:"На перевірці",revision:"Доопрацювання",approved:"Погоджено"};
+const dlBlockTypeLabels={text:"Коротка відповідь",textarea:"Велике текстове поле",table:"Таблиця",file:"Файл / документ",link:"Посилання",checklist:"Чекліст",theory:"Матеріал / приклад"};
 
-
-// Точний актуальний склад РЕМС-34 для лабораторії.
 const DIRECTING_LAB_REMS34_NAMES=[
   "Баленко Ілля","Вознюк Олександра","Волошина Дар’я","Давидова Світлана","Данільчук Катерина",
   "Дубина Віолетта","Карпенко Рімма","Кириленко Михайло","Коткова Анастасія","Кропивка Маргарита",
@@ -7761,218 +7780,67 @@ const DIRECTING_LAB_REMS34_NAMES=[
 ];
 const dlNormPerson=v=>String(v||"").toLowerCase().replace(/[’'`ʼ]/g,"").replace(/ґ/g,"г").replace(/\s+/g," ").trim();
 const DIRECTING_LAB_REMS34_KEYS=new Set(DIRECTING_LAB_REMS34_NAMES.map(dlNormPerson));
-function dlIsNamedRems34(st){
-  const full=dlNormPerson(st?.name||"");
-  if(DIRECTING_LAB_REMS34_KEYS.has(full)) return true;
-  const parts=full.split(" ").filter(Boolean);
-  return parts.length>=2 && DIRECTING_LAB_REMS34_KEYS.has(`${parts[0]} ${parts[1]}`);
-}
-function dlStudentGroup(st){
-  const raw=String(studentGroupLabel(st)||st?.group||"").toUpperCase().replace(/\s+/g,"");
-  if(raw.includes("РЕМС-44")||raw.includes("REMS-44")) return "44";
-  if(dlIsNamedRems34(st)) return "34";
-  return "";
-}
-function dlEligibleStudents(){
-  return (db.students||[]).filter(st=>["34","44"].includes(dlStudentGroup(st)))
-    .slice().sort((a,b)=>dlStudentGroup(b).localeCompare(dlStudentGroup(a))||String(a.name||"").localeCompare(String(b.name||""),"uk"));
-}
-function dlLabId(studentId){ return `dl-${String(studentId)}`; }
-function dlLabForStudent(studentId){
-  db[DIRECTING_LABS_KEY]=Array.isArray(db[DIRECTING_LABS_KEY])?db[DIRECTING_LABS_KEY]:[];
-  return db[DIRECTING_LABS_KEY].find(x=>String(x.studentId)===String(studentId))||null;
-}
-function dlProjectsForStudent(studentId){
-  const sid=String(studentId);
-  return (largeFormsCache||[]).filter(x=>lfAuthorIds(x).includes(sid));
-}
-async function ensureDirectingLabs(){
-  db[DIRECTING_LABS_KEY]=Array.isArray(db[DIRECTING_LABS_KEY])?db[DIRECTING_LABS_KEY]:[];
-  const byStudent=new Map(db[DIRECTING_LABS_KEY].map(x=>[String(x.studentId),x]));
-  const now=new Date().toISOString();
-  let changed=false;
-  for(const st of dlEligibleStudents()){
-    const sid=String(st.id);
-    if(byStudent.has(sid)) continue;
-    const lab={id:dlLabId(sid),studentId:sid,status:"not_started",createdAt:now,updatedAt:now};
-    db[DIRECTING_LABS_KEY].push(lab); byStudent.set(sid,lab); changed=true;
-  }
-  if(changed){
-    cache();
-    if(cloudDb&&cloudReady&&currentUser){
-      try{await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:now},{merge:true});}
-      catch(err){console.error("Directing labs persist failed",err);}
-    }
-  }
-}
-const dlStatusLabel={not_started:"Не розпочато",in_progress:"У роботі",review:"На перевірці",revision:"Доопрацювання",approved:"Погоджено"};
-function dlProjectOwnershipText(project){
-  const names=lfAuthorNames(project);
-  if(names.length<=1) return "Індивідуальний проєкт";
-  return `Спільний проєкт · ${names.length} автори`;
-}
-function dlPhotoOrInitial(st,detail=false){
-  const photo=sharedStudentPhoto(st);
-  const cls=detail?"dl-detail-photo":"dl-student-photo";
-  if(photo) return `<img class="${cls}" src="${lfEsc(photo)}" alt="${lfEsc(st.name||'Студент')}">`;
-  return `<span class="${cls} dl-student-photo-empty">${lfEsc(String(st.name||'?').trim().charAt(0)||'?')}</span>`;
-}
+function dlIsNamedRems34(st){const full=dlNormPerson(st?.name||"");if(DIRECTING_LAB_REMS34_KEYS.has(full))return true;const parts=full.split(" ").filter(Boolean);return parts.length>=2&&DIRECTING_LAB_REMS34_KEYS.has(`${parts[0]} ${parts[1]}`)}
+function dlStudentGroup(st){const raw=String(studentGroupLabel(st)||st?.group||"").toUpperCase().replace(/\s+/g,"");if(raw.includes("РЕМС-44")||raw.includes("REMS-44"))return"44";if(dlIsNamedRems34(st))return"34";return""}
+function dlEligibleStudents(){return(db.students||[]).filter(st=>["34","44"].includes(dlStudentGroup(st))).slice().sort((a,b)=>dlStudentGroup(b).localeCompare(dlStudentGroup(a))||String(a.name||"").localeCompare(String(b.name||""),"uk"))}
+function dlLabId(studentId){return`dl-${String(studentId)}`}
+function dlLabForStudent(studentId){db[DIRECTING_LABS_KEY]=Array.isArray(db[DIRECTING_LABS_KEY])?db[DIRECTING_LABS_KEY]:[];return db[DIRECTING_LABS_KEY].find(x=>String(x.studentId)===String(studentId))||null}
+function dlProjectsForStudent(studentId){const sid=String(studentId);return(largeFormsCache||[]).filter(x=>lfAuthorIds(x).includes(sid))}
+async function ensureDirectingLabs(){db[DIRECTING_LABS_KEY]=Array.isArray(db[DIRECTING_LABS_KEY])?db[DIRECTING_LABS_KEY]:[];const byStudent=new Map(db[DIRECTING_LABS_KEY].map(x=>[String(x.studentId),x]));const now=new Date().toISOString();let changed=false;for(const st of dlEligibleStudents()){const sid=String(st.id);if(byStudent.has(sid))continue;const lab={id:dlLabId(sid),studentId:sid,status:"not_started",createdAt:now,updatedAt:now,driveUrl:""};db[DIRECTING_LABS_KEY].push(lab);byStudent.set(sid,lab);changed=true}if(changed){cache();if(cloudDb&&cloudReady&&currentUser){try{await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:now},{merge:true})}catch(err){console.error("Directing labs persist failed",err)}}}}
+function dlProjectOwnershipText(project){const names=lfAuthorNames(project);return names.length<=1?"Індивідуальний проєкт":`Спільний проєкт · ${names.length} автори`}
+function dlPhotoOrInitial(st,detail=false){const photo=sharedStudentPhoto(st);const cls=detail?"dl-detail-photo":"dl-student-photo";if(photo)return`<img class="${cls}" src="${lfEsc(photo)}" alt="${lfEsc(st.name||'Студент')}">`;return`<span class="${cls} dl-student-photo-empty">${lfEsc(String(st.name||'?').trim().charAt(0)||'?')}</span>`}
+const dlNewId=(prefix="x")=>`${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+function dlSchemaClone(x){return JSON.parse(JSON.stringify(x||DIRECTING_LAB_DEFAULT_SCHEMA))}
+async function dlLoadSchema(force=false){if(directingLabSchemaCache&&!force)return directingLabSchemaCache;if(!cloudDb){directingLabSchemaCache=dlSchemaClone(DIRECTING_LAB_DEFAULT_SCHEMA);return directingLabSchemaCache}try{const snap=await getDoc(doc(cloudDb,DIRECTING_LAB_SCHEMA_COLLECTION,DIRECTING_LAB_SCHEMA_DOC));directingLabSchemaCache=snap.exists()?snap.data():dlSchemaClone(DIRECTING_LAB_DEFAULT_SCHEMA)}catch(e){console.error("Lab schema load",e);directingLabSchemaCache=dlSchemaClone(DIRECTING_LAB_DEFAULT_SCHEMA)}return directingLabSchemaCache}
+async function dlSaveSchema(schema){if(!cloudDb||!currentUser)throw new Error("Потрібен вхід викладача");const clean=dlSchemaClone(schema);clean.updatedAt=new Date().toISOString();clean.updatedBy=currentUser.email||currentUser.uid||"";clean.version=Number(clean.version||0)+1;await setDoc(doc(cloudDb,DIRECTING_LAB_SCHEMA_COLLECTION,DIRECTING_LAB_SCHEMA_DOC),clean,{merge:false});directingLabSchemaCache=clean;return clean}
+function dlSchemaStats(schema){const sections=(schema?.sections||[]).filter(s=>s.published!==false),blocks=sections.flatMap(s=>s.blocks||[]).filter(b=>b.type!=="theory");return{sections:sections.length,blocks:blocks.length}}
+
 function renderDirectingLaboratory(){
-  const all=dlEligibleStudents();
-  const rows=all.filter(st=>directingLabFilter==="all"||dlStudentGroup(st)===directingLabFilter);
-  const counts={"34":all.filter(st=>dlStudentGroup(st)==="34").length,"44":all.filter(st=>dlStudentGroup(st)==="44").length};
-  app.innerHTML=`<div class="lf-toolbar"><div><span class="eyebrow">Індивідуальна робота</span><h2 style="margin:4px 0 3px">Режисерська лабораторія</h2><div class="muted">Персональна сторінка кожного студента РЕМС-34 і РЕМС-44. Фото підтягуються з тих самих карток, що й у вкладці «Студенти». Уже створені навчальні проєкти збережені та прив’язані за авторами ідеї.</div></div><div class="lf-tabs"><button class="lf-tab ${directingLabFilter==='44'?'active':''}" data-dl-filter="44">РЕМС-44 · ${counts['44']}</button><button class="lf-tab ${directingLabFilter==='34'?'active':''}" data-dl-filter="34">РЕМС-34 · ${counts['34']}</button><button class="lf-tab ${directingLabFilter==='all'?'active':''}" data-dl-filter="all">Усі · ${all.length}</button></div></div>
-  <div class="lf-grid">${rows.map(st=>{const lab=dlLabForStudent(st.id)||{};const projects=dlProjectsForStudent(st.id);const single=projects.filter(p=>lfAuthorIds(p).length===1);const shared=projects.filter(p=>lfAuthorIds(p).length>1);return `<button class="lf-card dl-student-card" data-dl-open="${lfEsc(st.id)}" style="--lf-color:${dlStudentGroup(st)==='44'?'#7c3aed':'#2563eb'}"><div class="dl-card-row">${dlPhotoOrInitial(st)}<div class="dl-card-main"><div class="lf-card-head"><div><div class="lf-meta"><span class="lf-chip">РЕМС-${dlStudentGroup(st)}</span><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span></div><h3>${lfEsc(st.name||'Студент')}</h3></div><span>→</span></div><div class="lf-team">${single.length?`Закріплено: <b>${lfEsc(single.map(p=>p.title||'Без назви').join(', '))}</b>`:shared.length?`Поки спільний проєкт: <b>${lfEsc(shared.map(p=>p.title||'Без назви').join(', '))}</b>`:'Індивідуальний проєкт ще не визначено'}</div>${shared.length?`<div class="muted">Спільних проєктів до уточнення авторства: ${shared.length}</div>`:''}</div></div></button>`}).join('')||'<div class="lf-empty">У контингенті не знайдено студентів РЕМС-34 / РЕМС-44.</div>'}</div>`;
-  app.querySelectorAll('[data-dl-filter]').forEach(b=>b.onclick=()=>{directingLabFilter=b.dataset.dlFilter;renderDirectingLaboratory();});
-  app.querySelectorAll('[data-dl-open]').forEach(b=>b.onclick=()=>openDirectingLab(b.dataset.dlOpen));
+  const all=dlEligibleStudents();const rows=all.filter(st=>directingLabFilter==="all"||dlStudentGroup(st)===directingLabFilter);const counts={"34":all.filter(st=>dlStudentGroup(st)==="34").length,"44":all.filter(st=>dlStudentGroup(st)==="44").length};
+  app.innerHTML=`<div class="lf-toolbar"><div><span class="eyebrow">Індивідуальна робота</span><h2 style="margin:4px 0 3px">Режисерська лабораторія</h2><div class="muted">Живе навчальне середовище: теорія, завдання, таблиці, файли, відгук викладача та персональний Google Drive. Структуру можна доповнювати впродовж семестру без втрати студентських відповідей.</div></div><div class="dl-toolbar-actions"><div class="dl-top-actions"><button class="ghost" id="dlOpenBuilder" type="button">⚙ Конструктор лабораторії</button><button class="primary" id="dlActivateAll" type="button">Активувати лабораторії всім</button></div><div class="lf-tabs"><button class="lf-tab ${directingLabFilter==='44'?'active':''}" data-dl-filter="44">РЕМС-44 · ${counts['44']}</button><button class="lf-tab ${directingLabFilter==='34'?'active':''}" data-dl-filter="34">РЕМС-34 · ${counts['34']}</button><button class="lf-tab ${directingLabFilter==='all'?'active':''}" data-dl-filter="all">Усі · ${all.length}</button></div></div></div>
+  <div class="lf-grid">${rows.map(st=>{const lab=dlLabForStudent(st.id)||{};const projects=dlProjectsForStudent(st.id);const single=projects.filter(p=>lfAuthorIds(p).length===1);const shared=projects.filter(p=>lfAuthorIds(p).length>1);return`<button class="lf-card dl-student-card" data-dl-open="${lfEsc(st.id)}" style="--lf-color:${dlStudentGroup(st)==='44'?'#7c3aed':'#2563eb'}"><div class="dl-card-row">${dlPhotoOrInitial(st)}<div class="dl-card-main"><div class="lf-card-head"><div><div class="lf-meta"><span class="lf-chip">РЕМС-${dlStudentGroup(st)}</span><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span>${lab.driveUrl?'<span class="lf-chip">☁ Drive</span>':''}</div><h3>${lfEsc(st.name||'Студент')}</h3></div><span>→</span></div><div class="lf-team">${single.length?`Закріплено: <b>${lfEsc(single.map(p=>p.title||'Без назви').join(', '))}</b>`:shared.length?`Поки спільний проєкт: <b>${lfEsc(shared.map(p=>p.title||'Без назви').join(', '))}</b>`:'Індивідуальний проєкт ще не визначено'}</div></div></div></button>`}).join('')||'<div class="lf-empty">У контингенті не знайдено студентів РЕМС-34 / РЕМС-44.</div>'}</div>`;
+  app.querySelectorAll('[data-dl-filter]').forEach(b=>b.onclick=()=>{directingLabFilter=b.dataset.dlFilter;renderDirectingLaboratory()});app.querySelectorAll('[data-dl-open]').forEach(b=>b.onclick=()=>openDirectingLab(b.dataset.dlOpen));const a=app.querySelector('#dlActivateAll');if(a)a.onclick=()=>dlActivateAllStudents(a);app.querySelector('#dlOpenBuilder').onclick=()=>openDirectingLabConstructor();
 }
-function dlRandomAccessKey(){
-  const bytes=new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
-}
-async function dlPersistLabAccessKey(studentId,key){
-  const lab=dlLabForStudent(studentId);
-  if(!lab) throw new Error("Лабораторію студента не знайдено");
-  if(lab.accessKey===key) return;
-  lab.accessKey=key;
-  lab.updatedAt=new Date().toISOString();
-  cache();
-  if(cloudDb&&cloudReady&&currentUser){
-    await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:new Date().toISOString()},{merge:true});
-  }
-}
-async function dlEnsureStudentAccess(st){
-  if(!cloudDb||!currentUser) throw new Error("Потрібен вхід викладача");
-  const lab=dlLabForStudent(st.id);
-  if(!lab) throw new Error("Лабораторію студента не знайдено");
-  const key=String(lab.accessKey||"").trim()||dlRandomAccessKey();
-  const now=new Date().toISOString();
-  const scheduleRef=doc(cloudDb,"rems_student_schedules",key);
-  await setDoc(scheduleRef,{studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),items:[],projects:{},updatedAt:now,createdAt:lab.accessKey?undefined:now},{merge:true});
-  if(!lab.accessKey) await dlPersistLabAccessKey(st.id,key);
 
-  const projects=dlProjectsForStudent(st.id);
-  const owned=projects.filter(p=>lfAuthorIds(p).length===1);
-  const shared=projects.filter(p=>lfAuthorIds(p).length>1);
-  const currentProject=owned[0]||shared[0]||null;
-  const workRef=doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,key);
-  const workSnap=await getDoc(workRef);
-  if(!workSnap.exists()){
-    await setDoc(workRef,{
-      studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),
-      projectId:String(currentProject?.id||""),projectTitle:String(currentProject?.title||""),
-      sharedProject:!!(currentProject&&lfAuthorIds(currentProject).length>1),
-      stages:{},createdAt:now,updatedAt:now
-    },{merge:false});
-  }
-  return key;
+function dlBuilderBlockHtml(block,si,bi){const type=block.type||"textarea";return`<div class="dl-builder-block" data-builder-block data-si="${si}" data-bi="${bi}"><div class="dl-builder-block-head"><b>${bi+1}. ${lfEsc(block.title||'Новий пункт')}</b><div><button type="button" class="ghost mini" data-block-up>↑</button><button type="button" class="ghost mini" data-block-down>↓</button><button type="button" class="danger mini" data-block-delete>Видалити</button></div></div><div class="dl-builder-grid"><label>Тип<select data-b="type">${Object.entries(dlBlockTypeLabels).map(([k,v])=>`<option value="${k}" ${type===k?'selected':''}>${lfEsc(v)}</option>`).join('')}</select></label><label class="wide">Назва пункту<input data-b="title" value="${lfEsc(block.title||'')}"></label><label class="wide">Пояснення / методичний коментар<textarea data-b="help" rows="3">${lfEsc(block.help||'')}</textarea></label><label class="wide">Підказка у полі<input data-b="placeholder" value="${lfEsc(block.placeholder||'')}"></label><label class="wide">Посилання на зразок / шаблон<input data-b="templateUrl" value="${lfEsc(block.templateUrl||'')}" placeholder="https://…"></label><label class="wide">Колонки таблиці / варіанти чекліста <small>(через |)</small><input data-b="options" value="${lfEsc((block.columns||block.options||[]).join(' | '))}" placeholder="Епізод | Зміст | Світло | Звук"></label><label class="dl-check"><input type="checkbox" data-b="required" ${block.required?'checked':''}> Обов’язковий пункт</label></div></div>`}
+function dlBuilderSectionHtml(section,si){return`<section class="dl-builder-section" data-builder-section data-si="${si}"><div class="dl-builder-section-head"><div><span class="eyebrow">Розділ ${si+1}</span><h3>${lfEsc(section.title||'Новий розділ')}</h3></div><div><button type="button" class="ghost mini" data-section-up>↑</button><button type="button" class="ghost mini" data-section-down>↓</button><button type="button" class="danger mini" data-section-delete>Видалити</button></div></div><div class="dl-builder-grid"><label class="wide">Назва розділу<input data-s="title" value="${lfEsc(section.title||'')}"></label><label class="wide">Вступний теоретичний матеріал<textarea data-s="intro" rows="6" placeholder="Вступ до всього розділу, який студент спочатку читає…">${lfEsc(section.intro||'')}</textarea></label><label class="dl-check"><input type="checkbox" data-s="published" ${section.published!==false?'checked':''}> Опублікований для студентів</label></div><div class="dl-builder-blocks">${(section.blocks||[]).map((b,bi)=>dlBuilderBlockHtml(b,si,bi)).join('')}</div><button type="button" class="ghost" data-add-block>＋ Додати пункт</button></section>`}
+async function openDirectingLabConstructor(){
+  const schema=dlSchemaClone(await dlLoadSchema(true));
+  const render=()=>{const stats=dlSchemaStats(schema);app.innerHTML=`<div class="dl-builder-page"><div class="lf-detail-head"><div><button class="ghost" id="dlBuilderBack">← До лабораторії</button><span class="eyebrow" style="display:block;margin-top:14px">Конструктор</span><h2 style="margin:4px 0">Структура режисерської лабораторії</h2><p class="muted">Додавай розділи поступово. Опублікований новий розділ з’явиться у всіх студентів за тим самим персональним посиланням; старі відповіді не зникнуть.</p></div><div class="dl-builder-summary"><b>${stats.sections}</b><small>опублікованих розділів</small><b>${stats.blocks}</b><small>робочих пунктів</small></div></div><div id="dlBuilderSections">${(schema.sections||[]).map(dlBuilderSectionHtml).join('')}</div><button class="ghost dl-add-section" id="dlAddSection">＋ Додати розділ</button><div class="dl-builder-savebar"><div><b>Зміни конструктора не впливають на вже збережені відповіді.</b><small>Видалений пункт перестає показуватися, але його старі дані залишаються у робочому документі студента.</small></div><button class="primary" id="dlSaveSchema">Опублікувати структуру</button></div></div>`;bind()};
+  const sync=()=>{app.querySelectorAll('[data-builder-section]').forEach(sec=>{const si=+sec.dataset.si,schemaSec=schema.sections[si];sec.querySelectorAll('[data-s]').forEach(el=>{const k=el.dataset.s;schemaSec[k]=el.type==='checkbox'?el.checked:el.value});sec.querySelectorAll('[data-builder-block]').forEach(bl=>{const bi=+bl.dataset.bi,b=schemaSec.blocks[bi];bl.querySelectorAll('[data-b]').forEach(el=>{const k=el.dataset.b;if(k==='required')b[k]=el.checked;else if(k==='options'){const arr=el.value.split('|').map(x=>x.trim()).filter(Boolean);if(b.type==='table'){b.columns=arr;b.options=[]}else if(b.type==='checklist'){b.options=arr;b.columns=[]}else{b.options=arr}}else b[k]=el.value})})})};
+  const bind=()=>{app.querySelector('#dlBuilderBack').onclick=renderDirectingLaboratory;app.querySelector('#dlAddSection').onclick=()=>{sync();schema.sections.push({id:dlNewId('section'),title:`Новий розділ`,intro:'',published:false,blocks:[]});render()};app.querySelectorAll('[data-builder-section]').forEach(sec=>{const si=+sec.dataset.si;sec.querySelector('[data-add-block]').onclick=()=>{sync();schema.sections[si].blocks.push({id:dlNewId('block'),type:'textarea',title:'Новий пункт',help:'',placeholder:'',required:false});render()};sec.querySelector('[data-section-up]').onclick=()=>{sync();if(si>0){[schema.sections[si-1],schema.sections[si]]=[schema.sections[si],schema.sections[si-1]];render()}};sec.querySelector('[data-section-down]').onclick=()=>{sync();if(si<schema.sections.length-1){[schema.sections[si+1],schema.sections[si]]=[schema.sections[si],schema.sections[si+1]];render()}};sec.querySelector('[data-section-delete]').onclick=()=>{if(confirm('Приховати цей розділ зі структури? Старі відповіді студентів у базі не видаляються.')){sync();schema.sections.splice(si,1);render()}};sec.querySelectorAll('[data-builder-block]').forEach(bl=>{const bi=+bl.dataset.bi;bl.querySelector('[data-block-up]').onclick=()=>{sync();if(bi>0){const a=schema.sections[si].blocks;[a[bi-1],a[bi]]=[a[bi],a[bi-1]];render()}};bl.querySelector('[data-block-down]').onclick=()=>{sync();const a=schema.sections[si].blocks;if(bi<a.length-1){[a[bi+1],a[bi]]=[a[bi],a[bi+1]];render()}};bl.querySelector('[data-block-delete]').onclick=()=>{if(confirm('Прибрати цей пункт зі структури?')){sync();schema.sections[si].blocks.splice(bi,1);render()}}})});app.querySelector('#dlSaveSchema').onclick=async()=>{sync();const btn=app.querySelector('#dlSaveSchema');btn.disabled=true;btn.textContent='Збереження…';try{await dlSaveSchema(schema);btn.textContent='Опубліковано ✓';setTimeout(()=>{btn.disabled=false;btn.textContent='Опублікувати структуру'},1200)}catch(e){console.error(e);alert('Не вдалося зберегти структуру. Перевір Firestore Rules.');btn.disabled=false;btn.textContent='Опублікувати структуру'}}};
+  render();
 }
-function dlStudentLabUrl(key){
-  const u=new URL("lab.html",location.href);
-  u.searchParams.set("key",key);
-  return u.href;
-}
-async function dlLoadStudentWork(key){
-  if(!cloudDb||!key) return {work:null,feedback:null};
-  const [w,f]=await Promise.all([
-    getDoc(doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,key)),
-    getDoc(doc(cloudDb,DIRECTING_LAB_FEEDBACK_COLLECTION,key))
-  ]);
-  return {work:w.exists()?w.data():null,feedback:f.exists()?f.data():null};
-}
-function dlRenderAdminWork(work,feedback){
-  if(!work) return `<div class="lf-empty">Робочий документ ще не створено.</div>`;
-  const stages=work.stages||{}, fb=feedback?.stages||{};
-  return DIRECTING_LAB_STAGES.map(stage=>{
-    const val=stages[stage.id]||{}; const f=fb[stage.id]||{};
-    const answered=stage.fields.filter(([k])=>String(val[k]||"").trim()).length;
-    return `<article class="dl-admin-stage" data-admin-stage="${lfEsc(stage.id)}"><div class="dl-stage-head"><div><b>${lfEsc(stage.title)}</b><small>${answered}/${stage.fields.length} полів заповнено${val.submittedAt?` · подано ${lfEsc(new Date(val.submittedAt).toLocaleString('uk-UA'))}`:''}</small></div><span class="lf-chip">${lfEsc(dlFeedbackStatusLabels[f.status||val.status||'draft']||'Чернетка')}</span></div>
-      <div class="dl-answer-grid">${stage.fields.map(([k,label])=>`<div class="dl-answer"><small>${lfEsc(label)}</small><div>${String(val[k]||"").trim()?lfEsc(val[k]).replace(/\n/g,'<br>'):'<em>Не заповнено</em>'}</div></div>`).join('')}</div>
-      <div class="dl-feedback-box"><label>Коментар викладача<textarea data-feedback-comment="${lfEsc(stage.id)}" rows="3" placeholder="Коментар до цього етапу…">${lfEsc(f.comment||'')}</textarea></label><label>Статус<select data-feedback-status="${lfEsc(stage.id)}">${Object.entries(dlFeedbackStatusLabels).map(([k,v])=>`<option value="${k}" ${String(f.status||val.status||'draft')===k?'selected':''}>${lfEsc(v)}</option>`).join('')}</select></label><button class="primary" type="button" data-save-feedback="${lfEsc(stage.id)}">Зберегти відгук</button></div></article>`;
-  }).join('');
-}
+
+function dlRandomAccessKey(){const bytes=new Uint8Array(24);crypto.getRandomValues(bytes);return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("")}
+async function dlPersistLabAccessKey(studentId,key){const lab=dlLabForStudent(studentId);if(!lab)throw new Error("Лабораторію студента не знайдено");if(lab.accessKey===key)return;lab.accessKey=key;lab.updatedAt=new Date().toISOString();cache();if(cloudDb&&cloudReady&&currentUser)await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:new Date().toISOString()},{merge:true})}
+async function dlEnsureStudentAccess(st){if(!cloudDb||!currentUser)throw new Error("Потрібен вхід викладача");const lab=dlLabForStudent(st.id);if(!lab)throw new Error("Лабораторію студента не знайдено");const key=String(lab.accessKey||"").trim()||dlRandomAccessKey();const now=new Date().toISOString();await setDoc(doc(cloudDb,"rems_student_schedules",key),{studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),items:[],projects:{},updatedAt:now,createdAt:lab.accessKey?undefined:now},{merge:true});if(!lab.accessKey)await dlPersistLabAccessKey(st.id,key);const projects=dlProjectsForStudent(st.id),owned=projects.filter(p=>lfAuthorIds(p).length===1),shared=projects.filter(p=>lfAuthorIds(p).length>1),currentProject=owned[0]||shared[0]||null;const workRef=doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,key);const snap=await getDoc(workRef);const base={studentId:String(st.id),name:String(st.name||""),group:String(st.group||`РЕМС-${dlStudentGroup(st)}`),mediaId:studentMediaId(st),projectId:String(currentProject?.id||""),projectTitle:String(currentProject?.title||""),sharedProject:!!(currentProject&&lfAuthorIds(currentProject).length>1),driveUrl:String(lab.driveUrl||currentProject?.driveUrl||""),updatedAt:now};if(!snap.exists())await setDoc(workRef,{...base,answers:{},sectionStates:{},stages:{},createdAt:now},{merge:false});else await setDoc(workRef,base,{merge:true});return key}
+async function dlActivateAllStudents(button){if(!cloudDb||!currentUser){alert("Потрібен вхід викладача.");return}const students=dlEligibleStudents();if(!students.length){alert("Не знайдено студентів РЕМС-34 / РЕМС-44.");return}const already=students.filter(st=>String((dlLabForStudent(st.id)||{}).accessKey||"").trim()).length;if(!confirm(`Активувати персональні лабораторії для всіх ${students.length} студентів?\n\nНових доступів: ${students.length-already}. Уже активовані: ${already}.`))return;const original=button?.textContent||"Активувати лабораторії всім";if(button)button.disabled=true;let created=0,repaired=0,failed=[];for(let i=0;i<students.length;i++){const st=students[i],hadKey=!!String((dlLabForStudent(st.id)||{}).accessKey||"").trim();if(button)button.textContent=`Активація ${i+1}/${students.length}…`;try{await dlEnsureStudentAccess(st);hadKey?repaired++:created++}catch(e){console.error(e);failed.push(st.name)}}if(button){button.disabled=false;button.textContent=original}renderDirectingLaboratory();alert(`Готово. Нових: ${created}. Перевірено: ${repaired}.${failed.length?`\nПомилки: ${failed.join(', ')}`:''}`)}
+function dlStudentLabUrl(key){const u=new URL("lab.html",location.href);u.searchParams.set("key",key);return u.href}
+async function dlLoadStudentWork(key){if(!cloudDb||!key)return{work:null,feedback:null};const[w,f]=await Promise.all([getDoc(doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,key)),getDoc(doc(cloudDb,DIRECTING_LAB_FEEDBACK_COLLECTION,key))]);return{work:w.exists()?w.data():null,feedback:f.exists()?f.data():null}}
+function dlAnswerFor(work,section,block){const a=work?.answers?.[block.id];if(a!==undefined)return a;const old=work?.stages?.[section.id]?.[block.id];return old!==undefined?{value:old}:{}}
+function dlAdminBlockHtml(work,section,block){const a=dlAnswerFor(work,section,block)||{};if(block.type==='theory')return`<div class="dl-answer dl-readonly"><small>${lfEsc(block.title||'Матеріал')}</small><div>${lfEsc(block.help||'').replace(/\n/g,'<br>')}</div></div>`;if(block.type==='table'){const rows=Array.isArray(a.rows)?a.rows:[];return`<div class="dl-answer"><small>${lfEsc(block.title)}</small>${rows.length?`<div class="dl-admin-table-wrap"><table><thead><tr>${(block.columns||[]).map(c=>`<th>${lfEsc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${(block.columns||[]).map((c,i)=>`<td>${lfEsc(r[i]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<em>Не заповнено</em>'}</div>`}if(block.type==='file'){const files=Array.isArray(a.files)?a.files:[];return`<div class="dl-answer"><small>${lfEsc(block.title)}</small>${files.length?files.map(f=>`<div><a href="${lfEsc(f.url||'#')}" target="_blank" rel="noopener">${lfEsc(f.name||'Файл')} ↗</a></div>`).join(''):'<em>Файл не додано</em>'}</div>`}if(block.type==='checklist'){const vals=Array.isArray(a.values)?a.values:[];return`<div class="dl-answer"><small>${lfEsc(block.title)}</small>${vals.length?vals.map(v=>`<span class="lf-chip">✓ ${lfEsc(v)}</span>`).join(' '):'<em>Не заповнено</em>'}</div>`}const value=String(a.value??oldValue(work,section,block)??'').trim();return`<div class="dl-answer"><small>${lfEsc(block.title)}</small><div>${value?lfEsc(value).replace(/\n/g,'<br>'):'<em>Не заповнено</em>'}</div></div>`}
+function oldValue(work,section,block){return work?.stages?.[section.id]?.[block.id]}
+function dlRenderAdminWork(work,feedback,schema){if(!work)return`<div class="lf-empty">Робочий документ ще не створено.</div>`;return(schema?.sections||[]).map(section=>{const f=feedback?.sections?.[section.id]||feedback?.stages?.[section.id]||{},state=work?.sectionStates?.[section.id]||work?.stages?.[section.id]||{},blocks=section.blocks||[];return`<article class="dl-admin-stage ${section.published===false?'unpublished':''}" data-admin-section="${lfEsc(section.id)}"><div class="dl-stage-head"><div><b>${lfEsc(section.title)}</b><small>${section.published===false?'Ще не опубліковано студентам':state.submittedAt?`Подано ${lfEsc(new Date(state.submittedAt).toLocaleString('uk-UA'))}`:'У роботі'}</small></div><span class="lf-chip">${lfEsc(dlFeedbackStatusLabels[f.status||state.status||'draft']||'Чернетка')}</span></div><div class="dl-answer-grid">${blocks.map(b=>dlAdminBlockHtml(work,section,b)).join('')}</div><div class="dl-feedback-box"><label>Коментар викладача<textarea data-feedback-comment="${lfEsc(section.id)}" rows="3" placeholder="Коментар до цього розділу…">${lfEsc(f.comment||'')}</textarea></label><label>Статус<select data-feedback-status="${lfEsc(section.id)}">${Object.entries(dlFeedbackStatusLabels).map(([k,v])=>`<option value="${k}" ${String(f.status||state.status||'draft')===k?'selected':''}>${lfEsc(v)}</option>`).join('')}</select></label><button class="primary" type="button" data-save-feedback="${lfEsc(section.id)}">Зберегти відгук</button></div></article>`}).join('')}
+async function dlSaveDriveForStudent(st,url,key){const lab=dlLabForStudent(st.id);if(lab){lab.driveUrl=url;lab.updatedAt=new Date().toISOString();cache();await setDoc(doc(cloudDb,"rems_control",CLOUD_DOC),{[DIRECTING_LABS_KEY]:clone(db[DIRECTING_LABS_KEY]),updatedAt:new Date().toISOString()},{merge:true})}if(key)await setDoc(doc(cloudDb,DIRECTING_LAB_WORK_COLLECTION,key),{driveUrl:url,updatedAt:new Date().toISOString()},{merge:true})}
+
 async function openDirectingLab(studentId){
-  const st=(db.students||[]).find(s=>String(s.id)===String(studentId)); if(!st) return;
-  const lab=dlLabForStudent(st.id)||{};
-  const projects=dlProjectsForStudent(st.id);
-  const owned=projects.filter(p=>lfAuthorIds(p).length===1);
-  const shared=projects.filter(p=>lfAuthorIds(p).length>1);
-  const projectCard=p=>`<article class="lf-section" style="margin-top:10px"><div class="lf-detail-head"><div><div class="lf-meta"><span class="lf-chip">${lfEsc(dlProjectOwnershipText(p))}</span><span class="lf-chip">${lfEsc(lfStatusLabels[lfNormalizeStatus(p.status)])}</span></div><h3 style="margin:8px 0 4px">${lfEsc(p.title||'Без назви')}</h3>${lfAuthorNames(p).length>1?`<div class="muted">Автори ідеї: ${lfEsc(lfAuthorNames(p).join(', '))}</div>`:''}</div>${p.driveUrl?`<a class="ghost" href="${lfEsc(p.driveUrl)}" target="_blank" rel="noopener">Google Drive ↗</a>`:''}</div></article>`;
-  app.innerHTML=`<div class="lf-detail"><div class="lf-detail-head"><div><button class="ghost" id="dlBack">← Усі студенти</button><div class="dl-detail-person" style="margin-top:12px">${dlPhotoOrInitial(st,true)}<div><span class="eyebrow">РЕМС-${dlStudentGroup(st)} · персональна лабораторія</span><h2 style="margin:4px 0">${lfEsc(st.name||'Студент')}</h2><div class="lf-meta"><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span><span class="lf-chip">${projects.length?`${projects.length} пов’язаних проєктів`:'Проєкт ще не визначено'}</span></div></div></div></div></div>
-  ${owned.length?`<section class="lf-section"><h3>Індивідуальний проєкт</h3><div class="muted">Проєкт має одного автора і автоматично закріплений за цим студентом.</div>${owned.map(projectCard).join('')}</section>`:''}
-  ${shared.length?`<section class="lf-section"><h3>Спільний проєкт — тимчасово</h3><div class="muted">Проєкт поки залишається спільним. Він показується в персональних лабораторіях усіх авторів ідеї.</div>${shared.map(projectCard).join('')}</section>`:''}
-  ${!projects.length?`<section class="lf-section"><h3>Індивідуальний режисерський проєкт</h3><div class="lf-empty">Проєкт ще не визначено. Студентський простір можна активувати вже зараз.</div></section>`:''}
-  <section class="lf-section" id="dlAccessSection"><div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Окреме персональне посилання. Студент не бачить REMS-Control.</div></div><button class="primary" id="dlActivateAccessInitial" type="button">Створити студентське посилання</button></div></section>
-  <section class="lf-section"><h3>Робота студента</h3><div id="dlAdminWork"><div class="lf-empty">Активуй студентський доступ, щоб почати роботу.</div></div></section></div>`;
-  app.querySelector('#dlBack').onclick=renderDirectingLaboratory;
-
-  const access=app.querySelector('#dlAccessSection');
-  const holder=app.querySelector('#dlAdminWork');
-  const labAccessKey=String((dlLabForStudent(st.id)||{}).accessKey||'').trim();
-
-  const showAccessLink=(key)=>{
-    const url=dlStudentLabUrl(key);
-    access.innerHTML=`<div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Це приватне посилання студента. Його не потрібно вводити в REMS-Control.</div></div><span class="lf-chip">Активовано</span></div><div class="dl-access-row"><input id="dlAccessUrl" readonly value="${lfEsc(url)}"><button class="ghost" id="dlCopyAccess">Копіювати</button><a class="ghost" href="${lfEsc(url)}" target="_blank" rel="noopener">Відкрити ↗</a></div>`;
-    app.querySelector('#dlCopyAccess').onclick=async()=>{try{await navigator.clipboard.writeText(url);app.querySelector('#dlCopyAccess').textContent='Скопійовано ✓'}catch{app.querySelector('#dlAccessUrl').select();document.execCommand('copy')}};
-  };
-
-  const loadAdminWork=async(key)=>{
-    holder.innerHTML='<div class="lf-empty">Завантаження роботи…</div>';
-    try{
-      const {work,feedback}=await dlLoadStudentWork(key);
-      holder.innerHTML=dlRenderAdminWork(work,feedback);
-      holder.querySelectorAll('[data-save-feedback]').forEach(btn=>btn.onclick=async()=>{
-        const stageId=btn.dataset.saveFeedback;
-        const comment=holder.querySelector(`[data-feedback-comment="${stageId}"]`)?.value||'';
-        const status=holder.querySelector(`[data-feedback-status="${stageId}"]`)?.value||'draft';
-        btn.disabled=true;btn.textContent='Збереження…';
-        try{
-          const ref=doc(cloudDb,DIRECTING_LAB_FEEDBACK_COLLECTION,key);
-          const snap=await getDoc(ref); const data=snap.exists()?snap.data():{};
-          const stages={...(data.stages||{}),[stageId]:{comment,status,updatedAt:new Date().toISOString(),updatedBy:currentUser?.email||currentUser?.uid||''}};
-          await setDoc(ref,{studentId:String(st.id),name:String(st.name||''),stages,updatedAt:new Date().toISOString()},{merge:true});
-          btn.textContent='Збережено ✓'; setTimeout(()=>{btn.textContent='Зберегти відгук';btn.disabled=false},1200);
-        }catch(e){console.error(e);alert('Не вдалося зберегти відгук.');btn.disabled=false;btn.textContent='Зберегти відгук'}
-      });
-    }catch(e){console.error(e);holder.innerHTML='<div class="lf-empty">Не вдалося завантажити роботу студента.</div>';}
-  };
-
-  if(labAccessKey){
-    showAccessLink(labAccessKey);
-    await loadAdminWork(labAccessKey);
-    return;
-  }
-
-  access.innerHTML=`<div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Створи приватне посилання і надішли його студенту.</div></div><button class="primary" id="dlActivateAccess">Створити студентське посилання</button></div>`;
-  holder.innerHTML='<div class="lf-empty">Студентський доступ ще не створено.</div>';
-  app.querySelector('#dlActivateAccess').onclick=async()=>{
-    const b=app.querySelector('#dlActivateAccess');
-    b.disabled=true;b.textContent='Створення…';
-    try{
-      const key=await dlEnsureStudentAccess(st);
-      showAccessLink(key);
-      await loadAdminWork(key);
-    }catch(e){
-      console.error(e);alert('Не вдалося створити студентське посилання. '+(e?.message||''));
-      b.disabled=false;b.textContent='Створити студентське посилання';
-    }
-  };
+  const st=(db.students||[]).find(s=>String(s.id)===String(studentId));if(!st)return;const lab=dlLabForStudent(st.id)||{},projects=dlProjectsForStudent(st.id),owned=projects.filter(p=>lfAuthorIds(p).length===1),shared=projects.filter(p=>lfAuthorIds(p).length>1),schema=await dlLoadSchema();const projectCard=p=>`<article class="lf-section" style="margin-top:10px"><div class="lf-detail-head"><div><div class="lf-meta"><span class="lf-chip">${lfEsc(dlProjectOwnershipText(p))}</span></div><h3 style="margin:8px 0 4px">${lfEsc(p.title||'Без назви')}</h3></div>${p.driveUrl?`<a class="ghost" href="${lfEsc(p.driveUrl)}" target="_blank" rel="noopener">Google Drive ↗</a>`:''}</div></article>`;
+  app.innerHTML=`<div class="lf-detail"><div class="lf-detail-head"><div><button class="ghost" id="dlBack">← Усі студенти</button><div class="dl-detail-person" style="margin-top:12px">${dlPhotoOrInitial(st,true)}<div><span class="eyebrow">РЕМС-${dlStudentGroup(st)} · персональна лабораторія</span><h2 style="margin:4px 0">${lfEsc(st.name||'Студент')}</h2><div class="lf-meta"><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span><span class="lf-chip">${projects.length?`${projects.length} пов’язаних проєктів`:'Проєкт ще не визначено'}</span></div></div></div></div><button class="ghost" id="dlGoBuilder">⚙ Конструктор</button></div>
+  ${owned.length?`<section class="lf-section"><h3>Індивідуальний проєкт</h3>${owned.map(projectCard).join('')}</section>`:''}${shared.length?`<section class="lf-section"><h3>Спільний проєкт — тимчасово</h3>${shared.map(projectCard).join('')}</section>`:''}${!projects.length?`<section class="lf-section"><h3>Індивідуальний режисерський проєкт</h3><div class="lf-empty">Проєкт ще не визначено. Студент може почати з паспорта й сформулювати робочу назву.</div></section>`:''}
+  <section class="lf-section"><div class="dl-stage-head"><div><h3 style="margin:0">Персональна папка Google Drive</h3><div class="muted">Посилання бачить студент у своїй лабораторії. Туди можна складати сценарії, таблиці, референси й фінальні матеріали.</div></div></div><div class="dl-access-row"><input id="dlDriveUrl" type="url" value="${lfEsc(lab.driveUrl||owned[0]?.driveUrl||shared[0]?.driveUrl||'')}" placeholder="https://drive.google.com/drive/folders/…"><button class="ghost" id="dlSaveDrive">Зберегти</button><a class="ghost" id="dlOpenDrive" href="${lfEsc(lab.driveUrl||owned[0]?.driveUrl||shared[0]?.driveUrl||'#')}" target="_blank" rel="noopener">Відкрити ↗</a></div></section>
+  <section class="lf-section" id="dlAccessSection"></section><section class="lf-section"><h3>Робота студента</h3><div id="dlAdminWork"><div class="lf-empty">Активуй студентський доступ, щоб почати роботу.</div></div></section></div>`;
+  app.querySelector('#dlBack').onclick=renderDirectingLaboratory;app.querySelector('#dlGoBuilder').onclick=openDirectingLabConstructor;const access=app.querySelector('#dlAccessSection'),holder=app.querySelector('#dlAdminWork');let key=String((dlLabForStudent(st.id)||{}).accessKey||'').trim();
+  const showAccessLink=k=>{const url=dlStudentLabUrl(k);access.innerHTML=`<div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Приватне персональне посилання. Студент бачить тільки власну лабораторію.</div></div><span class="lf-chip">Активовано</span></div><div class="dl-access-row"><input id="dlAccessUrl" readonly value="${lfEsc(url)}"><button class="ghost" id="dlCopyAccess">Копіювати</button><a class="ghost" href="${lfEsc(url)}" target="_blank" rel="noopener">Відкрити ↗</a></div>`;app.querySelector('#dlCopyAccess').onclick=async()=>{try{await navigator.clipboard.writeText(url);app.querySelector('#dlCopyAccess').textContent='Скопійовано ✓'}catch{app.querySelector('#dlAccessUrl').select();document.execCommand('copy')}}};
+  const loadAdminWork=async k=>{holder.innerHTML='<div class="lf-empty">Завантаження роботи…</div>';try{const{work,feedback}=await dlLoadStudentWork(k);holder.innerHTML=dlRenderAdminWork(work,feedback,schema);holder.querySelectorAll('[data-save-feedback]').forEach(btn=>btn.onclick=async()=>{const sid=btn.dataset.saveFeedback,comment=holder.querySelector(`[data-feedback-comment="${sid}"]`)?.value||'',status=holder.querySelector(`[data-feedback-status="${sid}"]`)?.value||'draft';btn.disabled=true;btn.textContent='Збереження…';try{const ref=doc(cloudDb,DIRECTING_LAB_FEEDBACK_COLLECTION,k),snap=await getDoc(ref),data=snap.exists()?snap.data():{},sections={...(data.sections||{}),[sid]:{comment,status,updatedAt:new Date().toISOString(),updatedBy:currentUser?.email||currentUser?.uid||''}};await setDoc(ref,{studentId:String(st.id),name:String(st.name||''),sections,updatedAt:new Date().toISOString()},{merge:true});btn.textContent='Збережено ✓';setTimeout(()=>{btn.textContent='Зберегти відгук';btn.disabled=false},1000)}catch(e){console.error(e);alert('Не вдалося зберегти відгук.');btn.disabled=false;btn.textContent='Зберегти відгук'}})}catch(e){console.error(e);holder.innerHTML='<div class="lf-empty">Не вдалося завантажити роботу студента.</div>'}};
+  app.querySelector('#dlSaveDrive').onclick=async()=>{const b=app.querySelector('#dlSaveDrive'),url=app.querySelector('#dlDriveUrl').value.trim();b.disabled=true;b.textContent='Збереження…';try{await dlSaveDriveForStudent(st,url,key);b.textContent='Збережено ✓';app.querySelector('#dlOpenDrive').href=url||'#';setTimeout(()=>{b.disabled=false;b.textContent='Зберегти'},900)}catch(e){console.error(e);alert('Не вдалося зберегти посилання.');b.disabled=false;b.textContent='Зберегти'}};
+  if(key){try{await dlEnsureStudentAccess(st)}catch(e){console.error(e)}showAccessLink(key);await loadAdminWork(key)}else{access.innerHTML=`<div class="dl-stage-head"><div><h3 style="margin:0">Студентський доступ</h3><div class="muted">Створи приватне посилання і надішли його студенту.</div></div><button class="primary" id="dlActivateAccess">Створити студентське посилання</button></div>`;app.querySelector('#dlActivateAccess').onclick=async()=>{const b=app.querySelector('#dlActivateAccess');b.disabled=true;b.textContent='Створення…';try{key=await dlEnsureStudentAccess(st);showAccessLink(key);await loadAdminWork(key)}catch(e){console.error(e);alert('Не вдалося створити посилання. '+(e?.message||''));b.disabled=false;b.textContent='Створити студентське посилання'}}}
 }
 
-(function injectDirectingLabV431Styles(){
-  if(document.getElementById("remsDirectingLabV431Styles")) return;
-  const st=document.createElement("style");st.id="remsDirectingLabV431Styles";
-  st.textContent=`
-    .dl-card-row{display:flex;gap:14px;align-items:flex-start}.dl-card-main{min-width:0;flex:1}
-    .dl-student-photo,.dl-detail-photo{width:72px;height:88px;object-fit:cover;border-radius:14px;background:#eef2f7;border:1px solid #e5e7eb;flex:0 0 auto}
-    .dl-student-photo-empty{display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#64748b}
-    .dl-detail-person{display:flex;gap:16px;align-items:center}.dl-detail-photo{width:86px;height:106px}
-        .dl-access-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-top:12px}.dl-access-row input{min-width:0;border:1px solid #dbe1e8;border-radius:10px;padding:10px 12px;background:#f8fafc}
-    .dl-admin-stage{border:1px solid #e4e8ee;border-radius:16px;padding:16px;margin:12px 0;background:#fff}.dl-stage-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.dl-stage-head small{display:block;color:#7a8492;margin-top:4px}.dl-answer-grid{display:grid;gap:9px;margin-top:13px}.dl-answer{padding:11px 12px;border-radius:12px;background:#f8fafc;border:1px solid #eef1f5}.dl-answer small{display:block;color:#718096;margin-bottom:5px}.dl-answer em{color:#9aa3af}.dl-feedback-box{display:grid;grid-template-columns:1fr 180px auto;gap:10px;align-items:end;margin-top:13px;padding-top:13px;border-top:1px solid #edf0f3}.dl-feedback-box label{display:grid;gap:5px;font-size:11px;color:#667085}.dl-feedback-box textarea,.dl-feedback-box select{border:1px solid #dbe1e8;border-radius:10px;padding:9px 10px;font:inherit;background:#fff}
-    @media(max-width:800px){.dl-access-row,.dl-feedback-box{grid-template-columns:1fr}.dl-student-photo{width:62px;height:76px}.dl-detail-photo{width:72px;height:88px}}
-  `;document.head.appendChild(st);
-})();
+(function injectDirectingLabV44Styles(){if(document.getElementById("remsDirectingLabV44Styles"))return;const st=document.createElement("style");st.id="remsDirectingLabV44Styles";st.textContent=`
+.dl-toolbar-actions{display:flex;flex-direction:column;align-items:flex-end;gap:10px}.dl-top-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.dl-card-row{display:flex;gap:14px;align-items:flex-start}.dl-card-main{min-width:0;flex:1}.dl-student-photo,.dl-detail-photo{width:72px;height:88px;object-fit:cover;border-radius:14px;background:#eef2f7;border:1px solid #e5e7eb;flex:0 0 auto}.dl-student-photo-empty{display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#64748b}.dl-detail-person{display:flex;gap:16px;align-items:center}.dl-detail-photo{width:86px;height:106px}.dl-access-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-top:12px}.dl-access-row input{min-width:0;border:1px solid #dbe1e8;border-radius:10px;padding:10px 12px;background:#f8fafc}.dl-admin-stage{border:1px solid #e4e8ee;border-radius:16px;padding:16px;margin:12px 0;background:#fff}.dl-admin-stage.unpublished{opacity:.72;border-style:dashed}.dl-stage-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.dl-stage-head small{display:block;color:#7a8492;margin-top:4px}.dl-answer-grid{display:grid;gap:9px;margin-top:13px}.dl-answer{padding:11px 12px;border-radius:12px;background:#f8fafc;border:1px solid #eef1f5}.dl-answer small{display:block;color:#718096;margin-bottom:5px}.dl-answer em{color:#9aa3af}.dl-readonly{background:#f5f3ff}.dl-feedback-box{display:grid;grid-template-columns:1fr 180px auto;gap:10px;align-items:end;margin-top:13px;padding-top:13px;border-top:1px solid #edf0f3}.dl-feedback-box label{display:grid;gap:5px;font-size:11px;color:#667085}.dl-feedback-box textarea,.dl-feedback-box select{border:1px solid #dbe1e8;border-radius:10px;padding:9px 10px;font:inherit;background:#fff}.dl-admin-table-wrap{overflow:auto}.dl-admin-table-wrap table{border-collapse:collapse;width:100%;min-width:520px}.dl-admin-table-wrap th,.dl-admin-table-wrap td{border:1px solid #e5e7eb;padding:7px;text-align:left;font-size:11px}.dl-builder-page{display:grid;gap:14px}.dl-builder-summary{display:grid;grid-template-columns:auto auto;gap:2px 8px;align-items:center;background:#111827;color:#fff;padding:14px 16px;border-radius:14px}.dl-builder-summary b{font-size:22px}.dl-builder-summary small{color:#cbd5e1}.dl-builder-section{border:1px solid #dfe4ea;border-radius:18px;background:#fff;padding:16px}.dl-builder-section-head,.dl-builder-block-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.dl-builder-section-head h3{margin:3px 0 12px}.dl-builder-section-head>div:last-child,.dl-builder-block-head>div{display:flex;gap:5px}.dl-builder-grid{display:grid;grid-template-columns:220px 1fr;gap:10px}.dl-builder-grid label{display:grid;gap:5px;font-size:11px;font-weight:700;color:#4b5563}.dl-builder-grid .wide{grid-column:1/-1}.dl-builder-grid input,.dl-builder-grid textarea,.dl-builder-grid select{width:100%;border:1px solid #dbe1e8;border-radius:10px;padding:9px 10px;font:inherit;background:#fff}.dl-builder-grid .dl-check{display:flex;flex-direction:row;align-items:center;gap:8px;grid-column:1/-1}.dl-builder-grid .dl-check input{width:auto}.dl-builder-blocks{display:grid;gap:9px;margin:14px 0}.dl-builder-block{border:1px solid #edf0f3;background:#f8fafc;border-radius:14px;padding:12px}.dl-builder-block-head{margin-bottom:9px}.dl-builder-savebar{position:sticky;bottom:12px;z-index:10;display:flex;justify-content:space-between;gap:16px;align-items:center;padding:12px 14px;background:#fffffff2;backdrop-filter:blur(10px);border:1px solid #dfe4ea;border-radius:14px;box-shadow:0 12px 40px #11182718}.dl-builder-savebar small{display:block;color:#6b7280;margin-top:3px}.dl-add-section{justify-self:start}.mini{padding:6px 8px!important;font-size:10px!important}
+@media(max-width:800px){.dl-toolbar-actions{align-items:stretch;width:100%}.dl-top-actions{justify-content:stretch}.dl-top-actions>*{flex:1}.dl-access-row,.dl-feedback-box,.dl-builder-grid{grid-template-columns:1fr}.dl-student-photo{width:62px;height:76px}.dl-detail-photo{width:72px;height:88px}.dl-builder-grid .wide{grid-column:auto}.dl-builder-savebar{align-items:stretch;flex-direction:column}.dl-builder-savebar .primary{width:100%}}
+`;document.head.appendChild(st)})();
 
 let lfFilter="all";
 async function largeforms(){
