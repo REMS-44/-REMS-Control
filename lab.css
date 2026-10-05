@@ -83,3 +83,13 @@ main{max-width:1180px}.student-hero{background:linear-gradient(135deg,#151d31 0,
   background:linear-gradient(135deg,#244cf0 0%,#7a54ff 100%)!important;
   transform:translateY(-1px);
 }
+
+
+/* v45.7 - text review on every prose field */
+.compact-text-tools{margin-top:7px}
+.mini-text-check{align-self:flex-start;margin-top:6px;background:linear-gradient(135deg,#eef2ff,#e8f4ff);color:#3049a7;border:1px solid #cfd8ff;box-shadow:none}
+.mini-text-check:hover{background:linear-gradient(135deg,#dfe6ff,#dff2ff);transform:translateY(-1px)}
+.material-title-review-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;flex:1;min-width:0}
+.material-title-review-wrap .mini-text-check{margin-top:0;white-space:nowrap}
+.material-field .mini-text-check{width:max-content}
+@media(max-width:620px){.material-title-review-wrap{grid-template-columns:1fr}.material-title-review-wrap .mini-text-check{width:max-content}}
