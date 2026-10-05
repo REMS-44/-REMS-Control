@@ -1,3 +1,5 @@
+REMS-Control v46.7 - Direct Message Jump
+
 # REMS-Control v46.6
 
 Точкове виправлення переписки і студентських повідомлень.
@@ -9,3 +11,9 @@
 - Відкриття конкретної переписки позначає прочитаним саме цей пункт, а не всі коментарі розділу.
 - Викладацьке модальне вікно переписки також отримало захист від дублювання та помилок відкриття.
 - Firebase Rules змінювати не потрібно.
+
+
+- Student notification cards jump to the exact item.
+- Teacher activity cards already jump to the exact item and browser notifications now do too.
+- Clicking a message bubble in either dialogue returns to the related item.
+- Direct target is highlighted briefly.
