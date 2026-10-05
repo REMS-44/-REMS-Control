@@ -6,3 +6,10 @@
 - Прогрес і верхня навігація рахують тільки три активні підрозділи.
 - Кнопка переходу до Google Drive у 1.3 зроблена контрастною.
 - Збережено правки v45.5: без «Формату проєкту», новий абзац у теорії форми, жанр + назва в лапках, точніше позиціонування навігації, запропонована редакція тексту.
+
+
+## v45.6.1
+- Fixed missing closing template literal in student lab render.
+- Student page limited to 1.1, 1.2, 1.3.
+- Stronger Google Drive button.
+- More detailed JS startup error diagnostics.

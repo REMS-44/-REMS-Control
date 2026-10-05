@@ -67,3 +67,19 @@ main{max-width:1180px}.student-hero{background:linear-gradient(135deg,#151d31 0,
   background:linear-gradient(135deg,#1948ef 0%,#5a32df 100%) !important;
   transform:translateY(-1px);
 }
+
+
+/* v45.6.1 - Drive button visibility */
+.material-drive-open{
+  background:linear-gradient(135deg,#315cff 0%,#6d4aff 100%)!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  box-shadow:0 10px 24px rgba(49,92,255,.28)!important;
+  min-height:42px;
+  padding:10px 15px!important;
+  font-weight:900!important;
+}
+.material-drive-open:hover{
+  background:linear-gradient(135deg,#244cf0 0%,#7a54ff 100%)!important;
+  transform:translateY(-1px);
+}
