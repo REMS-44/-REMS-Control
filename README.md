@@ -1,12 +1,10 @@
-# REMS Control v45.4.4
+# REMS Control v45.4.5
 
-Unified stable build based on v45.2.
+Перевірена збірка після виправлення синтаксису у 1.1.
 
-Key fixes:
-- student and teacher views use the same upgraded 1.1 structure;
-- old persisted Firestore schema can no longer reintroduce removed 1.1 fields;
-- 1.1 now contains only 1.1.1-1.1.6 agreed fields;
-- student page restored from stable v45.2 code path;
-- chapter label, active navigation, summary Word export, browser spellcheck/text helper, feedback indicators and notifications retained;
-- research workspace remains simplified;
-- no student answers are deleted by schema upgrade.
+- 1.1 синхронізовано у викладацькій і студентській частинах.
+- Залишено 6 актуальних пунктів 1.1.
+- Прибрані старі окремі пункти більше не відображаються.
+- JS перевірено `node --check`.
+- HTML посилається на наявні файли v45.4.5.
+- Довге тире у робочих JS-файлах не використовується.

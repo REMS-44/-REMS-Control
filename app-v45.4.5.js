@@ -610,7 +610,7 @@ const loadAllAcknowledgements=async()=>{
   }catch(err){console.error("Acknowledgements:",err);return [];}
 };
 
-// v5.9 — one-time reset requested on 2026-08-25.
+// v5.9 - one-time reset requested on 2026-08-25.
 // The cloud marker prevents later acknowledgements from being deleted again.
 const ACK_RESET_MARKER="2026-08-25-v9";
 const resetAllAcknowledgementsOnce=async mainRef=>{
@@ -658,7 +658,7 @@ async function openProjectAcknowledgements(projectId){
     <div class="project-section-head"><div><span class="eyebrow">Ознайомлення</span><h2 style="margin:3px 0 0">${esc(p.name)}</h2></div><button class="ghost" id="ackBackToProject">Назад до проєкту</button></div>
     <div class="ack-summary-list">${rows.map((r,i)=>`<div class="ack-summary-row">
       <button type="button" class="ack-summary-main" data-ack-detail="${i}"><span><b>${fmt(r.e.date)} · ${esc(r.e.type||"Подія")}</b><small>${eventMetaText(r.e)?esc(eventMetaText(r.e)):""}</small></span><strong class="${r.yes.length===r.assigned.length&&r.assigned.length?"complete":""}">${r.yes.length}/${r.assigned.length}</strong></button>
-      <div class="ack-summary-detail" data-ack-panel="${i}" hidden><div><b>✓ Ознайомилися (${r.yes.length})</b><p>${r.yes.map(s=>`${esc(s.name)} <small>· ${esc(studentGroupLabel(s))}</small>`).join("<br>")||"—"}</p></div><div><b>Не ознайомилися (${r.no.length})</b><p>${r.no.map(s=>`${esc(s.name)} <small>· ${esc(studentGroupLabel(s))}</small>`).join("<br>")||"—"}</p></div></div>
+      <div class="ack-summary-detail" data-ack-panel="${i}" hidden><div><b>✓ Ознайомилися (${r.yes.length})</b><p>${r.yes.map(s=>`${esc(s.name)} <small>· ${esc(studentGroupLabel(s))}</small>`).join("<br>")||"-"}</p></div><div><b>Не ознайомилися (${r.no.length})</b><p>${r.no.map(s=>`${esc(s.name)} <small>· ${esc(studentGroupLabel(s))}</small>`).join("<br>")||"-"}</p></div></div>
     </div>`).join("")||'<div class="empty">У проєкті ще немає подій.</div>'}</div>
   </div>`;
   holder.querySelector("#ackBackToProject").onclick=()=>openProjectCard(projectId);
@@ -668,7 +668,7 @@ async function openProjectAcknowledgements(projectId){
 async function showEventAcknowledgements(ev){
   const all=await loadAllAcknowledgements();
   const s=acknowledgementStats(ev,all);
-  alert(`Ознайомилися: ${s.yes.length}/${s.assigned.length}\n\n✓ ${s.yes.map(x=>x.name).join("\n✓ ")||"—"}\n\nНе ознайомилися (${s.no.length}):\n${s.no.map(x=>x.name).join("\n")||"—"}`);
+  alert(`Ознайомилися: ${s.yes.length}/${s.assigned.length}\n\n✓ ${s.yes.map(x=>x.name).join("\n✓ ")||"-"}\n\nНе ознайомилися (${s.no.length}):\n${s.no.map(x=>x.name).join("\n")||"-"}`);
 }
 
 async function updateAckIndicators(){
@@ -950,7 +950,7 @@ const studentGroupSummary=students=>{
     const g=studentGroupLabel(st);
     counts.set(g,(counts.get(g)||0)+1);
   });
-  return [...counts.entries()].sort((a,b)=>a[0].localeCompare(b[0],"uk")).map(([g,n])=>`${g} — ${n}`).join(" · ");
+  return [...counts.entries()].sort((a,b)=>a[0].localeCompare(b[0],"uk")).map(([g,n])=>`${g} - ${n}`).join(" · ");
 };
 const studentBusyLabelsOnDate=(studentId,date)=>{
   const sid=String(studentId);
@@ -966,7 +966,7 @@ const studentBusyLabelsOnDate=(studentId,date)=>{
   });
   return [...new Set(labels.filter(Boolean))];
 };
-// v9.0 — availability-first project creation and staffing for project dates.
+// v9.0 - availability-first project creation and staffing for project dates.
 const studentExternalBusyLabelsOnDate=(studentId,date,currentProjectId)=>{
   const sid=String(studentId), pid=String(currentProjectId||"");
   const labels=[];
@@ -1071,7 +1071,7 @@ async function removeStudentFromProjectDate(projectId,date,studentId){
   }
 }
 
-// v39.0 — stable project participation model.
+// v39.0 - stable project participation model.
 // There are only two meaningful rosters:
 // 1) project team (db.assignments); 2) optional roster override for a concrete date (project.dateRosters[date]).
 // Work blocks no longer own a competing copy of the roster. They inherit the date roster, or the project team when no date override exists.
@@ -1305,7 +1305,7 @@ async function compressProjectLogo(file){
     const r=new FileReader(); r.onload=()=>resolve(String(r.result||"")); r.onerror=reject; r.readAsDataURL(f);
   });
 
-  // Невеликі JPEG/WEBP уже оптимальні. Не перекодовуємо їх повторно —
+  // Невеликі JPEG/WEBP уже оптимальні. Не перекодовуємо їх повторно -
   // саме повторне WEBP-кодування в окремих браузерах і давало помилку навіть для файлів ~40 КБ.
   if(file.size<=220*1024 && /image\/(jpeg|jpg|webp)/i.test(file.type)) return await readAsDataURL(file);
 
@@ -1505,7 +1505,7 @@ function openNewProjectAvailability(date){
       <div class="new-project-roster-summary"><b>СКЛАД ЦІЄЇ ДАТИ · ${selected.length}</b><div class="new-project-roster-selected">${selected.map(st=>`<button type="button" class="new-project-person-select selected" data-selected-id="${esc(String(st.id))}" title="Натисніть, щоб прибрати">✓ ${esc(st.name)} · ${esc(studentGroupLabel(st)||'')}</button>`).join('')||'<span class="muted">Ще нікого не вибрано.</span>'}</div></div>
       <div class="availability-grid-two">
         <div class="availability-card"><div class="availability-title"><b>ВІЛЬНІ · ${av.free.length}</b><small>Натискайте на людей, яких треба залучити на цю дату</small></div><div class="availability-list">${av.free.map(x=>`<button type="button" class="new-project-person-select ${roster.has(String(x.st.id))||roster.has(x.st.id)?'selected':''}" data-free-id="${esc(String(x.st.id))}">${roster.has(String(x.st.id))||roster.has(x.st.id)?'✓ ':'+ '}${esc(x.st.name)} · ${esc(studentGroupLabel(x.st)||'')}</button>`).join('')||'<span class="muted">Немає</span>'}</div></div>
-        <div class="availability-card"><div class="availability-title"><b>ЗАЙНЯТІ · ${av.busy.length}</b><small>Можна додати попри конфлікт — система покаже, де людина зайнята</small></div><div class="availability-list">${av.busy.map(x=>`<button type="button" class="new-project-person-select new-project-busy-select ${roster.has(String(x.st.id))||roster.has(x.st.id)?'selected':''}" data-busy-id="${esc(String(x.st.id))}" title="${esc(x.busy.join(' · '))}">${roster.has(String(x.st.id))||roster.has(x.st.id)?'✓ ':'+ '}${esc(x.st.name)} · ${esc(x.busy.join(' · '))}</button>`).join('')||'<span class="muted">Немає</span>'}</div></div>
+        <div class="availability-card"><div class="availability-title"><b>ЗАЙНЯТІ · ${av.busy.length}</b><small>Можна додати попри конфлікт - система покаже, де людина зайнята</small></div><div class="availability-list">${av.busy.map(x=>`<button type="button" class="new-project-person-select new-project-busy-select ${roster.has(String(x.st.id))||roster.has(x.st.id)?'selected':''}" data-busy-id="${esc(String(x.st.id))}" title="${esc(x.busy.join(' · '))}">${roster.has(String(x.st.id))||roster.has(x.st.id)?'✓ ':'+ '}${esc(x.st.name)} · ${esc(x.busy.join(' · '))}</button>`).join('')||'<span class="muted">Немає</span>'}</div></div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button type="button" class="primary" id="doneNewProjectRoster">Готово · ${selected.length}</button></div>
     </div>`;
@@ -1553,7 +1553,7 @@ function renderNewProjectWorkBlocks(){
         <input type="checkbox" class="new-project-work-pick" data-date="${d}" checked>
         <b class="date-label">${fmt(d)}</b>
         <input type="text" class="new-project-work-type" data-date="${d}" list="newProjectWorkKinds" value="${esc(b.type||'')}" placeholder="Вид роботи">
-        <div class="new-project-time-cell"><label class="row-unknown"><input type="checkbox" class="new-project-work-unknown" data-date="${d}" ${b.timeUndetermined!==false?'checked':''}> не визначено</label><div class="row-times" ${b.timeUndetermined!==false?'hidden':''}><input type="time" class="new-project-work-start" data-date="${d}" value="${esc(b.startTime||'')}"><span>—</span><input type="time" class="new-project-work-end" data-date="${d}" value="${esc(b.endTime||'')}"></div></div>
+        <div class="new-project-time-cell"><label class="row-unknown"><input type="checkbox" class="new-project-work-unknown" data-date="${d}" ${b.timeUndetermined!==false?'checked':''}> не визначено</label><div class="row-times" ${b.timeUndetermined!==false?'hidden':''}><input type="time" class="new-project-work-start" data-date="${d}" value="${esc(b.startTime||'')}"><span>-</span><input type="time" class="new-project-work-end" data-date="${d}" value="${esc(b.endTime||'')}"></div></div>
         <button type="button" class="new-project-show-availability availability-count ${av.busy.length?'has-busy':''}" data-date="${d}"><span class="free-count">${av.free.length} вільні</span><span class="busy-count">${av.busy.length} зайняті</span><span>👥 ${ensureNewProjectRoster(d).size}</span></button>
       </div>`}).join('')}
     </div>`;
@@ -1635,7 +1635,7 @@ const publicProfileUrlFor=s=>{
   return pid?`${REMS44_PUBLIC_BASE}student.html?id=${encodeURIComponent(pid)}`:"";
 };
 
-const REMS44_PUBLIC_SEED={"vintsiuk-andrii":{"id":"vintsiuk-andrii","name":"Вінцюк Андрій","role":"Режисер естради і шоу","photo":"images/Вінцюк Андрій.jpeg","bio":["Андрій Вінцюк — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться режисурою концертів, музичних шоу, сценічних номерів і сучасних перформативних форматів."],"skills":["Режисура","Сценарна робота","Робота з виконавцями","Концертні програми"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[{"title":"Відеоробота","youtube":"https://www.youtube.com/watch?v=58ZgRSbX6tU"}],"gallery":[]},"vlasenko-dasha":{"id":"vlasenko-dasha","name":"Власенко Даша","role":"Режисерка естради і шоу","photo":"images/Власенко Даша.jpeg","bio":["Даша Власенко — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює зі сценічними образами, музикою, пластикою, світлом і візуальним оформленням творчих проєктів."],"skills":["Режисура","Сценічний образ","Музична драматургія","Візуальна концепція"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"hostryk-katya":{"id":"hostryk-katya","name":"Гострик Катя","role":"Режисерка естради і шоу","photo":"images/Гострик Катя.jpeg","bio":["Катя Гострик — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться створенням сценічних номерів, перформансів, концертних програм і культурно-мистецьких подій."],"skills":["Режисура","Перформанс","Сценаристика","Організація подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"davydova-svitlana":{"id":"davydova-svitlana","name":"Давидова Світлана","role":"Режисерка естради і шоу","photo":"images/Давидова Світлана.jpeg","bio":["Світлана Давидова — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У своїх роботах досліджує взаємодію виконавця, музики, сценічного простору та емоційного контакту з глядачем."],"skills":["Робота з виконавцями","Режисура номера","Сценічна композиція","Музичне шоу"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"zholudenko-polina":{"id":"zholudenko-polina","name":"Жолуденко Поліна","role":"Режисерка естради і шоу","photo":"images/Жолуденко Поліна.jpeg","bio":["Поліна Жолуденко — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться образною режисурою, сучасними музичними форматами, сценічною пластикою та візуальною драматургією."],"skills":["Образна режисура","Сценічна пластика","Музичні формати","Візуальна драматургія"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"kasieiev-danylo":{"id":"kasieiev-danylo","name":"Касєєв Данило","role":"Режисер естради і шоу","photo":"images/Касєєв Данило.jpeg","bio":["Данило Касєєв — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з концертними постановками, сценічною дією, музичним матеріалом і сучасними видовищними форматами."],"skills":["Концертна режисура","Сценаристика","Робота з музичним матеріалом","Постановка номерів"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"kolyshkin-andrii":{"id":"kolyshkin-andrii","name":"Колишкін Андрій","role":"Режисер естради і шоу","photo":"images/Колишкін Андрій.jpeg","bio":["Андрій Колишкін — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться режисурою концертів, сценічних номерів, телевізійних форматів і великих культурно-мистецьких подій."],"skills":["Концертна режисура","Телеверсія шоу","Сценічна композиція","Організація подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"koshelieva-myroslava":{"id":"koshelieva-myroslava","name":"Кошелєва Мирослава","role":"Режисерка естради і шоу","photo":"images/Кошелєва Мирослава.jpeg","bio":["Мирослава Кошелєва — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У центрі її творчих інтересів — атмосфера події, робота з виконавцем, музикою, світлом і сценічним простором."],"skills":["Робота з виконавцями","Сценічна атмосфера","Світлове рішення","Режисура подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"maksimova-samira":{"id":"maksimova-samira","name":"Максімова Саміра","role":"Режисерка естради і шоу","photo":"images/Максімова Саміра.jpeg","bio":["Саміра Максімова — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться сценічною драматургією, сучасним перформансом, роботою з музикою та візуальними технологіями."],"skills":["Сценічна драматургія","Перформанс","Музичні проєкти","Візуальна концепція"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"milenina-mariia":{"id":"milenina-mariia","name":"Міленіна Марія","role":"Режисерка естради і шоу","photo":"images/Міленіна Марія.jpeg","bio":["Марія Міленіна — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з музичними номерами, сценічною композицією, образністю та емоційною побудовою видовища."],"skills":["Музичний номер","Композиція","Образне рішення","Робота з артистами"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"oleinykov-daniil":{"id":"oleinykov-daniil","name":"Олейников Даніїл","role":"Режисер естради і шоу","photo":"images/Олейников Даніїл.jpeg","bio":["Даніїл Олейников — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться концертними постановками, сучасними шоу, сценічними технологіями та роботою з виконавцями."],"skills":["Режисура шоу","Сценічні технології","Концертна постановка","Робота з артистами"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"pozniak-artur":{"id":"pozniak-artur","name":"Позняк Артур","role":"Режисер естради і шоу","photo":"images/Позняк Артур.jpeg","bio":["Артур Позняк — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з музичними шоу, сценічними номерами, сценарною структурою та сучасними форматами видовищ."],"skills":["Музичне шоу","Сценарна структура","Постановка номерів","Режисура подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"tashuta-artem":{"id":"tashuta-artem","name":"Ташута Артем","role":"Режисер естради і шоу","photo":"images/Ташута Артем.jpeg","bio":["Артем Ташута — студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться постановкою концертних програм, роботою з музикою, світлом, відео та сценічним простором."],"skills":["Концертна програма","Світло","Відеоконтент","Сценічний простір"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"chynionova-dasha":{"id":"chynionova-dasha","name":"Чиньонова Даша","role":"Режисерка естради і шоу","photo":"images/Чиньонова Даша.jpeg","bio":["Даша Чиньонова — студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У своїх роботах досліджує сценічний образ, музичну драматургію, атмосферу та сучасні візуальні рішення."],"skills":["Сценічний образ","Музична драматургія","Атмосфера події","Візуальні рішення"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]}};
+const REMS44_PUBLIC_SEED={"vintsiuk-andrii":{"id":"vintsiuk-andrii","name":"Вінцюк Андрій","role":"Режисер естради і шоу","photo":"images/Вінцюк Андрій.jpeg","bio":["Андрій Вінцюк - студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться режисурою концертів, музичних шоу, сценічних номерів і сучасних перформативних форматів."],"skills":["Режисура","Сценарна робота","Робота з виконавцями","Концертні програми"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[{"title":"Відеоробота","youtube":"https://www.youtube.com/watch?v=58ZgRSbX6tU"}],"gallery":[]},"vlasenko-dasha":{"id":"vlasenko-dasha","name":"Власенко Даша","role":"Режисерка естради і шоу","photo":"images/Власенко Даша.jpeg","bio":["Даша Власенко - студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює зі сценічними образами, музикою, пластикою, світлом і візуальним оформленням творчих проєктів."],"skills":["Режисура","Сценічний образ","Музична драматургія","Візуальна концепція"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"hostryk-katya":{"id":"hostryk-katya","name":"Гострик Катя","role":"Режисерка естради і шоу","photo":"images/Гострик Катя.jpeg","bio":["Катя Гострик - студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться створенням сценічних номерів, перформансів, концертних програм і культурно-мистецьких подій."],"skills":["Режисура","Перформанс","Сценаристика","Організація подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"davydova-svitlana":{"id":"davydova-svitlana","name":"Давидова Світлана","role":"Режисерка естради і шоу","photo":"images/Давидова Світлана.jpeg","bio":["Світлана Давидова - студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У своїх роботах досліджує взаємодію виконавця, музики, сценічного простору та емоційного контакту з глядачем."],"skills":["Робота з виконавцями","Режисура номера","Сценічна композиція","Музичне шоу"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"zholudenko-polina":{"id":"zholudenko-polina","name":"Жолуденко Поліна","role":"Режисерка естради і шоу","photo":"images/Жолуденко Поліна.jpeg","bio":["Поліна Жолуденко - студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться образною режисурою, сучасними музичними форматами, сценічною пластикою та візуальною драматургією."],"skills":["Образна режисура","Сценічна пластика","Музичні формати","Візуальна драматургія"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"kasieiev-danylo":{"id":"kasieiev-danylo","name":"Касєєв Данило","role":"Режисер естради і шоу","photo":"images/Касєєв Данило.jpeg","bio":["Данило Касєєв - студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з концертними постановками, сценічною дією, музичним матеріалом і сучасними видовищними форматами."],"skills":["Концертна режисура","Сценаристика","Робота з музичним матеріалом","Постановка номерів"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"kolyshkin-andrii":{"id":"kolyshkin-andrii","name":"Колишкін Андрій","role":"Режисер естради і шоу","photo":"images/Колишкін Андрій.jpeg","bio":["Андрій Колишкін - студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться режисурою концертів, сценічних номерів, телевізійних форматів і великих культурно-мистецьких подій."],"skills":["Концертна режисура","Телеверсія шоу","Сценічна композиція","Організація подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"koshelieva-myroslava":{"id":"koshelieva-myroslava","name":"Кошелєва Мирослава","role":"Режисерка естради і шоу","photo":"images/Кошелєва Мирослава.jpeg","bio":["Мирослава Кошелєва - студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У центрі її творчих інтересів - атмосфера події, робота з виконавцем, музикою, світлом і сценічним простором."],"skills":["Робота з виконавцями","Сценічна атмосфера","Світлове рішення","Режисура подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"maksimova-samira":{"id":"maksimova-samira","name":"Максімова Саміра","role":"Режисерка естради і шоу","photo":"images/Максімова Саміра.jpeg","bio":["Саміра Максімова - студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться сценічною драматургією, сучасним перформансом, роботою з музикою та візуальними технологіями."],"skills":["Сценічна драматургія","Перформанс","Музичні проєкти","Візуальна концепція"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"milenina-mariia":{"id":"milenina-mariia","name":"Міленіна Марія","role":"Режисерка естради і шоу","photo":"images/Міленіна Марія.jpeg","bio":["Марія Міленіна - студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з музичними номерами, сценічною композицією, образністю та емоційною побудовою видовища."],"skills":["Музичний номер","Композиція","Образне рішення","Робота з артистами"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"oleinykov-daniil":{"id":"oleinykov-daniil","name":"Олейников Даніїл","role":"Режисер естради і шоу","photo":"images/Олейников Даніїл.jpeg","bio":["Даніїл Олейников - студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться концертними постановками, сучасними шоу, сценічними технологіями та роботою з виконавцями."],"skills":["Режисура шоу","Сценічні технології","Концертна постановка","Робота з артистами"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"pozniak-artur":{"id":"pozniak-artur","name":"Позняк Артур","role":"Режисер естради і шоу","photo":"images/Позняк Артур.jpeg","bio":["Артур Позняк - студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Працює з музичними шоу, сценічними номерами, сценарною структурою та сучасними форматами видовищ."],"skills":["Музичне шоу","Сценарна структура","Постановка номерів","Режисура подій"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"tashuta-artem":{"id":"tashuta-artem","name":"Ташута Артем","role":"Режисер естради і шоу","photo":"images/Ташута Артем.jpeg","bio":["Артем Ташута - студент спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","Цікавиться постановкою концертних програм, роботою з музикою, світлом, відео та сценічним простором."],"skills":["Концертна програма","Світло","Відеоконтент","Сценічний простір"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]},"chynionova-dasha":{"id":"chynionova-dasha","name":"Чиньонова Даша","role":"Режисерка естради і шоу","photo":"images/Чиньонова Даша.jpeg","bio":["Даша Чиньонова - студентка спеціальності «Режисура естради і шоу» Київського національного університету культури і мистецтв.","У своїх роботах досліджує сценічний образ, музичну драматургію, атмосферу та сучасні візуальні рішення."],"skills":["Сценічний образ","Музична драматургія","Атмосфера події","Візуальні рішення"],"achievements":[],"socials":{"instagram":"","tiktok":"","youtube":"","telegram":"","facebook":"","email":""},"videos":[],"gallery":[]}};
 const uniquePublicList=items=>[...new Set((Array.isArray(items)?items:[]).map(x=>String(x||"").trim()).filter(Boolean))];
 const socialUrl=(kind,value)=>{
   const v=String(value||"").trim(); if(!v) return "";
@@ -1844,7 +1844,7 @@ const studentProjects=id=>{
 };
 const projectStudents=id=>db.assignments.filter(a=>String(a.projectId)===String(id)).map(a=>sBy(a.studentId)).filter(Boolean);
 
-// v7.0 — у проєкту є загальна команда, але кожна дата / робочий блок
+// v7.0 - у проєкту є загальна команда, але кожна дата / робочий блок
 // має власний підсклад. Видалення людини з проєкту прибирає її з усіх дат,
 // а додавання до проєкту НЕ додає її автоматично в уже створені дати.
 function normalizeProjectEventRosters(projectId){
@@ -2310,7 +2310,7 @@ function dashboard(){
         const evs=eventsFor(p.id), people=projectStudents(p.id);
         const future=evs.filter(e=>e.date>=today);
         const next=future[0]||null;
-        const period=evs.length?`${fmt(evs[0].date)} — ${fmt(evs[evs.length-1].date)}`:"Дат ще немає";
+        const period=evs.length?`${fmt(evs[0].date)} - ${fmt(evs[evs.length-1].date)}`:"Дат ще немає";
         return `<button type="button" class="dashboard-project-card" data-project-id="${esc(String(p.id))}" style="--project-color:${p.color}">
           <div class="dashboard-project-top">
             ${projectLogoHtml(p,"dashboard-project-logo")}
@@ -2651,7 +2651,7 @@ async function recoverStudentsFromFirebase(){
 }
 
 
-// v15 — imported professional resumes and casting-ready profile fields.
+// v15 - imported professional resumes and casting-ready profile fields.
 const resumeNorm=v=>String(v||"").toLowerCase().replace(/[’ʼ'`]/g,"").replace(/[^a-zа-яіїєґ0-9]+/gi," ").replace(/\s+/g," ").trim();
 const importedResumeProfiles=Array.isArray(window.REMS_RESUME_STRUCTURED_V20)?window.REMS_RESUME_STRUCTURED_V20:(Array.isArray(window.REMS_RESUME_STRUCTURED_V17)?window.REMS_RESUME_STRUCTURED_V17:(Array.isArray(window.REMS_RESUME_IMPORT_V15)?window.REMS_RESUME_IMPORT_V15:[]));
 const importedQuestionnaireProfiles=Array.isArray(window.REMS_QUESTIONNAIRE_IMPORT_V16)?window.REMS_QUESTIONNAIRE_IMPORT_V16:[];
@@ -2735,7 +2735,7 @@ const structuredExperienceHtml=(items=[])=>{
   return `<div class="pro-exp-list">${items.map((x,i)=>`<div class="pro-exp-row"><div class="pro-exp-main"><b>${esc(x.project||"Проєкт")}</b><span>${esc(x.role||"Роль не визначена")}</span></div><div class="pro-exp-meta">${x.period?`<span>${esc(x.period)}</span>`:""}${x.category?`<span>${esc(x.category)}</span>`:""}</div></div>`).join("")}</div>`;
 };
 
-// v19 — контроль повноти професійних профілів.
+// v19 - контроль повноти професійних профілів.
 const professionalProfileAudit=s=>{
   const imp=importedResumeForStudent(s);
   const q=importedQuestionnaireForStudent(s);
@@ -2840,7 +2840,7 @@ function students(){
     const info=$("#profileAuditInfo");
     if(auditMode){
       info.hidden=false;
-      info.innerHTML=`<b>Контроль повноти профілів</b><span>Зелений — резюме прочитано і досвід структуровано. Жовтий — резюме є, але його ще треба дорозібрати. Червоний — резюме для студента не знайдено.</span>`;
+      info.innerHTML=`<b>Контроль повноти профілів</b><span>Зелений - резюме прочитано і досвід структуровано. Жовтий - резюме є, але його ще треба дорозібрати. Червоний - резюме для студента не знайдено.</span>`;
       $("#studentsGrid").classList.add("audit-grid-mode");
     }else{
       info.hidden=true;
@@ -2902,7 +2902,7 @@ function students(){
 }
 
 
-// v27 — аварійно стійкий розділ «Студенти».
+// v27 - аварійно стійкий розділ «Студенти».
 // Якщо один імпортований профіль/посилання містить неочікувані дані,
 // це більше не може «з'їсти» весь розділ і залишити на екрані попередню вкладку.
 function renderStudentsSafeV27(sourceError){
@@ -3075,18 +3075,18 @@ function openStudent(id){
           ${rp.questionnaire?.name?`<div class="resume-import-note">✓ Підключено анкетні дані студента: контакти та параметри для підбору.</div>`:""}
           <div class="resume-profile-grid">
             <div class="resume-box full"><h4>Про себе / професійний опис</h4><div>${rp.summary?esc(rp.summary):'<span class="muted">Ще не заповнено</span>'}</div></div>
-            <div class="resume-box"><h4>Ролі та напрями</h4><div class="resume-tags">${profileTagHtml(rp.roles)||'<span class="muted">—</span>'}</div></div>
-            <div class="resume-box"><h4>Програми / інструменти</h4><div class="resume-tags">${profileTagHtml(rp.programs)||'<span class="muted">—</span>'}</div></div>
+            <div class="resume-box"><h4>Ролі та напрями</h4><div class="resume-tags">${profileTagHtml(rp.roles)||'<span class="muted">-</span>'}</div></div>
+            <div class="resume-box"><h4>Програми / інструменти</h4><div class="resume-tags">${profileTagHtml(rp.programs)||'<span class="muted">-</span>'}</div></div>
             <div class="resume-box full"><h4>Кастингові / зовнішні дані</h4><div class="casting-grid">
-              <div class="casting-item"><b>Ігровий вік</b><span>${esc(rp.casting.playingAge||"—")}</span></div>
-              <div class="casting-item"><b>Зріст</b><span>${esc(rp.casting.height||"—")}</span></div>
-              <div class="casting-item"><b>Вага</b><span>${esc(rp.casting.weight||"—")}</span></div>
-              <div class="casting-item"><b>Одяг</b><span>${esc(rp.casting.clothingSize||"—")}</span></div>
-              <div class="casting-item"><b>Взуття</b><span>${esc(rp.casting.shoeSize||"—")}</span></div>
-              <div class="casting-item"><b>Типаж</b><span>${esc(rp.casting.type||"—")}</span></div>
-              <div class="casting-item"><b>Волосся</b><span>${esc(rp.casting.hair||"—")}</span></div>
-              <div class="casting-item"><b>Очі</b><span>${esc(rp.casting.eyes||"—")}</span></div>
-              <div class="casting-item"><b>Спецнавички</b><span>${esc(rp.casting.special||"—")}</span></div>
+              <div class="casting-item"><b>Ігровий вік</b><span>${esc(rp.casting.playingAge||"-")}</span></div>
+              <div class="casting-item"><b>Зріст</b><span>${esc(rp.casting.height||"-")}</span></div>
+              <div class="casting-item"><b>Вага</b><span>${esc(rp.casting.weight||"-")}</span></div>
+              <div class="casting-item"><b>Одяг</b><span>${esc(rp.casting.clothingSize||"-")}</span></div>
+              <div class="casting-item"><b>Взуття</b><span>${esc(rp.casting.shoeSize||"-")}</span></div>
+              <div class="casting-item"><b>Типаж</b><span>${esc(rp.casting.type||"-")}</span></div>
+              <div class="casting-item"><b>Волосся</b><span>${esc(rp.casting.hair||"-")}</span></div>
+              <div class="casting-item"><b>Очі</b><span>${esc(rp.casting.eyes||"-")}</span></div>
+              <div class="casting-item"><b>Спецнавички</b><span>${esc(rp.casting.special||"-")}</span></div>
             </div>
             ${rp.structuredExperience?.length?`<div class="resume-box full"><h4>Професійний досвід · ${rp.structuredExperience.length} структурованих записів</h4>${structuredExperienceHtml(rp.structuredExperience)}</div>`:""}
             ${rp.experience?`<details class="resume-box full"><summary><b>Оригінальний текст резюме</b></summary><div class="resume-text">${esc(rp.experience)}</div></details>`:""}
@@ -3275,17 +3275,17 @@ function editPublicProfile(id){
         <label><input id="pubShowTelegram" type="checkbox" ${profile.visibility?.telegram===true?"checked":""}> Telegram</label>
         <label><input id="pubShowEmail" type="checkbox" ${profile.visibility?.email===true?"checked":""}> email</label>
       </div></div>
-      <label class="full">Про себе — один абзац на рядок<textarea id="pubBio" rows="6">${esc(lines(profile.bio))}</textarea></label>
-      <label class="full">Навички / напрями — одна на рядок<textarea id="pubSkills" rows="5">${esc(lines(profile.skills))}</textarea></label>
-      <label class="full">Досягнення — одне на рядок<textarea id="pubAchievements" rows="5">${esc(lines(profile.achievements))}</textarea></label>
+      <label class="full">Про себе - один абзац на рядок<textarea id="pubBio" rows="6">${esc(lines(profile.bio))}</textarea></label>
+      <label class="full">Навички / напрями - одна на рядок<textarea id="pubSkills" rows="5">${esc(lines(profile.skills))}</textarea></label>
+      <label class="full">Досягнення - одне на рядок<textarea id="pubAchievements" rows="5">${esc(lines(profile.achievements))}</textarea></label>
       <label>Instagram<input id="pubInstagram" value="${esc(profile.socials?.instagram||"")}"></label>
       <label>TikTok<input id="pubTiktok" value="${esc(profile.socials?.tiktok||"")}"></label>
       <label>YouTube<input id="pubYoutube" value="${esc(profile.socials?.youtube||"")}"></label>
       <label>Telegram<input id="pubTelegram" value="${esc(profile.socials?.telegram||"")}"></label>
       <label>Facebook<input id="pubFacebook" value="${esc(profile.socials?.facebook||"")}"></label>
       <label>Email<input id="pubEmail" value="${esc(profile.socials?.email||"")}"></label>
-      <label class="full">Відеороботи — Назва | YouTube-посилання<textarea id="pubVideos" rows="6">${esc(videos)}</textarea></label>
-      <label class="full">Галерея — одне посилання/шлях на рядок<textarea id="pubGallery" rows="5">${esc(lines(profile.gallery))}</textarea></label>
+      <label class="full">Відеороботи - Назва | YouTube-посилання<textarea id="pubVideos" rows="6">${esc(videos)}</textarea></label>
+      <label class="full">Галерея - одне посилання/шлях на рядок<textarea id="pubGallery" rows="5">${esc(lines(profile.gallery))}</textarea></label>
       <div class="full notice ok">На сайт передаються тільки дозволені публічні поля. Телефон, вага, адреса, дані батьків, форма фінансування, календар, нотатки та зайнятість не публікуються.</div>
       <div class="full profile-actions">
         <button type="button" class="ghost" id="cancelPublicEdit">Скасувати</button>
@@ -3534,11 +3534,11 @@ function editStudent(id){
           <button type="button" class="ghost" id="removeStudentPhoto">Прибрати фото</button>
         </div>
       </div>
-      <label class="full">Резюме — посилання<input id="stResume" value="${esc(s.resumeUrl||"")}" placeholder="https://..."></label>
-      <label class="full">Портфоліо — посилання<input id="stPortfolio" value="${esc(s.portfolioUrl||"")}" placeholder="https://..."></label>
-      <label class="full">Відео / роботи — посилання<input id="stWorks" value="${esc(s.worksUrl||"")}" placeholder="https://..."></label>
+      <label class="full">Резюме - посилання<input id="stResume" value="${esc(s.resumeUrl||"")}" placeholder="https://..."></label>
+      <label class="full">Портфоліо - посилання<input id="stPortfolio" value="${esc(s.portfolioUrl||"")}" placeholder="https://..."></label>
+      <label class="full">Відео / роботи - посилання<input id="stWorks" value="${esc(s.worksUrl||"")}" placeholder="https://..."></label>
       ${(()=>{const rp=studentProfessionalProfile(s);return `
-      <div class="resume-edit-section"><b>Професійний профіль — повний конструктор</b><div class="muted">Тут можна додавати, змінювати і видаляти окремі пункти, записи досвіду та цілі власні блоки.</div></div>
+      <div class="resume-edit-section"><b>Професійний профіль - повний конструктор</b><div class="muted">Тут можна додавати, змінювати і видаляти окремі пункти, записи досвіду та цілі власні блоки.</div></div>
       <label class="full">Професійний опис<textarea id="stProfSummary">${esc(rp.summary||"")}</textarea></label>
       <div class="pro-builder"><div class="pro-section-title"><h4>Ролі / професійні напрями</h4><small>Кожен пункт окремо</small></div>${proEditableListHtml("stProfRolesList",rp.roles||[],"Напр. режисер-постановник")}</div>
       <div class="pro-builder"><div class="pro-section-title"><h4>Навички</h4><small>Можна додати або видалити будь-яку</small></div>${proEditableListHtml("stProfSkillsList",rp.skills||[],"Напр. робота з артистами")}</div>
@@ -3547,7 +3547,7 @@ function editStudent(id){
       <div class="pro-builder"><div class="pro-section-title"><h4>Посилання / роботи / портфоліо</h4><small>Посилання з резюме вже перенесені; кожне можна змінити, видалити або приховати із сайту</small></div>${proLinksEditorHtml(rp.links||[])}</div>
       <div class="pro-builder"><div class="pro-section-title"><h4>Власні блоки</h4><small>Напр. «Мови», «Освіта», «Нагороди», «Додаткові компетенції»</small></div>${proCustomSectionsHtml(rp.customSections||[])}</div>
       <details class="full"><summary>Оригінальний текст резюме / чернетка</summary><label class="full" style="margin-top:10px">Текст<textarea id="stProfExperience" style="min-height:180px">${esc(rp.experience||"")}</textarea></label></details>
-      <div class="resume-edit-section"><b>Кастингові / зовнішні дані</b><div class="muted">Не визначаються автоматично за фото — заповнюються лише фактичні дані.</div></div>
+      <div class="resume-edit-section"><b>Кастингові / зовнішні дані</b><div class="muted">Не визначаються автоматично за фото - заповнюються лише фактичні дані.</div></div>
       <label>Ігровий вік<input id="stCastAge" value="${esc(rp.casting.playingAge||"")}" placeholder="Напр. 18–24"></label>
       <label>Зріст<input id="stCastHeight" value="${esc(rp.casting.height||"")}" placeholder="Напр. 178 см"></label>
       <label>Вага<input id="stCastWeight" value="${esc(rp.casting.weight||"")}" placeholder="Напр. 60 кг"></label>
@@ -3731,7 +3731,7 @@ const wordPageBreak=()=>'<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
 
 const wordProjectStatus=p=>{
   const meta=projectTimelineMeta(p);
-  return ["Актуальний","Майбутній","Без дат","Завершений"][meta.rank]||"—";
+  return ["Актуальний","Майбутній","Без дат","Завершений"][meta.rank]||"-";
 };
 const wordReportEvents=(projectId,options={})=>eventsFor(projectId).filter(e=>(!options.from||String(e.date)>=options.from)&&(!options.to||String(e.date)<=options.to));
 const wordReportStudentAllowed=(st,options={})=>!options.group||studentGroupLabel(st)===options.group;
@@ -3748,13 +3748,13 @@ const wordProjectSummaryRow=(p,options,allAcks=[])=>{
   const team=wordReportProjectTeam(p.id,options);
   const dates=wordProjectDatesInRange(p.id,options);
   const slots=evs.reduce((sum,e)=>sum+wordReportPeopleForEvent(e,options).length,0);
-  let ack="—";
+  let ack="-";
   if(options.acknowledgements){
     let yes=0,total=0;
     evs.forEach(e=>{const s=acknowledgementStats(e,allAcks);const assigned=s.assigned.filter(st=>wordReportStudentAllowed(st,options));const yesNames=new Set(s.yes.map(x=>String(x.id)));yes+=assigned.filter(x=>yesNames.has(String(x.id))).length;total+=assigned.length;});
-    ack=total?`${yes}/${total}`:"—";
+    ack=total?`${yes}/${total}`:"-";
   }
-  return [projectReportingTitle(p),wordProjectStatus(p),dates.length?`${fullfmt(dates[0])} — ${fullfmt(dates[dates.length-1])}`:"—",String(evs.length),String(team.length),String(slots),ack];
+  return [projectReportingTitle(p),wordProjectStatus(p),dates.length?`${fullfmt(dates[0])} - ${fullfmt(dates[dates.length-1])}`:"-",String(evs.length),String(team.length),String(slots),ack];
 };
 
 const wordProjectSections=(p,options,allAcks=[])=>{
@@ -3767,7 +3767,7 @@ const wordProjectSections=(p,options,allAcks=[])=>{
   out.push(wordParagraph(projectReportingTitle(p),{style:"Heading1",size:30,bold:true,spaceAfter:120}));
   if(options.summary){
     out.push(wordParagraph("Загальна інформація",{style:"Heading2",size:24,bold:true}));
-    const period=dates.length?`${fullfmt(dates[0])} — ${fullfmt(dates[dates.length-1])}`:"Дати не вказані";
+    const period=dates.length?`${fullfmt(dates[0])} - ${fullfmt(dates[dates.length-1])}`:"Дати не вказані";
     const summaryRows=[
       ["Статус",wordProjectStatus(p)],
       ["Період",period],
@@ -3775,7 +3775,7 @@ const wordProjectSections=(p,options,allAcks=[])=>{
       ["Подій у вибраному періоді",String(evs.length)],
       ["Студентів у команді",String(team.length)],
       ["Задіяностей у робочих блоках",String(evs.reduce((n,e)=>n+wordReportPeopleForEvent(e,options).length,0))],
-      ["Розподіл команди по групах",studentGroupSummary(team)||"—"]
+      ["Розподіл команди по групах",studentGroupSummary(team)||"-"]
     ];
     const reporting=projectReportingData(p);
     if(String(reporting.type||"").trim()) summaryRows.push(["Тип проєкту",String(reporting.type).trim()]);
@@ -3792,9 +3792,9 @@ const wordProjectSections=(p,options,allAcks=[])=>{
     out.push(wordParagraph("Календар і події",{style:"Heading2",size:24,bold:true,spaceAfter:80}));
     const rows=evs.map(e=>[
       fullfmt(e.date),
-      eventTimeText(e)||"—",
+      eventTimeText(e)||"-",
       String(e.type||"Подія"),
-      String(e.location||"—"),
+      String(e.location||"-"),
       String(wordReportPeopleForEvent(e,options).length),
       String(e.note||"")
     ]);
@@ -3806,7 +3806,7 @@ const wordProjectSections=(p,options,allAcks=[])=>{
     const rows=team.map((st,i)=>{
       const studentEvents=evs.filter(e=>wordReportPeopleForEvent(e,options).some(x=>String(x.id)===String(st.id)));
       const roles=[...new Set(studentEvents.map(e=>studentRoleForEvent(e,st.id)).filter(Boolean))];
-      return [String(i+1),st.name,studentGroupLabel(st),String(studentEvents.length),[...new Set(studentEvents.map(e=>fmt(e.date)))].join(", ")||"—",roles.join("; ")||"—"];
+      return [String(i+1),st.name,studentGroupLabel(st),String(studentEvents.length),[...new Set(studentEvents.map(e=>fmt(e.date)))].join(", ")||"-",roles.join("; ")||"-"];
     });
     out.push(rows.length?wordTable(["№","Студент","Група","Блоків","Дати","Функції / ролі"],rows,[600,3000,1500,1000,3300,4200]):wordParagraph("У вибраному фільтрі студентів немає.",{italic:true,color:"666666"}));
   }
@@ -3816,11 +3816,11 @@ const wordProjectSections=(p,options,allAcks=[])=>{
     const rows=[];
     evs.forEach(e=>wordReportPeopleForEvent(e,options).forEach(st=>rows.push([
       fullfmt(e.date),
-      eventTimeText(e)||"—",
+      eventTimeText(e)||"-",
       String(e.type||"Подія"),
       st.name,
       studentGroupLabel(st),
-      studentRoleForEvent(e,st.id)||"—"
+      studentRoleForEvent(e,st.id)||"-"
     ])));
     out.push(rows.length?wordTable(["Дата","Час","Робочий блок","Студент","Група","Функція"],rows,[1700,1100,2400,3000,1500,3600]):wordParagraph("Задіяностей у вибраному періоді немає.",{italic:true,color:"666666"}));
   }
@@ -3836,12 +3836,12 @@ const wordProjectSections=(p,options,allAcks=[])=>{
       const busyElsewhere=cohort.filter(st=>!inProjectIds.has(String(st.id))&&studentActivitiesOnDate(st.id,date).length);
       const free=cohort.filter(st=>!studentActivitiesOnDate(st.id,date).length);
       const conflicts=inProject.filter(st=>studentActivitiesOnDate(st.id,date).some(a=>a.source==="lesson"||String(a.projectId)!==String(p.id)));
-      const busyText=busyElsewhere.map(st=>`${st.name}: ${studentBusyLabelsOnDate(st.id,date).join("; ")}`).join("\n")||"—";
+      const busyText=busyElsewhere.map(st=>`${st.name}: ${studentBusyLabelsOnDate(st.id,date).join("; ")}`).join("\n")||"-";
       rows.push([
         fullfmt(date),group,
-        `${inProject.length}\n${inProject.map(st=>st.name).join("\n")||"—"}`,
+        `${inProject.length}\n${inProject.map(st=>st.name).join("\n")||"-"}`,
         `${busyElsewhere.length}\n${busyText}`,
-        `${free.length}\n${free.map(st=>st.name).join("\n")||"—"}`,
+        `${free.length}\n${free.map(st=>st.name).join("\n")||"-"}`,
         conflicts.length?`${conflicts.length}\n${conflicts.map(st=>st.name).join("\n")}`:"0"
       ]);
     }));
@@ -3867,7 +3867,7 @@ const wordProjectSections=(p,options,allAcks=[])=>{
       const yesSet=new Set(s.yes.map(st=>String(st.id)));
       const yes=assigned.filter(st=>yesSet.has(String(st.id)));
       const no=assigned.filter(st=>!yesSet.has(String(st.id)));
-      return [fullfmt(e.date),String(e.type||"Подія"),`${yes.length}/${assigned.length}`,no.map(st=>`${st.name} · ${studentGroupLabel(st)}`).join("\n")||"—"];
+      return [fullfmt(e.date),String(e.type||"Подія"),`${yes.length}/${assigned.length}`,no.map(st=>`${st.name} · ${studentGroupLabel(st)}`).join("\n")||"-"];
     });
     out.push(rows.length?wordTable(["Дата","Подія","Ознайомились","Ще не ознайомились"],rows,[1900,3200,1700,7200]):wordParagraph("У проєкті немає подій для перевірки ознайомлення.",{italic:true,color:"666666"}));
   }
@@ -3919,7 +3919,7 @@ async function downloadProjectsWordReport(projectIds,options={}){
   const allAcks=options.acknowledgements?await loadAllAcknowledgements():[];
   const generated=new Date().toLocaleString("uk-UA",{day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"});
   let body=wordParagraph(title,{style:"Title",size:38,bold:true,spaceAfter:80})+
-    wordParagraph(`Сформовано REMS Control · ${generated}${options.group?` · Група: ${options.group}`:" · Усі групи"}${options.from||options.to?` · Період: ${options.from?fullfmt(options.from):"початок"} — ${options.to?fullfmt(options.to):"дотепер"}`:""}`,{italic:true,size:18,color:"666666",spaceAfter:160});
+    wordParagraph(`Сформовано REMS Control · ${generated}${options.group?` · Група: ${options.group}`:" · Усі групи"}${options.from||options.to?` · Період: ${options.from?fullfmt(options.from):"початок"} - ${options.to?fullfmt(options.to):"дотепер"}`:""}`,{italic:true,size:18,color:"666666",spaceAfter:160});
 
   if(projects.length>1&&options.summary){
     body+=wordParagraph("Зведення по вибраних проєктах",{style:"Heading1",size:30,bold:true});
@@ -4086,7 +4086,7 @@ function openProjectTeamManager(projectId){
     const current=new Set(projectStudents(projectId).map(st=>String(st.id)));
     dialog.querySelector("#projectCardBody").innerHTML=`<div class="project-body project-team-manager-v38">
       <div class="project-section-head project-team-manager-head">
-        <div><h2 style="margin:0">Склад проєкту</h2><div class="muted">${esc(p.name)} · постав галочку — людина є в команді проєкту. Дати за замовчуванням успадковують цю команду; окрему дату можна змінити незалежно.</div></div>
+        <div><h2 style="margin:0">Склад проєкту</h2><div class="muted">${esc(p.name)} · постав галочку - людина є в команді проєкту. Дати за замовчуванням успадковують цю команду; окрему дату можна змінити незалежно.</div></div>
         <button class="ghost" id="teamManagerBack">← До проєкту</button>
       </div>
       <div class="project-team-manager-toolbar-v38">
@@ -4168,10 +4168,10 @@ function showProjectDay(projectId,date,availabilityEventIndex=0){
     </div>
 
     <div class="availability-grid-two project-day-availability-grid">
-      <div class="availability-card" data-availability-kind="selected"><div class="availability-title"><b>СКЛАД ЦІЄЇ ДАТИ · ${people.length}</b><small>${esc(studentGroupSummary(people)||"—")}</small></div><div class="availability-list">
+      <div class="availability-card" data-availability-kind="selected"><div class="availability-title"><b>СКЛАД ЦІЄЇ ДАТИ · ${people.length}</b><small>${esc(studentGroupSummary(people)||"-")}</small></div><div class="availability-list">
         ${people.map(s=>`<div class="availability-person-row" data-search="${esc((s.name+' '+studentGroupLabel(s)).toLowerCase())}"><button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s,busyFor(s).join(" · "))}</button><button type="button" class="ghost danger-inline remove-date-person" data-id="${s.id}">Прибрати з цієї дати</button></div>`).join("")||'<span class="muted">Ще нікого не додано.</span>'}
       </div></div>
-      <div class="availability-card" data-availability-kind="free"><div class="availability-title"><b>ВІЛЬНІ · ${freeCandidates.length}</b><small>${esc(studentGroupSummary(freeCandidates)||"—")}</small></div><div class="availability-list">
+      <div class="availability-card" data-availability-kind="free"><div class="availability-title"><b>ВІЛЬНІ · ${freeCandidates.length}</b><small>${esc(studentGroupSummary(freeCandidates)||"-")}</small></div><div class="availability-list">
         ${freeCandidates.map(s=>`<div class="availability-person-row" data-search="${esc((s.name+' '+studentGroupLabel(s)).toLowerCase())}"><button class="availability-chip project-day-student" data-id="${s.id}">${studentIdentityHtml(s,`Вільний · ${eventTimeText(slot)}`)}</button><button type="button" class="primary add-date-person" data-id="${s.id}">+ Додати</button></div>`).join("")||'<span class="muted">Вільних студентів немає.</span>'}
       </div></div>
       <div class="availability-card day-busy-elsewhere" data-availability-kind="busy"><div class="availability-title"><b>ЗАЙНЯТІ · ${busyCandidates.length}</b><small>Показано, де саме людина вже працює або навчається</small></div><div class="availability-list">
@@ -4253,7 +4253,7 @@ function projectReportingData(projectOrId){
 }
 function projectReportingPeriod(p){
   const dates=[...new Set([...(p?.plannedDates||[]).map(String),...eventsFor(p?.id).map(e=>String(e.date||""))].filter(Boolean))].sort();
-  return dates.length?`${fullfmt(dates[0])} — ${fullfmt(dates[dates.length-1])}`:"Дати ще не вказані";
+  return dates.length?`${fullfmt(dates[0])} - ${fullfmt(dates[dates.length-1])}`:"Дати ще не вказані";
 }
 function projectReportingFilledCount(p){
   const r=projectReportingData(p);
@@ -4342,7 +4342,7 @@ function openProjectCard(id){
       <div class="project-meta-grid">
         <div class="project-meta"><span>Подій</span><strong>${evs.length}</strong></div>
         <div class="project-meta"><span>Студентів</span><strong>${assigned.length}</strong></div>
-        <div class="project-meta"><span>Період</span><strong style="font-size:14px">${projectDates.length?`${fmt(projectDates[0])} — ${fmt(projectDates[projectDates.length-1])}`:"—"}</strong></div>
+        <div class="project-meta"><span>Період</span><strong style="font-size:14px">${projectDates.length?`${fmt(projectDates[0])} - ${fmt(projectDates[projectDates.length-1])}`:"-"}</strong></div>
       </div>
       <button type="button" class="project-reporting-card ${projectReportingFilledCount(p)?"filled":"empty"}" id="projectReportingCard">
         <span><small>ДАНІ ДЛЯ ЗВІТНОСТІ</small><b>${projectReportingFilledCount(p)?esc(projectReportingTitle(p)):"Ще не заповнені"}</b><em>${projectReportingFilledCount(p)?`${projectReportingFilledCount(p)} із 8 полів · можна доповнити будь-коли`:"Проєкт уже можна використовувати. Офіційні дані допишете пізніше."}</em></span><strong>→</strong>
@@ -4731,7 +4731,7 @@ function openProjectPlanner(projectId,preselectedDates=[]){
           <button type="button" class="ghost" id="plannerAddRange">+ Додати діапазон</button>
         </div>
         <div class="planner-date-grid">
-          ${dates.map(d=>`<button type="button" class="planner-date ${selectedDates.has(d)?"active":""}" data-date="${d}">${fmt(d)}</button>`).join("")||'<span class="muted">Дат ще немає — додайте одну або діапазон.</span>'}
+          ${dates.map(d=>`<button type="button" class="planner-date ${selectedDates.has(d)?"active":""}" data-date="${d}">${fmt(d)}</button>`).join("")||'<span class="muted">Дат ще немає - додайте одну або діапазон.</span>'}
         </div>
         <div class="muted">Вибрано дат: <b id="plannerSelectedDatesCount">${selectedDates.size}</b></div>
       </section>
@@ -4770,7 +4770,7 @@ function openProjectPlanner(projectId,preselectedDates=[]){
         <div class="profile-actions">
           <button type="button" class="primary" id="plannerCreateBlocks">Створити блок на вибрані дати</button>
         </div>
-        <div class="muted">Масове створення не надсилає push автоматично — спочатку можна спокійно скласти графік.</div>
+        <div class="muted">Масове створення не надсилає push автоматично - спочатку можна спокійно скласти графік.</div>
       </section>
 
       <section class="planner-card">
@@ -5675,7 +5675,7 @@ function openAcademicBulkEditor(keys=[]){
       </div>
       <div class="academic-bulk-field">
         <label class="academic-bulk-toggle"><input type="checkbox" data-enable="time"> Змінити час</label>
-        <div class="academic-bulk-time"><input id="bulkStartTime" type="time" disabled value="${esc(commonStart)}"><span>—</span><input id="bulkEndTime" type="time" disabled value="${esc(commonEnd)}"></div>
+        <div class="academic-bulk-time"><input id="bulkStartTime" type="time" disabled value="${esc(commonStart)}"><span>-</span><input id="bulkEndTime" type="time" disabled value="${esc(commonEnd)}"></div>
         <label style="display:flex;align-items:center;gap:7px;margin-top:7px"><input id="bulkTimeUndetermined" type="checkbox" disabled ${commonTimeUndetermined?"checked":""} style="width:auto"> <b>Час не визначено</b></label>
       </div>
       <div class="academic-bulk-field">
@@ -6070,7 +6070,7 @@ function openAcademicSyncDialog(){
     </div>
     <div class="academic-import-groups">
       <b>Які групи синхронізувати</b>
-      <div class="academic-import-group-grid">${groups.map(g=>`<label><input type="checkbox" value="${esc(g)}" ${defaults.has(g)?"checked":""}><span>${esc(g)}</span><em data-live-group-count="${esc(g)}">—</em></label>`).join("")}</div>
+      <div class="academic-import-group-grid">${groups.map(g=>`<label><input type="checkbox" value="${esc(g)}" ${defaults.has(g)?"checked":""}><span>${esc(g)}</span><em data-live-group-count="${esc(g)}">-</em></label>`).join("")}</div>
     </div>
     <div class="academic-sync-actions-inline"><button type="button" class="ghost" id="academicLiveRefresh" disabled>↻ Оновити дані</button><button type="button" class="ghost" id="academicLiveDisconnect" hidden>Відключити</button></div>
     <div id="academicLivePreview" class="academic-import-preview"><span>Після підключення тут з’явиться актуальний розклад.</span></div>
@@ -6158,13 +6158,13 @@ function openAcademicImportDialog(){
     </div>
     <div class="academic-import-groups">
       <b>Групи</b>
-      <div class="academic-import-group-grid">${groups.map(g=>`<label><input type="checkbox" value="${esc(g)}" ${defaults.has(g)?"checked":""}><span>${esc(g)}</span><em data-import-group-count="${esc(g)}">—</em></label>`).join("")}</div>
+      <div class="academic-import-group-grid">${groups.map(g=>`<label><input type="checkbox" value="${esc(g)}" ${defaults.has(g)?"checked":""}><span>${esc(g)}</span><em data-import-group-count="${esc(g)}">-</em></label>`).join("")}</div>
     </div>
     <label class="academic-import-file">Файл із REMS-РОЗКЛАД
       <input id="academicRozkladFile" type="file" accept=".json,application/json">
       <small>У REMS-РОЗКЛАД: Налаштування → Експорт даних.</small>
     </label>
-    <div id="academicImportPreview" class="academic-import-preview"><span>Оберіть JSON-файл — тут з’явиться попередній перегляд.</span></div>
+    <div id="academicImportPreview" class="academic-import-preview"><span>Оберіть JSON-файл - тут з’явиться попередній перегляд.</span></div>
     <div class="dialog-actions academic-actions">
       <button type="button" class="ghost" id="academicImportCancel">Скасувати</button>
       <button type="button" class="primary" id="academicImportApply" disabled>Імпортувати розклад</button>
@@ -6453,9 +6453,9 @@ function academic(){
         const sharedSigs=new Set(shared.map(signature));
         const onlyA=a.filter(x=>!sharedSigs.has(signature(x))), onlyB=b.filter((x,i)=>!usedB.has(i));
         const times=ACADEMIC_PAIR_TIMES[String(pair)]||[all[0]?.startTime||"",all[0]?.endTime||""];
-        return `<div class="academic-dual-cal-pair"><div class="academic-dual-cal-pair-head"><b>${esc(pair)} пара</b><span>${esc(times[0]||"")}–${esc(times[1]||"")}</span></div>${shared.map(x=>`<div class="academic-dual-cal-shared">${card(x,true)}</div>`).join("")}${(onlyA.length||onlyB.length)?`<div class="academic-dual-cal-two"><div><small>РЕМС-34</small>${onlyA.map(x=>card(x,false)).join("")||'<i>—</i>'}</div><div><small>РЕМС-44</small>${onlyB.map(x=>card(x,false)).join("")||'<i>—</i>'}</div></div>`:""}</div>`;
+        return `<div class="academic-dual-cal-pair"><div class="academic-dual-cal-pair-head"><b>${esc(pair)} пара</b><span>${esc(times[0]||"")}–${esc(times[1]||"")}</span></div>${shared.map(x=>`<div class="academic-dual-cal-shared">${card(x,true)}</div>`).join("")}${(onlyA.length||onlyB.length)?`<div class="academic-dual-cal-two"><div><small>РЕМС-34</small>${onlyA.map(x=>card(x,false)).join("")||'<i>-</i>'}</div><div><small>РЕМС-44</small>${onlyB.map(x=>card(x,false)).join("")||'<i>-</i>'}</div></div>`:""}</div>`;
       }).join("");
-      return `<div class="academic-dual-cal-day ${localIsoDate()===date?"today-date":""}"><div class="academic-dual-cal-date"><b>${dt.getDate()}</b><span>${dt.toLocaleDateString("uk-UA",{weekday:"short"})}</span></div>${pairHtml||'<div class="academic-dual-cal-none">—</div>'}</div>`;
+      return `<div class="academic-dual-cal-day ${localIsoDate()===date?"today-date":""}"><div class="academic-dual-cal-date"><b>${dt.getDate()}</b><span>${dt.toLocaleDateString("uk-UA",{weekday:"short"})}</span></div>${pairHtml||'<div class="academic-dual-cal-none">-</div>'}</div>`;
     };
     mount.innerHTML=`<div class="academic-dual-calendar"><div class="academic-dual-cal-weekdays">${["Понеділок","Вівторок","Середа","Четвер","П’ятниця"].map(x=>`<b>${x}</b>`).join("")}</div><div class="academic-dual-cal-grid">${blanks}${workDates.map(cellForDate).join("")}</div></div>`;
     document.querySelectorAll(".academic-dual-card[data-id]").forEach(b=>b.onclick=()=>openAcademicEditor(b.dataset.id));
@@ -6483,7 +6483,7 @@ function academicLegacyCalendar(){
     <div class="academic-topbar">
       <div>
         <h2>Розклад занять</h2>
-        <p>Окремий календар навчальних пар. Оберіть групу й місяць — усі заняття видно одразу на календарі.</p>
+        <p>Окремий календар навчальних пар. Оберіть групу й місяць - усі заняття видно одразу на календарі.</p>
       </div>
       <div class="academic-filter academic-filter-actions">
         <select id="academicGroupFilter">${groupOptionsHtml("","Усі групи")}</select>
@@ -6568,7 +6568,7 @@ function academicLegacyCalendar(){
             <span>${esc(academicDisplayLessonType(l.lessonType))}${l.source===ACADEMIC_IMPORT_SOURCE?' · ↻ REMS-РОЗКЛАД':""}</span>
             <small>${esc(l.teacher||"Викладача не вказано")}</small>
             <small>${esc(l.group||"")} · <b>ауд. ${esc(String(l.room||"").trim()||"не вказана")}</b>${String(l.scope||"")==="selected"?` · ${lessonStudents(l).length} студ.`:""}</small>
-          </button>`}).join("")||'<div class="academic-month-empty">—</div>'}
+          </button>`}).join("")||'<div class="academic-month-empty">-</div>'}
         </div>
       </div>`;
     }).join("");
@@ -6674,11 +6674,11 @@ function academicLegacyCalendar(){
     .combined-lesson-card{max-width:132px!important;padding:5px 6px!important}.combined-lesson-card b{font-size:9px}.combined-lesson-card small{display:block;white-space:normal;line-height:1.25;margin-top:2px}
     .calendar-month-tabs{margin-top:10px}
 
-    /* v37 — simplified project people management */
+    /* v37 - simplified project people management */
     .project-team-simple{border:1px solid #dbeafe;background:#f8fbff}.project-team-selected{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.project-team-person{display:inline-flex;align-items:center;gap:5px;border:1px solid #bfdbfe;background:#fff;border-radius:999px;padding:5px 7px 5px 10px}.project-team-remove{width:22px;height:22px;border-radius:999px;border:0;background:#fee2e2;color:#b91c1c;font-weight:900;cursor:pointer}.project-team-manager-toolbar{display:flex;gap:10px;align-items:center;margin:14px 0}.project-team-manager-toolbar input{flex:1}.project-team-manager-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.project-team-manager-grid>section{border:1px solid #e5e7eb;border-radius:14px;padding:12px;background:#fff}.project-team-manager-grid h3{margin:0 0 10px}.project-team-manager-list{display:grid;gap:7px;max-height:55vh;overflow:auto}.team-manager-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border-bottom:1px solid #f1f5f9;padding:6px 0}.team-person-open{border:0;background:transparent;text-align:left;padding:0;cursor:pointer}
-    /* v37 — academic timetable is a real Mon–Fri calendar table */
+    /* v37 - academic timetable is a real Mon–Fri calendar table */
     .academic-dual-calendar{overflow:auto}.academic-dual-cal-weekdays,.academic-dual-cal-grid{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:7px;min-width:1180px}.academic-dual-cal-weekdays{margin-bottom:7px}.academic-dual-cal-weekdays b{text-align:center;padding:8px;border-radius:9px;background:#0f172a;color:#fff;font-size:11px}.academic-dual-cal-day{min-height:190px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:8px;display:grid;align-content:start;gap:7px}.academic-dual-cal-day.empty{background:#f8fafc;border-style:dashed;min-height:80px}.academic-dual-cal-date{display:flex;justify-content:space-between;align-items:center;padding-bottom:5px;border-bottom:1px solid #f1f5f9}.academic-dual-cal-date b{font-size:16px}.academic-dual-cal-date span{font-size:9px;color:#64748b;text-transform:uppercase}.academic-dual-cal-pair{display:grid;gap:5px;border-top:1px solid #e5e7eb;padding-top:6px}.academic-dual-cal-pair:first-of-type{border-top:0}.academic-dual-cal-pair-head{display:flex;justify-content:space-between;gap:5px;font-size:9px;color:#475569}.academic-dual-cal-pair-head b{color:#111827}.academic-dual-cal-two{display:grid;grid-template-columns:1fr 1fr;gap:5px}.academic-dual-cal-two>div{min-width:0}.academic-dual-cal-two small{display:block;font-size:8px;font-weight:800;color:#64748b;margin-bottom:3px}.academic-dual-cal-two i{display:block;text-align:center;color:#cbd5e1;font-style:normal;padding:8px}.academic-dual-cal-day .academic-dual-card{padding:6px!important;border-radius:8px!important;gap:2px!important}.academic-dual-cal-day .academic-dual-card strong{font-size:9px!important}.academic-dual-cal-day .academic-dual-card span,.academic-dual-cal-day .academic-dual-card b{font-size:8px!important}.academic-dual-cal-day .academic-together{font-size:7px!important}.academic-dual-cal-none{color:#cbd5e1;text-align:center;padding:18px 0}
-    /* v38 — clearer timetable cards + one simple project-team list */
+    /* v38 - clearer timetable cards + one simple project-team list */
     .academic-dual-cal-day .academic-dual-card{padding:9px 10px!important;gap:4px!important}.academic-dual-cal-day .academic-dual-card strong{font-size:12px!important;line-height:1.28!important}.academic-dual-cal-day .academic-dual-card .academic-kind{font-size:10px!important}.academic-dual-cal-day .academic-dual-card .academic-teacher{font-size:11px!important;font-weight:800!important;line-height:1.25!important}.academic-dual-cal-day .academic-dual-card .academic-room{font-size:11px!important;font-weight:900!important;line-height:1.25!important}.academic-dual-cal-day .academic-together{font-size:8px!important}
     .project-team-compact-v38{padding:14px 16px!important;background:#f8fbff;border-color:#dbeafe!important}.project-team-compact-main{display:flex;justify-content:space-between;gap:16px;align-items:center}.project-team-preview{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.project-team-preview span{padding:5px 8px;border-radius:999px;background:#fff;border:1px solid #dbeafe;font-size:11px}.project-team-preview .more{font-weight:800;background:#eff6ff}.project-team-manager-v38{max-width:920px;margin:auto}.project-team-manager-toolbar-v38{display:grid;grid-template-columns:minmax(260px,1fr) 180px auto auto;gap:10px;align-items:center;margin:16px 0}.project-team-manager-toolbar-v38 input,.project-team-manager-toolbar-v38 select{min-height:42px}.project-team-count{display:flex;align-items:baseline;gap:5px;white-space:nowrap}.project-team-count strong{font-size:22px}.project-team-count span{font-size:11px;color:#64748b}.project-team-one-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}.project-team-check-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;background:#fff;cursor:pointer;transition:.15s}.project-team-check-row:hover{border-color:#93c5fd}.project-team-check-row.is-selected{background:#eff6ff;border-color:#93c5fd}.project-team-check-row.is-saving{opacity:.55}.project-team-check{width:18px!important;height:18px!important;margin:0!important}.project-team-check-main{display:grid;gap:2px}.project-team-check-main b{font-size:12px}.project-team-check-main small{font-size:10px;color:#64748b}.project-team-state{font-size:10px;font-weight:800;color:#64748b}.project-team-check-row.is-selected .project-team-state{color:#1d4ed8}.project-team-manager-note{margin-top:14px}.projects-participation-head{margin-bottom:12px}.projects-participation-head h2{margin:0 0 4px}.projects-participation-head p{margin:0;color:#64748b;font-size:12px}
     @media(max-width:900px){.project-team-manager-toolbar-v38{grid-template-columns:1fr 1fr}.project-team-one-list{grid-template-columns:1fr}.academic-dual-cal-day .academic-dual-card strong{font-size:13px!important}.academic-dual-cal-day .academic-dual-card .academic-teacher,.academic-dual-cal-day .academic-dual-card .academic-room{font-size:12px!important}}
@@ -7425,7 +7425,7 @@ async function industryEditor(m=null){
   industryUploadJobs=new Set();
   const item=m?clone(m):{id:industryId(),published:false,blocks:[]};
   $("#pageTitle").textContent=m?"Редагування зустрічі":"Нова зустріч";
-  $("#app").innerHTML=`<div class="industry-editor"><button class="ghost" id="industryBack">← До всіх зустрічей</button><div class="section-head"><div><h2>${m?"Редагувати":"Створити"} матеріал</h2><p>Серія майстер-класів «Зустріч із індустрією»</p></div></div><div class="industry-form-grid"><label>Гість<input id="imGuest" value="${esc(item.guest||"")}"></label><label>Професія / посада<input id="imRole" value="${esc(item.guestRole||"")}"></label><label>Тема зустрічі<input id="imTitle" value="${esc(item.title||"")}"></label><label>Дата<input id="imDate" type="date" value="${esc(item.date||"")}"></label><label class="full">Короткий анонс<textarea id="imExcerpt">${esc(item.excerpt||"")}</textarea></label><label class="full">Обкладинка<input id="imCover" value="${esc(item.cover||"")}" placeholder="Завантаж фото нижче або встав URL"></label>${item.cover?`<div class="full">${industryStoredValueHtml(item.cover,"Обкладинка вже збережена")}</div>`:""}<label class="industry-file full">Замінити / завантажити обкладинку<input id="imCoverFile" type="file" accept="image/*"><span class="ib-progress" id="imCoverProgress"></span><span class="industry-media-preview" id="imCoverPreview"></span></label><label class="industry-publish full"><input id="imPublished" type="checkbox" ${item.published?"checked":""}><span><b>Опублікувати на сайті</b><small>Вимкнено — матеріал залишається чернеткою</small></span></label></div><div class="industry-builder"><div class="industry-builder-title"><div><h3>Стаття</h3><p class="muted">Будуй матеріал у потрібному порядку: текст → фото → текст → відео → цитата…</p></div></div><div class="industry-first-add"><b>Додати перший / наступний блок</b>${industryBlockPickerHtml()}</div><div id="industryBlocks">${(item.blocks||[]).map(industryBlockHtml).join("")}</div></div><div class="industry-savebar"><button class="danger" id="industryDelete" ${m?"":"style=display:none"}>Видалити</button><button class="primary" id="industrySave">Зберегти</button></div></div>`;
+  $("#app").innerHTML=`<div class="industry-editor"><button class="ghost" id="industryBack">← До всіх зустрічей</button><div class="section-head"><div><h2>${m?"Редагувати":"Створити"} матеріал</h2><p>Серія майстер-класів «Зустріч із індустрією»</p></div></div><div class="industry-form-grid"><label>Гість<input id="imGuest" value="${esc(item.guest||"")}"></label><label>Професія / посада<input id="imRole" value="${esc(item.guestRole||"")}"></label><label>Тема зустрічі<input id="imTitle" value="${esc(item.title||"")}"></label><label>Дата<input id="imDate" type="date" value="${esc(item.date||"")}"></label><label class="full">Короткий анонс<textarea id="imExcerpt">${esc(item.excerpt||"")}</textarea></label><label class="full">Обкладинка<input id="imCover" value="${esc(item.cover||"")}" placeholder="Завантаж фото нижче або встав URL"></label>${item.cover?`<div class="full">${industryStoredValueHtml(item.cover,"Обкладинка вже збережена")}</div>`:""}<label class="industry-file full">Замінити / завантажити обкладинку<input id="imCoverFile" type="file" accept="image/*"><span class="ib-progress" id="imCoverProgress"></span><span class="industry-media-preview" id="imCoverPreview"></span></label><label class="industry-publish full"><input id="imPublished" type="checkbox" ${item.published?"checked":""}><span><b>Опублікувати на сайті</b><small>Вимкнено - матеріал залишається чернеткою</small></span></label></div><div class="industry-builder"><div class="industry-builder-title"><div><h3>Стаття</h3><p class="muted">Будуй матеріал у потрібному порядку: текст → фото → текст → відео → цитата…</p></div></div><div class="industry-first-add"><b>Додати перший / наступний блок</b>${industryBlockPickerHtml()}</div><div id="industryBlocks">${(item.blocks||[]).map(industryBlockHtml).join("")}</div></div><div class="industry-savebar"><button class="danger" id="industryDelete" ${m?"":"style=display:none"}>Видалити</button><button class="primary" id="industrySave">Зберегти</button></div></div>`;
   industryWireBlocks(item.id);
   if(item.cover) industrySetPreview($("#imCoverPreview"),item.cover);
   $("#industryBack").onclick=industry;
@@ -7578,7 +7578,7 @@ function openNewStudentDialog(){
 })();
 
 
-// v42 — окремий навчальний модуль «Великі форми».
+// v42 - окремий навчальний модуль «Великі форми».
 // Дані зберігаються окремими документами Firestore і НЕ змішуються з індустрійними проєктами REMS Control.
 const LARGE_FORMS_COLLECTION="rems_large_forms";
 let largeFormsCache=[];
@@ -7724,7 +7724,7 @@ async function deleteLargeForm(id){
   return true;
 }
 
-// v44.0 — «Режисерська лабораторія»: живий конструктор навчальної траєкторії.
+// v44.0 - «Режисерська лабораторія»: живий конструктор навчальної траєкторії.
 // Структура лабораторії зберігається окремо від відповідей студентів, тому її можна
 // розширювати впродовж семестру без втрати вже заповнених матеріалів.
 const DIRECTING_LABS_KEY="directingLabs";
@@ -7940,7 +7940,7 @@ async function dlSaveDriveForStudent(st,url,key){const lab=dlLabForStudent(st.id
 async function openDirectingLab(studentId){
   const st=(db.students||[]).find(s=>String(s.id)===String(studentId));if(!st)return;const lab=dlLabForStudent(st.id)||{},personalDrive=dlPersonalDriveForStudent(st),projects=dlProjectsForStudent(st.id),owned=projects.filter(p=>lfAuthorIds(p).length===1),shared=projects.filter(p=>lfAuthorIds(p).length>1),schema=await dlLoadSchema();const projectCard=p=>`<article class="lf-section" style="margin-top:10px"><div class="lf-detail-head"><div><div class="lf-meta"><span class="lf-chip">${lfEsc(dlProjectOwnershipText(p))}</span></div><h3 style="margin:8px 0 4px">${lfEsc(p.title||'Без назви')}</h3></div>${p.driveUrl?`<a class="ghost" href="${lfEsc(p.driveUrl)}" target="_blank" rel="noopener">Google Drive ↗</a>`:''}</div></article>`;
   app.innerHTML=`<div class="lf-detail"><div class="lf-detail-head"><div><button class="ghost" id="dlBack">← Усі студенти</button><div class="dl-detail-person" style="margin-top:12px">${dlPhotoOrInitial(st,true)}<div><span class="eyebrow">РЕМС-${dlStudentGroup(st)} · персональна лабораторія</span><h2 style="margin:4px 0">${lfEsc(st.name||'Студент')}</h2><div class="lf-meta"><span class="lf-chip">${lfEsc(dlStatusLabel[lab.status]||dlStatusLabel.not_started)}</span><span class="lf-chip">${projects.length?`${projects.length} пов’язаних проєктів`:'Проєкт ще не визначено'}</span></div></div></div></div><button class="ghost" id="dlGoBuilder">⚙ Конструктор</button></div>
-  ${owned.length?`<section class="lf-section"><h3>Індивідуальний проєкт</h3>${owned.map(projectCard).join('')}</section>`:''}${shared.length?`<section class="lf-section"><h3>Спільний проєкт — тимчасово</h3>${shared.map(projectCard).join('')}</section>`:''}${!projects.length?`<section class="lf-section"><h3>Індивідуальний режисерський проєкт</h3><div class="lf-empty">Проєкт ще не визначено. Студент може почати з паспорта й сформулювати робочу назву.</div></section>`:''}
+  ${owned.length?`<section class="lf-section"><h3>Індивідуальний проєкт</h3>${owned.map(projectCard).join('')}</section>`:''}${shared.length?`<section class="lf-section"><h3>Спільний проєкт - тимчасово</h3>${shared.map(projectCard).join('')}</section>`:''}${!projects.length?`<section class="lf-section"><h3>Індивідуальний режисерський проєкт</h3><div class="lf-empty">Проєкт ще не визначено. Студент може почати з паспорта й сформулювати робочу назву.</div></section>`:''}
   <section class="lf-section"><div class="dl-stage-head"><div><h3 style="margin:0">Персональна папка Google Drive</h3><div class="muted">Посилання бачить студент у своїй лабораторії. Туди можна складати сценарії, таблиці, референси й фінальні матеріали.</div></div></div><div class="dl-access-row"><input id="dlDriveUrl" type="url" value="${lfEsc(personalDrive||lab.driveUrl||owned[0]?.driveUrl||shared[0]?.driveUrl||'')}" placeholder="https://drive.google.com/drive/folders/…"><button class="ghost" id="dlSaveDrive">Зберегти</button><a class="ghost" id="dlOpenDrive" href="${lfEsc(personalDrive||lab.driveUrl||owned[0]?.driveUrl||shared[0]?.driveUrl||'#')}" target="_blank" rel="noopener">Відкрити ↗</a></div></section>
   <section class="lf-section" id="dlAccessSection"></section><section class="lf-section"><h3>Робота студента</h3><div id="dlAdminWork"><div class="lf-empty">Активуй студентський доступ, щоб почати роботу.</div></div></section></div>`;
   app.querySelector('#dlBack').onclick=renderDirectingLaboratory;app.querySelector('#dlGoBuilder').onclick=openDirectingLabConstructor;const access=app.querySelector('#dlAccessSection'),holder=app.querySelector('#dlAdminWork');let key=String((dlLabForStudent(st.id)||{}).accessKey||'').trim();
@@ -8816,7 +8816,7 @@ functions=getFunctions(firebaseApp,"europe-west1");
       }catch(err){console.error("Public profile seeding failed:",err);}
     }
 
-    // v22 — one-time refresh of every already published profile so the public site
+    // v22 - one-time refresh of every already published profile so the public site
     // immediately receives the structured professional data without opening students one by one.
     if(!localStorage.getItem("rems_public_professional_sync_v22")){
       try{
@@ -8994,7 +8994,7 @@ function occV13Card(a){
 }
 function occV13Controls(mode,date,group1,group2){
   const groups=[...new Set((db.students||[]).map(st=>String(st.group||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"uk",{numeric:true}));
-  const opts=(selected,second=false)=>`<option value="">${second?"Друга група — не вибрано":"Усі групи"}</option>`+groups.map(g=>`<option value="${esc(g)}" ${g===selected?"selected":""}>${esc(g)}</option>`).join("");
+  const opts=(selected,second=false)=>`<option value="">${second?"Друга група - не вибрано":"Усі групи"}</option>`+groups.map(g=>`<option value="${esc(g)}" ${g===selected?"selected":""}>${esc(g)}</option>`).join("");
   return `<div class="schedule-controls occ13-controls">
     <div class="occ13-modes"><button type="button" class="ghost ${mode==='day'?'active':''}" data-occ13-mode="day">День</button><button type="button" class="ghost ${mode==='week'?'active':''}" data-occ13-mode="week">Тиждень</button><button type="button" class="ghost" data-occ13-mode="month">Місяць</button></div>
     <input type="date" id="occ13Date" value="${esc(date)}">
@@ -9035,7 +9035,7 @@ function openUnifiedOccupancyV13(mode="day",seed={}){
       const anchor=new Date(chosenDate+"T12:00:00"), shift=(anchor.getDay()+6)%7; anchor.setDate(anchor.getDate()-shift);
       const dates=Array.from({length:7},(_,i)=>{const x=new Date(anchor);x.setDate(anchor.getDate()+i);return localIsoDate(x)});
       const busy=students.filter(st=>dates.some(d=>activities(st,d).length)).length;
-      $("#occ13Kpis").innerHTML=`<span class="summary-pill">Тиждень: <b>${dates[0]} — ${dates[6]}</b></span><span class="summary-pill">Студентів: <b>${students.length}</b></span><span class="summary-pill">Мають зайнятість: <b>${busy}</b></span><span class="summary-pill">Повністю вільні: <b>${Math.max(0,students.length-busy)}</b></span>`;
+      $("#occ13Kpis").innerHTML=`<span class="summary-pill">Тиждень: <b>${dates[0]} - ${dates[6]}</b></span><span class="summary-pill">Студентів: <b>${students.length}</b></span><span class="summary-pill">Мають зайнятість: <b>${busy}</b></span><span class="summary-pill">Повністю вільні: <b>${Math.max(0,students.length-busy)}</b></span>`;
       $("#occ13Mount").innerHTML=`<div class="occ13-wrap"><table class="occ13-table"><thead><tr><th class="occ13-name">Студент</th>${dates.map(d=>`<th>${new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{weekday:'short',day:'numeric',month:'short'})}</th>`).join("")}</tr></thead><tbody>${students.map(st=>`<tr><td class="occ13-name"><b>${esc(st.name)}</b><small>${esc(st.group||"")}</small></td>${dates.map(d=>{const arr=activities(st,d);if(!arr.length)return `<td class="occ13-free" data-date="${d}">🟢 <span>Вільний</span></td>`;const conflict=studentDateHasConflict(st.id,d);return `<td class="${conflict?'occ13-conflict':''}" data-date="${d}">${conflict?'<div class="occ13-conflict-label">⚠️ КОНФЛІКТ</div>':''}${arr.map(occV13Card).join("")}</td>`}).join("")}</tr>`).join("")}</tbody></table></div>`;
     }
     $$("#occ13Mount td[data-date]").forEach(td=>td.onclick=()=>showDay(td.dataset.date));
@@ -9247,11 +9247,11 @@ function academicV39(){
           const a=all.filter(l=>l.group==="РЕМС-34"),b=all.filter(l=>l.group==="РЕМС-44"),used=new Set(),shared=[],onlyA=[];
           a.forEach(x=>{const j=b.findIndex((y,i)=>!used.has(i)&&academicV39Same(x,y));if(j>=0){used.add(j);shared.push([x,b[j]]);}else onlyA.push(x);});
           const onlyB=b.filter((x,i)=>!used.has(i));
-          body=`${shared.map(x=>`<div class="academic-dual-cal-shared">${card(x,true)}</div>`).join("")}${(onlyA.length||onlyB.length)?`<div class="academic-dual-cal-two"><div><small>РЕМС-34</small>${renderGrouped(onlyA)||'<i>—</i>'}</div><div><small>РЕМС-44</small>${renderGrouped(onlyB)||'<i>—</i>'}</div></div>`:""}`;
+          body=`${shared.map(x=>`<div class="academic-dual-cal-shared">${card(x,true)}</div>`).join("")}${(onlyA.length||onlyB.length)?`<div class="academic-dual-cal-two"><div><small>РЕМС-34</small>${renderGrouped(onlyA)||'<i>-</i>'}</div><div><small>РЕМС-44</small>${renderGrouped(onlyB)||'<i>-</i>'}</div></div>`:""}`;
         }else{
-          body=`<div class="academic-dual-cal-single">${renderGrouped(all)||'<i>—</i>'}</div>`;
+          body=`<div class="academic-dual-cal-single">${renderGrouped(all)||'<i>-</i>'}</div>`;
         }
-        return `<div class="academic-dual-cal-pair"><div class="academic-dual-cal-pair-head"><b>${pair} пара</b><span>${time[0]}–${time[1]}</span><button type="button" class="academic-v39-pair-plus" data-add-date="${date}" data-add-pair="${pair}" title="Додати заняття на цю пару">+</button></div>${body}</div>`;}).join("")||'<div class="academic-dual-cal-none">—</div>'}</div>`;};
+        return `<div class="academic-dual-cal-pair"><div class="academic-dual-cal-pair-head"><b>${pair} пара</b><span>${time[0]}–${time[1]}</span><button type="button" class="academic-v39-pair-plus" data-add-date="${date}" data-add-pair="${pair}" title="Додати заняття на цю пару">+</button></div>${body}</div>`;}).join("")||'<div class="academic-dual-cal-none">-</div>'}</div>`;};
     document.querySelector("#academicV39Mount").innerHTML=`<div class="academic-dual-calendar"><div class="academic-dual-cal-weekdays">${["Понеділок","Вівторок","Середа","Четвер","П’ятниця"].map(x=>`<b>${x}</b>`).join("")}</div><div class="academic-dual-cal-grid">${blanks}${workDates.map(cell).join("")}</div></div>`;
     document.querySelectorAll(".academic-dual-card[data-ids]").forEach(b=>b.onclick=()=>openAcademicV39Editor({ids:b.dataset.ids.split(","),date:b.dataset.date}));
     document.querySelectorAll("[data-add-date]").forEach(b=>b.onclick=e=>{e.stopPropagation();openAcademicV39Editor({date:b.dataset.addDate,pair:b.dataset.addPair||"1"});});
@@ -9270,7 +9270,7 @@ function academicV39(){
   const st=document.createElement("style");st.textContent=`
     .academic-v393-students{font-weight:900;color:#111827;font-size:11px;line-height:1.25;margin-top:2px}.academic-v406-paired-students{display:grid!important;gap:1px!important;margin:3px 0 2px!important}.academic-v406-paired-students span{display:block!important;white-space:normal!important;line-height:1.2!important}.academic-v406-paired{padding-top:6px!important;padding-bottom:6px!important}.academic-v393-exact-time{font-size:10px;font-weight:900;color:#475569;margin-bottom:1px}.academic-v405-individual{padding-top:7px!important;padding-bottom:7px!important}.academic-v405-individual+.academic-v405-individual{margin-top:3px}.academic-v39-topbar{align-items:flex-start}.academic-v39-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 14px}.academic-v39-group-switch{display:flex;border:1px solid #dbe2ea;border-radius:12px;overflow:hidden;background:#fff}.academic-v39-group-switch button{border:0;border-right:1px solid #e5e7eb;background:#fff;padding:10px 13px;font-weight:800;cursor:pointer}.academic-v39-group-switch button:last-child{border-right:0}.academic-v39-group-switch button.active{background:#111827;color:#fff}.academic-v39-filters select{min-width:220px;padding:10px 12px;border:1px solid #dbe2ea;border-radius:10px;background:#fff}
     .academic-dual-cal-date>div{display:flex;align-items:baseline;gap:6px}.academic-v39-plus,.academic-v39-pair-plus{border:1px solid #cbd5e1;background:#fff;border-radius:7px;cursor:pointer;font-weight:900;color:#334155;flex:0 0 auto}.academic-v39-plus{width:25px;height:25px}.academic-v39-pair-plus{width:20px;height:20px;padding:0;line-height:16px;margin-left:3px}.academic-dual-cal-pair-head{align-items:center}.academic-dual-cal-pair-head span{margin-left:auto}.academic-dual-cal-single{display:grid;gap:5px}.academic-dual-cal-single i{display:block;text-align:center;color:#cbd5e1;font-style:normal;padding:8px}
-    /* v39.3 — keep the approved calendar grid; fix only the inside of lesson cards */
+    /* v39.3 - keep the approved calendar grid; fix only the inside of lesson cards */
     .academic-dual-cal-day .academic-dual-card{
       display:flex!important;flex-direction:column!important;align-items:stretch!important;
       width:100%!important;height:auto!important;min-height:0!important;
@@ -9299,7 +9299,7 @@ function academicV39(){
       .academic-dual-cal-day .academic-dual-card .academic-kind{font-size:11px!important}
       .academic-dual-cal-day .academic-dual-card .academic-teacher,.academic-dual-cal-day .academic-dual-card .academic-room{font-size:12px!important}
     }
-    /* v39.3 — bulletproof vertical content in narrow cards; grid geometry unchanged */
+    /* v39.3 - bulletproof vertical content in narrow cards; grid geometry unchanged */
     .academic-dual-cal-day .academic-v393-card{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important;padding:9px 10px!important;white-space:normal!important;text-align:left!important}
     .academic-dual-cal-day .academic-v393-card>.academic-v393-together,
     .academic-dual-cal-day .academic-v393-card>.academic-v393-subject,
@@ -9343,7 +9343,7 @@ function v40StudentName(id){ const s=(db.students||[]).find(x=>String(x.id)===St
 function v40Group(id){ const s=(db.students||[]).find(x=>String(x.id)===String(id)); return studentGroupLabel(s)||s?.group||""; }
 function v40ProjectPeriod(p){
   const ds=eventsFor(p.id).map(e=>e.date).filter(Boolean).sort();
-  return ds.length?`${fmt(ds[0])} — ${fmt(ds[ds.length-1])}`:"Ще без робіт";
+  return ds.length?`${fmt(ds[0])} - ${fmt(ds[ds.length-1])}`:"Ще без робіт";
 }
 function v40Projects(){
   currentProjectDetailId=null;
@@ -9403,7 +9403,7 @@ function v40WorkEditor(pid,ev){
   };
   body.innerHTML=`<div class="v40-editor"><div class="v40-editor-head"><div><h2>${ev?'Редагувати роботу':'Нова робота'}</h2><p>${esc(p.name)}</p></div><button class="ghost" id="v40Close" type="button">Закрити</button></div>
     <div class="v40-fields"><label>Дата<input id="v40Date" type="date" value="${esc(ev?.date||localIsoDate())}"></label><label>Що відбувається?<input id="v40Type" value="${esc(ev?.type||'')}" placeholder="Зйомка / репетиція / кастинг"></label></div>
-    <div class="v40-time"><label><input id="v40Unknown" type="checkbox" ${!ev||ev.timeUndetermined||(!ev.startTime&&!ev.endTime)?'checked':''}> Час не визначено</label><div id="v40TimeFields"><input id="v40Start" type="time" value="${esc(ev?.startTime||'')}"><span>—</span><input id="v40End" type="time" value="${esc(ev?.endTime||'')}"></div></div>
+    <div class="v40-time"><label><input id="v40Unknown" type="checkbox" ${!ev||ev.timeUndetermined||(!ev.startTime&&!ev.endTime)?'checked':''}> Час не визначено</label><div id="v40TimeFields"><input id="v40Start" type="time" value="${esc(ev?.startTime||'')}"><span>-</span><input id="v40End" type="time" value="${esc(ev?.endTime||'')}"></div></div>
     <div class="v40-people-head"><div><h3>Студенти</h3><p><b id="v40Count">${selected.size}</b> вибрано</p></div><div class="v40-filters"><input id="v40Search" placeholder="Пошук"><select id="v40Group"><option value="">Усі групи</option>${groups.map(g=>`<option>${esc(g)}</option>`).join('')}</select></div></div>
     <div class="v40-people" id="v40People"></div>
     <div class="v40-actions">${ev?'<button class="danger ghost" id="v40Delete" type="button">Видалити роботу</button>':'<span></span>'}<div><button class="ghost" id="v40Cancel" type="button">Скасувати</button><button class="primary" id="v40Save" type="button">Зберегти</button></div></div>
@@ -9480,7 +9480,7 @@ function academicPersonalExcelRows(){
   // v41.3: якщо одна й та сама пара проводиться СПІЛЬНО для кількох груп,
   // в Excel показуємо її одним рядком, а назви груп об’єднуємо в одній клітинці.
   // Об’єднуємо лише записи з повністю однаковими днем, парою, дисципліною,
-  // видом заняття, аудиторією та набором дат — тобто справді спільне заняття.
+  // видом заняття, аудиторією та набором дат - тобто справді спільне заняття.
   const combined=new Map();
   rows.forEach(g=>{
     if(g.isIndividual){
@@ -9510,7 +9510,7 @@ async function exportFisherScheduleXlsx(){
   const bySlot=new Map();
   lessons.forEach(g=>{const k=`${g.day}|${g.pair}`;if(!bySlot.has(k))bySlot.set(k,[]);bySlot.get(k).push(g);});
 
-  // Рядки аркуша: кожен день має всі 7 пар, навіть якщо вони порожні — як у зразку.
+  // Рядки аркуша: кожен день має всі 7 пар, навіть якщо вони порожні - як у зразку.
   const body=[]; const merges=[]; let row=5;
   dayOrder.forEach(day=>{
     const dayStart=row;
@@ -9525,7 +9525,7 @@ async function exportFisherScheduleXlsx(){
           const noteParts=[];
           if(g.room)noteParts.push(`ауд. ${g.room}`);
           if(g.isIndividual){
-            const people=g.dates.map(d=>{const names=g.peopleByDate.get(d)||[];return names.length?`${academicExcelDateShort(d)} — ${names.join(", ")}`:"";}).filter(Boolean);
+            const people=g.dates.map(d=>{const names=g.peopleByDate.get(d)||[];return names.length?`${academicExcelDateShort(d)} - ${names.join(", ")}`:"";}).filter(Boolean);
             if(people.length)noteParts.push(people.join("\n"));
           }
           notes=noteParts.join("\n");
