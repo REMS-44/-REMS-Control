@@ -111,3 +111,11 @@ main{max-width:1180px}.student-hero{background:linear-gradient(135deg,#151d31 0,
 .conflict-side,.conflict-subject-card{border-radius:16px;padding:14px;border:1px solid #e2e8f0}.conflict-side-a{background:linear-gradient(180deg,#eef2ff,#f8faff)}.conflict-side-b{background:linear-gradient(180deg,#fff1f2,#fffafa)}
 .conflict-subject-card{background:linear-gradient(180deg,#fff7ed,#fffbeb);display:flex;flex-direction:column;justify-content:center}.conflict-side-kicker{text-transform:uppercase;letter-spacing:.08em;font-size:10px;font-weight:900;color:#64748b;margin-bottom:10px}.conflict-side .conflict-field+.conflict-field{margin-top:10px}.conflict-subject-card p{font-size:11px;line-height:1.45;color:#7c5b22;margin:10px 0 0}.conflict-summary{margin-top:14px;padding:14px;border-radius:16px;background:#f8fafc;border:1px solid #e2e8f0}
 @media(max-width:900px){.section-card[data-section="ideological-analysis"] .blocks{grid-template-columns:1fr}.conflict-grid{grid-template-columns:1fr}.conflict-mini-formula{grid-template-columns:1fr}.conflict-mini-formula b{transform:rotate(90deg)}}
+
+/* v46.1 section Word exports */
+.section-export-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:18px 0 2px;padding-top:14px;border-top:1px solid rgba(148,163,184,.28)}
+.section-word-btn{border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3;border-radius:12px;padding:10px 14px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(79,70,229,.08)}
+.section-word-btn:hover{background:#e0e7ff;border-color:#a5b4fc}
+.research-export-tools .section-word-btn{background:#ecfeff;border-color:#a5f3fc;color:#155e75}
+.research-export-tools .section-word-btn:hover{background:#cffafe}
+@media(max-width:700px){.section-export-tools{display:grid;grid-template-columns:1fr}.section-word-btn{width:100%}}
