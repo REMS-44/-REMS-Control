@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#101318">
   <title>Моя режисерська лабораторія</title>
-  <link rel="stylesheet" href="lab.css?v=44.8">
+  <link rel="stylesheet" href="lab.css?v=45.6">
 </head>
 <body>
   <header class="lab-topbar">
@@ -13,9 +13,31 @@
     <div id="labGroup" class="lab-group"></div>
   </header>
   <main id="labApp"><div class="loading">Завантаження лабораторії…</div></main>
-  <script src="firebase-config.js?v=44.8"></script>
-  <script src="drive-upload-config.js?v=44.8"></script>
+  <script src="firebase-config.js?v=45.6"></script>
+  <script src="drive-upload-config.js?v=45.6"></script>
   <script src="jszip.min.js"></script>
-  <script type="module" src="lab-v45.5.js?v=45.5"></script>
+  <script>
+    window.__REMS_LAB_RENDERED = false;
+    window.addEventListener('error', function(e){
+      var box=document.getElementById('labApp');
+      if(box && box.textContent.indexOf('Завантаження лабораторії')>=0){
+        box.innerHTML='<div class="error-card"><b>Не вдалося запустити лабораторію</b><p>'+String(e.message||'Помилка JavaScript')+'</p></div>';
+      }
+    });
+    window.addEventListener('unhandledrejection', function(e){
+      var box=document.getElementById('labApp');
+      if(box && box.textContent.indexOf('Завантаження лабораторії')>=0){
+        var msg=(e.reason && (e.reason.message||e.reason)) || 'Невідома помилка';
+        box.innerHTML='<div class="error-card"><b>Не вдалося завантажити лабораторію</b><p>'+String(msg)+'</p></div>';
+      }
+    });
+    setTimeout(function(){
+      var box=document.getElementById('labApp');
+      if(!window.__REMS_LAB_RENDERED && box && box.textContent.indexOf('Завантаження лабораторії')>=0){
+        box.innerHTML='<div class="error-card"><b>Лабораторія не завершила завантаження</b><p>Оновіть сторінку. Якщо повідомлення повториться, надішліть цей екран викладачу.</p></div>';
+      }
+    },12000);
+  </script>
+  <script type="module" src="lab-v45.6.js?v=45.6"></script>
 </body>
 </html>

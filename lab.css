@@ -52,3 +52,18 @@ main{max-width:1180px}.student-hero{background:linear-gradient(135deg,#151d31 0,
 
 /* v45.5 text revision modal and navigation */
 .text-review-modal{position:fixed;inset:0;z-index:1100;display:none;align-items:center;justify-content:center;padding:24px}.text-review-modal.open{display:flex}.text-review-backdrop{position:absolute;inset:0;background:#0b0f16c7;backdrop-filter:blur(6px)}.text-review-card{position:relative;z-index:1;width:min(1050px,100%);max-height:88vh;overflow:auto;background:linear-gradient(180deg,#fff,#f4f7fd);border:1px solid #dbe3ef;border-radius:24px;box-shadow:0 32px 110px #0007;padding:28px 30px}.text-review-card h2{margin:6px 44px 10px 0}.text-review-note{margin:0 0 18px;color:#4c5a70;line-height:1.55}.text-review-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.text-review-grid h3{margin:0 0 8px;font-size:13px}.text-review-original,.text-review-grid textarea{min-height:250px;border:1px solid #d6dfec;border-radius:14px;background:#fff;padding:14px;font:inherit;line-height:1.6;color:#172033;white-space:pre-wrap}.text-review-grid textarea{width:100%;resize:vertical;outline:none}.text-review-grid textarea:focus{border-color:#6483ff;box-shadow:0 0 0 4px #4f67ff18}.text-review-changes{margin-top:14px;padding:12px 14px;border-radius:14px;background:#eef3ff;color:#344568;font-size:12px;line-height:1.55}.text-review-changes ul{margin:7px 0 0;padding-left:20px}.text-review-changes p{margin:6px 0 0}.text-review-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;position:sticky;bottom:-28px;background:#f4f7fd;padding:14px 0 0}.dl-current-project{display:grid;gap:3px;padding:12px 14px;margin-bottom:12px;border-radius:14px;background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #d9ddff}.dl-current-project small{color:#667085;font-size:10px;text-transform:uppercase;letter-spacing:.08em}.dl-current-project b{font-size:16px;color:#172554}@media(max-width:760px){.text-review-grid{grid-template-columns:1fr}.text-review-card{padding:22px 16px}.text-review-actions{bottom:-22px}}
+
+
+/* v45.6 - clearer research Drive action */
+.material-drive-open{
+  background:linear-gradient(135deg,#2457ff 0%,#673df2 100%) !important;
+  color:#fff !important;
+  border:1px solid rgba(255,255,255,.18) !important;
+  box-shadow:0 10px 24px rgba(55,68,220,.28) !important;
+  padding:11px 15px !important;
+  font-weight:900 !important;
+}
+.material-drive-open:hover{
+  background:linear-gradient(135deg,#1948ef 0%,#5a32df 100%) !important;
+  transform:translateY(-1px);
+}
