@@ -167,3 +167,8 @@ main{max-width:1180px}.student-hero{background:linear-gradient(135deg,#151d31 0,
 /* old duplicate notification surfaces are no longer used */
 .student-feedback-alert,.student-inbox,.section-feedback-unread{display:none!important}
 @media(max-width:700px){.item-comm-row{align-items:flex-start}.item-comm-summary{max-width:68%}.student-message-row{grid-template-columns:1fr auto}}
+
+.analysis-chapter.second-chapter{margin-top:30px;background:linear-gradient(135deg,#111827,#4c1d95)}
+#section-scenario-dramaturgy{scroll-margin-top:210px}
+#section-scenario-dramaturgy .work-block textarea{line-height:1.55}
+#section-scenario-dramaturgy .table-shell{max-height:none}
