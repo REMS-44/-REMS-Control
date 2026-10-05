@@ -174,3 +174,16 @@ main{max-width:1180px}.student-hero{background:linear-gradient(135deg,#151d31 0,
 
 /* v47.4: chapter switcher without duplicate row */
 .chapter-switcher{padding:12px 14px}.analysis-chapter-switcher{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}.analysis-chapter-tab{width:100%;border:0;cursor:pointer;text-align:left;font:inherit;transition:transform .18s ease,box-shadow .18s ease,opacity .18s ease;opacity:.72}.analysis-chapter-tab:hover{transform:translateY(-1px);opacity:.92}.analysis-chapter-tab.active{opacity:1;box-shadow:0 14px 30px #0f172a2c}.analysis-chapter-tab:not(.active){box-shadow:none;filter:saturate(.85)}button.analysis-chapter{appearance:none}.chapter-section-panel[hidden]{display:none!important}.chapter-section-panel{padding-top:4px}.chapter-section-panel a{flex:0 0 auto}@media(max-width:620px){.analysis-chapter-switcher{grid-template-columns:1fr}.chapter-switcher{padding:10px}}
+
+
+/* v47.5 — clean two-column chapter navigation */
+.chapter-switcher{padding:14px 14px 12px}
+.analysis-chapter-switcher{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:10px!important;margin:0 0 12px!important;width:100%}
+button.analysis-chapter.analysis-chapter-tab{box-sizing:border-box;width:100%!important;min-width:0!important;min-height:56px;margin:0!important;padding:13px 16px!important;border:1px solid #ffffff22!important;border-radius:15px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;background:linear-gradient(135deg,#17233e,#294078)!important;color:#fff!important;box-shadow:none!important;opacity:.72!important;filter:none!important;white-space:normal}
+button.analysis-chapter.analysis-chapter-tab.second-chapter{background:linear-gradient(135deg,#17233e,#294078)!important}
+button.analysis-chapter.analysis-chapter-tab span{flex:0 0 auto;font-size:10px!important;letter-spacing:.12em!important;font-weight:900!important;color:#c8ff4d!important}
+button.analysis-chapter.analysis-chapter-tab b{min-width:0;font-size:14px!important;line-height:1.2!important;letter-spacing:.02em!important}
+button.analysis-chapter.analysis-chapter-tab:hover{opacity:.9!important;transform:translateY(-1px)}
+button.analysis-chapter.analysis-chapter-tab.active{opacity:1!important;border-color:#8aa8ff66!important;background:linear-gradient(135deg,#1b2d58,#3555a2)!important;box-shadow:0 8px 20px #0f172a28!important}
+.chapter-section-panel{padding-top:0!important}
+@media(max-width:760px){.analysis-chapter-switcher{grid-template-columns:1fr!important}button.analysis-chapter.analysis-chapter-tab{min-height:52px!important}}
