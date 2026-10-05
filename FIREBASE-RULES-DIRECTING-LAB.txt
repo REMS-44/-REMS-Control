@@ -1,4 +1,4 @@
-REMS Control v44.0 - правила Firestore для «Режисерської лабораторії»
+REMS Control v44.0 — правила Firestore для «Режисерської лабораторії»
 
 Додайте ці блоки ВСЕРЕДИНУ чинного:
 match /databases/{database}/documents { ... }
@@ -30,5 +30,5 @@ match /rems_directing_lab_feedback/{labKey} {
   allow list, create, update, delete: if request.auth != null;
 }
 
-Колекція rems_student_media вже має allow read: if true - це дозволяє студентській
+Колекція rems_student_media вже має allow read: if true — це дозволяє студентській
 лабораторії показувати те саме фото, що й вкладка «Студенти».
