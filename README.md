@@ -1,3 +1,5 @@
+## v45.4 - Режисерський аналіз, коментарі та активна навігація
+
 # REMS-Control v45.2 - Simplified Research Workspace
 
 Зміни:
