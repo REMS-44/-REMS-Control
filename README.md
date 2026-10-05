@@ -1,3 +1,7 @@
+REMS-Control v45.4.2
+
+Boot fix: corrected missing JS module filenames in index.html and lab.html. No functional data changes.
+
 ## v45.4.1.1 - Режисерський аналіз, коментарі та активна навігація
 
 # REMS-Control v45.2 - Simplified Research Workspace
