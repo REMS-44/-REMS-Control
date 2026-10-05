@@ -119,3 +119,11 @@ main{max-width:1180px}.student-hero{background:linear-gradient(135deg,#151d31 0,
 .research-export-tools .section-word-btn{background:#ecfeff;border-color:#a5f3fc;color:#155e75}
 .research-export-tools .section-word-btn:hover{background:#cffafe}
 @media(max-width:700px){.section-export-tools{display:grid;grid-template-columns:1fr}.section-word-btn{width:100%}}
+
+/* v46.2: feedback and grading for each individual point */
+.item-teacher-feedback{margin-top:14px;padding:13px 14px;border:1px solid #c7d2fe;border-radius:14px;background:#f6f7ff;box-shadow:0 8px 24px rgba(66,72,148,.08)}
+.item-teacher-feedback.revision{border-color:#fecaca;background:#fff7f7}.item-teacher-feedback.approved{border-color:#bbf7d0;background:#f4fff7}.item-teacher-feedback.reviewed{border-color:#bfdbfe;background:#f5f9ff}
+.item-teacher-feedback-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.item-teacher-feedback-head span{display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#6366f1}.item-teacher-feedback-head b{display:block;margin-top:3px;font-size:13px;color:#111827}.item-teacher-feedback-head small{font-size:10px;color:#6b7280;white-space:nowrap}
+.item-feedback-badges{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.item-feedback-badges span{display:inline-flex;align-items:center;min-height:25px;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800}.item-feedback-status.reviewed{background:#dbeafe;color:#1d4ed8}.item-feedback-status.revision{background:#fee2e2;color:#b91c1c}.item-feedback-status.approved{background:#dcfce7;color:#15803d}.item-feedback-score{background:#ede9fe;color:#5b21b6}.item-feedback-edited{background:#f3f4f6;color:#374151}
+.item-teacher-feedback p{margin:10px 0 0;color:#273244;font-size:12px;line-height:1.55;white-space:pre-wrap}
+@media(max-width:700px){.item-teacher-feedback-head{flex-direction:column}.item-teacher-feedback-head small{white-space:normal}}
