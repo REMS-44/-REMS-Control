@@ -1,0 +1,14 @@
+REMS Control · справжній AI-редактор
+
+1. Установити Node.js 20/22 і Firebase CLI.
+2. firebase login
+3. firebase use rems-control
+4. cd functions && npm install && cd ..
+5. firebase functions:secrets:set OPENAI_API_KEY
+   Вставити OpenAI API key у консоль. Не додавати ключ у GitHub або JS-файли.
+6. firebase deploy --only functions:reviewStudentText
+
+Клієнт уже налаштований на:
+https://europe-west1-rems-control.cloudfunctions.net/reviewStudentText
+
+Якщо функція недоступна, лабораторія автоматично використовує резервну LanguageTool/локальну перевірку.

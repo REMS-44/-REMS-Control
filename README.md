@@ -12,3 +12,7 @@ REMS-Control v45.7
 - lab.html використовує lab-v45.6.2.js;
 - залишено тільки 1.1, 1.2, 1.3;
 - збережені останні правки 1.2 та 1.3.
+
+
+## v45.8 AI Editor
+Додано серверний AI-редактор через Firebase Cloud Functions + OpenAI Responses API. OPENAI_API_KEY зберігається тільки у Firebase Secret Manager.
