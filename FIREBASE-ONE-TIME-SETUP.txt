@@ -1,0 +1,21 @@
+REMS Control — Режисерська лабораторія
+ОДНОРАЗОВЕ НАЛАШТУВАННЯ FIREBASE ДЛЯ ЗБЕРЕЖЕННЯ ЧЕРНЕТКИ ТА РЕФЕРЕНСІВ
+
+GitHub Pages оновлює лише код сайту. Firestore Rules і Storage Rules потрібно один раз опублікувати у Firebase Console.
+
+1) Firestore Database → Rules
+   Додайте блоки з файла FIREBASE-RULES-DIRECTING-LAB.txt всередину чинного
+   match /databases/{database}/documents { ... }
+   і натисніть Publish.
+
+2) Storage → Rules
+   Об'єднайте чинні правила з блоком із файла FIREBASE-STORAGE-RULES-DIRECTING-LAB.txt
+   і натисніть Publish.
+
+ВАЖЛИВО: не замінюйте інші чинні правила вашої системи — додайте ці match-блоки до них.
+
+Після публікації:
+- студент може зберігати власні answers/sectionStates через персональний ключ;
+- референси завантажуються лише у directing-lab/<labKey>/...;
+- Storage перевіряє, що робочий документ із таким ключем існує;
+- один файл обмежено 25 МБ, а інтерфейс додатково стискає великі зображення перед відправленням.
