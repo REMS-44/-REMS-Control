@@ -1,0 +1,10 @@
+REMS Control v48.6
+
+Word export update:
+- table blocks export as real Word tables;
+- reference images are embedded in table cells;
+- multiple references stay in one cell;
+- wide tables automatically use landscape A4;
+- duration total is shown in a table footer;
+- teacher and student Word exports use the same behavior;
+- image download uses Firebase Storage SDK with URL fallback.
