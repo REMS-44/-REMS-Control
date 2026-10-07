@@ -161,3 +161,17 @@ dialog{border:0;border-radius:16px;padding:0;box-shadow:0 30px 90px #0004;width:
 .dl-scenario-table{min-width:1040px}.dl-scenario-table th:nth-child(4){width:auto}.dl-scenario-table th:nth-child(5){width:130px}
 .dl-explication-table{min-width:2450px}.dl-explication-table th:nth-child(1){width:55px}.dl-explication-table th:nth-child(2){width:155px}.dl-explication-table th:nth-child(3){width:210px}.dl-explication-table th:nth-child(4){width:280px}.dl-explication-table th:nth-child(5){width:120px}.dl-explication-table th:nth-child(n+6):nth-child(-n+12){width:225px}.dl-explication-table th:nth-child(13){width:210px}
 .dl-linked-empty-row td{text-align:center;color:#7b8798;padding:18px}.dl-explication-refs{margin-top:0}.dl-explication-refs img{width:74px;height:54px}
+
+/* v49.3 — wider linked tables */
+.dl-scenario-table{min-width:1180px}.dl-explication-table{min-width:1500px}
+.dl-linked-work-table textarea{min-height:64px}
+/* v49.3 teacher tempo-rhythm curve */
+.dl-tempo-curve-wrap{margin-top:16px;padding:14px;border:1px solid #d8dee8;border-radius:14px;background:#fff}
+.dl-tempo-curve{margin-top:8px;overflow-x:auto}
+.dl-tempo-curve svg{display:block;width:100%;min-width:600px;height:auto}
+.dl-tempo-curve svg line,.dl-tempo-curve svg polyline{stroke:currentColor;stroke-width:2}
+.dl-tempo-curve svg .tempo-grid{stroke-width:1;opacity:.18}
+.dl-tempo-curve svg .tempo-axis{stroke-width:1.5;opacity:.65}
+.dl-tempo-curve svg circle{fill:currentColor}
+.dl-tempo-curve svg text{font:12px system-ui;fill:currentColor}
+.dl-tempo-curve svg .tempo-y-label{opacity:.65;font-size:11px}

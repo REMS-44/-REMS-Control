@@ -282,3 +282,17 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 .linked-work-table textarea{resize:vertical}
 .linked-heading-row td{border-top-width:2px!important}
 .linked-heading-row .linked-struct-cell,.linked-heading-row td:nth-child(3){font-weight:800}
+
+/* v49.3 — linked dramaturgy / atmosphere / tempo / explication */
+.architecture-table{min-width:760px}
+.architecture-table th:nth-child(1){width:82px}.architecture-table th:nth-child(2){width:31%}.architecture-table th:nth-child(3){width:auto}
+.scenario-table{min-width:1180px}.scenario-table th:nth-child(1){width:70px}.scenario-table th:nth-child(2){width:18%}.scenario-table th:nth-child(3){width:18%}.scenario-table th:nth-child(4){width:34%}.scenario-table th:nth-child(5){width:20%}.scenario-table th:nth-child(6){width:120px}
+.atmosphere-table,.tempo-table{min-width:1050px}
+.tempo-intensity-cell input{width:76px;min-height:44px;text-align:center;font-weight:700}.tempo-intensity-cell small{display:block;margin-top:4px;color:var(--muted,#64748b);font-size:11px}
+.tempo-curve-wrap{margin-top:16px;padding:14px;border:1px solid #d8dee8;border-radius:14px;background:#fff}.tempo-curve{margin-top:8px;overflow-x:auto}.tempo-curve svg{display:block;width:100%;min-width:600px;height:auto}.tempo-curve svg line,.tempo-curve svg polyline{stroke:currentColor;stroke-width:2}.tempo-curve svg circle{fill:currentColor}.tempo-curve svg text{font:12px system-ui;fill:currentColor}
+.explication-table{min-width:1550px}.explication-table th small{display:block;font-weight:400;font-size:11px;line-height:1.25;margin-top:4px}
+.explication-table .exp-ref-cell{min-width:190px}
+/* v49.3 tempo-rhythm curve readability */
+.tempo-curve svg .tempo-grid{stroke-width:1;opacity:.18}
+.tempo-curve svg .tempo-axis{stroke-width:1.5;opacity:.65}
+.tempo-curve svg .tempo-y-label{opacity:.65;font-size:11px}
