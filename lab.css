@@ -382,3 +382,13 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 
 /* v49.4.4 image references */
 .image-reference-area{margin:14px 0;padding:14px;border:1px solid var(--border,#d8dce4);border-radius:12px}.image-reference-heading{font-weight:700;margin-bottom:6px}.image-reference-help{font-size:13px;opacity:.75;margin-bottom:12px}.image-reference-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}.image-reference-card{border:1px solid #d5dbe4;border-radius:9px;padding:8px;display:flex;flex-direction:column;gap:7px}.image-reference-card img{width:100%;height:130px;object-fit:contain;background:#f2f4f7;border-radius:6px}.image-reference-filename{font-size:12px;overflow-wrap:anywhere}.image-reference-card input,.image-reference-card textarea{width:100%;box-sizing:border-box}.image-reference-remove{align-self:flex-start;cursor:pointer}.image-reference-upload{margin-top:12px;display:inline-flex}.block-material-links{margin-top:12px}
+
+/* v49.4.8: readable, compact theory without changing stored content */
+.theory-modal-copy{font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:14px;line-height:1.48;color:#26334a;overflow-wrap:anywhere}
+.theory-modal-copy p{margin:0 0 9px}
+.theory-modal-copy p:last-child{margin-bottom:0}
+.theory-modal-copy h1,.theory-modal-copy h2,.theory-modal-copy h3,.theory-modal-copy h4{font-family:inherit;line-height:1.3;color:#152440;font-weight:800;margin:15px 0 6px}
+.theory-modal-copy h1{font-size:18px}.theory-modal-copy h2{font-size:16px}.theory-modal-copy h3{font-size:15px}.theory-modal-copy h4{font-size:14px}
+.theory-modal-copy strong{font-weight:800;color:#172554}
+.theory-modal-card{padding:23px 26px}.theory-modal-card h2{margin-bottom:11px}
+@media(max-width:560px){.theory-modal-copy{font-size:13px;line-height:1.48}.theory-modal-card{padding:18px 15px}.theory-modal-copy p{margin-bottom:8px}}
