@@ -316,3 +316,30 @@ body.ui-tablet .project-event-row{gap:8px}
 body.ui-mobile button,body.ui-tablet button{white-space:normal;overflow-wrap:anywhere}
 body.ui-mobile .planner-toolbar,body.ui-tablet .planner-toolbar{flex-wrap:wrap}
 body.ui-mobile img,body.ui-tablet img{max-width:100%}
+
+/* v49.4.1 — Director's Laboratory responsive audit */
+body.ui-tablet .dl-builder-page,body.ui-tablet .dl-activity-page{max-width:none!important;width:100%!important}
+body.ui-tablet .dl-admin-workspace{grid-template-columns:180px minmax(0,1fr)!important;gap:8px!important;align-items:start!important}
+body.ui-tablet .dl-admin-sidebar{position:sticky!important;top:92px!important;max-height:calc(100dvh - 110px)!important;overflow:auto!important;padding:8px!important}
+body.ui-tablet .dl-admin-nav-blocks{margin-left:5px!important;padding-left:7px!important}
+body.ui-tablet .dl-admin-canvas{min-width:0!important;overflow:hidden!important}
+body.ui-tablet .dl-admin-table-wrap,body.ui-tablet .dl-linked-table-scroll{max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+body.ui-tablet .dl-builder-layout{grid-template-columns:200px minmax(0,1fr)!important;gap:9px!important}
+body.ui-tablet .dl-builder-sidebar{position:sticky!important;top:92px!important;max-height:calc(100dvh - 110px)!important}
+body.ui-tablet .dl-builder-top{gap:10px!important}
+body.ui-tablet .dl-student-activity-row{padding:11px!important}
+
+body.ui-mobile .dl-builder-page,body.ui-mobile .dl-activity-page{width:100%!important;max-width:none!important}
+body.ui-mobile .dl-builder-top,body.ui-mobile .lf-detail-head{flex-direction:column!important;align-items:stretch!important;gap:10px!important}
+body.ui-mobile .dl-builder-layout,body.ui-mobile .dl-admin-workspace{grid-template-columns:1fr!important;gap:8px!important}
+body.ui-mobile .dl-builder-sidebar,body.ui-mobile .dl-admin-sidebar{position:relative!important;top:auto!important;max-height:34dvh!important;overflow:auto!important;border-radius:12px!important;padding:8px!important}
+body.ui-mobile .dl-admin-sidebar nav{grid-template-columns:1fr 1fr!important;gap:6px!important}
+body.ui-mobile .dl-admin-nav-blocks{margin-left:4px!important;padding-left:6px!important}
+body.ui-mobile .dl-admin-canvas{min-width:0!important;overflow:hidden!important}
+body.ui-mobile .dl-admin-table-wrap,body.ui-mobile .dl-linked-table-scroll{width:100%!important;max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+body.ui-mobile .dl-student-activity-row{grid-template-columns:9px minmax(0,1fr) 20px!important;padding:10px!important;gap:8px!important}
+body.ui-mobile .dl-student-activity-head{gap:4px!important}
+body.ui-mobile .dl-activity-summary{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important}
+body.ui-mobile .dl-activity-summary span{padding:9px!important}
+body.ui-mobile .dl-table-column-row,body.ui-mobile .dl-table-column-head{grid-template-columns:1fr!important}
+body.ui-mobile .dl-table-column-head i{display:none!important}
