@@ -176,5 +176,5 @@ dialog{border:0;border-radius:16px;padding:0;box-shadow:0 30px 90px #0004;width:
 .dl-tempo-curve svg .tempo-band-label{font-size:12px;font-weight:700}
 .dl-tempo-curve svg .tempo-x-label{font-size:11px;fill:#334155}
 
-/* v49.4.30 tempo profile */
+/* v49.4.31 tempo profile */
 .dl-tempo-curve-wrap{background:#fff!important}.dl-tempo-curve svg{min-width:900px!important}.dl-tempo-curve svg .tempo-x-label{font-size:11px!important;font-weight:700!important;fill:#1e293b!important}.dl-tempo-curve svg .tempo-band-label{font-size:10px!important;font-weight:800!important}.dl-tempo-curve svg .tempo-y-label{font-size:10px!important;fill:#64748b!important}
