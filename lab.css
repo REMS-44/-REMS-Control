@@ -403,3 +403,29 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 
 /* v49.4.41 tempo profile */
 .tempo-curve-wrap{background:#fff!important}.tempo-curve svg{min-width:900px!important}.tempo-curve svg .tempo-x-label{font-size:11px!important;font-weight:700!important;fill:#1e293b!important}.tempo-curve svg .tempo-band-label{font-size:10px!important;font-weight:800!important}.tempo-curve svg .tempo-y-label{font-size:10px!important;fill:#64748b!important}
+
+
+/* v49.4.43 - section 4 implementation builder */
+.implementation-builder{display:grid;gap:14px}
+.impl-builder-top{display:grid;gap:10px;padding:12px;border:1px solid #dbe4f0;border-radius:14px;background:#f8fbff}
+.impl-add-direction{justify-self:start;border:0;border-radius:10px;padding:10px 14px;background:#202b4c;color:#fff;font-weight:800;cursor:pointer}
+.impl-presets{display:flex;gap:7px;flex-wrap:wrap;align-items:center}.impl-presets>span{font-size:11px;font-weight:800;color:#64748b}
+.impl-presets button,.impl-add-types button,.impl-table-buttons button,.impl-card-actions button{border:1px solid #cfd8e6;border-radius:9px;background:#fff;color:#273449;padding:7px 9px;font:inherit;font-size:11px;font-weight:700;cursor:pointer}
+.impl-directions{display:grid;gap:14px}
+.impl-direction{border:1px solid #cfd8e6;border-radius:17px;background:#fff;padding:14px;box-shadow:0 7px 22px #1f29370a}
+.impl-direction-head{display:flex;gap:10px;align-items:center}.impl-direction-title{flex:1!important;font-size:16px!important;font-weight:900!important;border:0!important;border-bottom:2px solid #e5eaf1!important;border-radius:0!important;padding:8px 4px!important}
+.impl-card-actions{display:flex;gap:5px}.impl-card-actions button{padding:5px 8px}
+.impl-current-result{display:grid;gap:6px;margin:12px 0;padding:11px;border-radius:12px;background:#f3f7ff;border:1px solid #dbeafe}.impl-current-result span{font-size:11px;font-weight:900;color:#334155}
+.impl-items{display:grid;gap:10px}
+.impl-item{border:1px solid #e1e7ef;border-radius:13px;padding:12px;background:#fafcff}
+.impl-item-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:9px}.impl-kind{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#4f46e5}
+.impl-item label{display:grid;gap:5px;margin-top:8px;font-size:11px;font-weight:800;color:#475569}.impl-item input,.impl-item textarea{width:100%;box-sizing:border-box}
+.impl-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.impl-add-types{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:11px;padding-top:10px;border-top:1px solid #eef2f7}.impl-add-types>span{font-size:10px;font-weight:900;color:#64748b}
+.impl-empty{padding:14px;border:1px dashed #cbd5e1;border-radius:11px;color:#94a3b8;text-align:center;font-size:11px}.impl-empty-main{padding:25px}
+.impl-assets{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.impl-image-chip,.impl-file-chip{position:relative;border:1px solid #dbe4ef;border-radius:10px;background:#fff;overflow:hidden}.impl-image-chip img{display:block;width:120px;height:90px;object-fit:cover}.impl-file-chip{padding:9px 32px 9px 10px}.impl-assets button{position:absolute;right:3px;top:3px;border:0;border-radius:50%;width:22px;height:22px;background:#111827;color:#fff;cursor:pointer}
+.impl-upload{display:inline-flex!important;align-items:center;justify-content:center;width:max-content;margin-top:8px!important;border:1px dashed #94a3b8;border-radius:9px;padding:8px 10px;background:#fff;cursor:pointer}.impl-upload input{display:none}
+.impl-table-wrap{overflow:auto;margin-top:9px}.impl-table-wrap table{width:100%;min-width:560px;border-collapse:collapse}.impl-table-wrap th,.impl-table-wrap td{border:1px solid #dbe2ec;padding:5px;vertical-align:top}.impl-table-wrap th{background:#f1f5f9}.impl-table-wrap th{position:relative}.impl-table-wrap th input{padding-right:26px}.impl-table-wrap th button{position:absolute;right:3px;top:4px;border:0;background:transparent;color:#94a3b8;cursor:pointer}.impl-table-actions{width:38px;text-align:center}.impl-table-actions button{border:0;background:#fee2e2;color:#991b1b;border-radius:7px;cursor:pointer}.impl-table-buttons{display:flex;gap:7px;margin-top:7px}
+.impl-empty-mini{font-size:10px;color:#94a3b8;margin-top:7px}
+@media(max-width:760px){.impl-grid-2{grid-template-columns:1fr}.impl-direction-head{align-items:flex-start}.impl-card-actions{flex-wrap:wrap}.impl-presets{display:none}}
+
