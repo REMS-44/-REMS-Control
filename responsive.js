@@ -1,4 +1,4 @@
-/* REMS Control v39 — one interface, three screen sizes.
+/* REMS Control v39 - one interface, three screen sizes.
    Responsive code now changes layout only. It does not replace calendars,
    duplicate controls, or create alternate mobile workflows. */
 (()=>{
