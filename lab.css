@@ -391,7 +391,7 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 .theory-modal-card{padding:23px 26px}.theory-modal-card h2{margin-bottom:11px}
 @media(max-width:560px){.theory-modal-copy{font-size:13px;line-height:1.48}.theory-modal-card{padding:18px 15px}.theory-modal-copy p{margin-bottom:8px}}
 
-/* v49.4.26 - richer tempo-rhythm graph + detailed explication */
+/* v49.4.27 - richer tempo-rhythm graph + detailed explication */
 .tempo-curve-wrap{border:1px solid #cbd5e1!important;background:linear-gradient(180deg,#ffffff 0%,#f5f7ff 48%,#eef6ff 100%)!important;box-shadow:0 12px 30px rgba(15,23,42,.08)!important}
 .tempo-curve svg{border-radius:18px}
 .tempo-curve svg .tempo-grid{stroke:#64748b;opacity:.20}
@@ -401,5 +401,5 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 .explication-table textarea[data-exp-field="directorSolution"]{min-height:180px!important;line-height:1.48!important}
 @media(max-width:850px){.explication-table textarea[data-exp-field="directorSolution"]{min-height:210px!important}}
 
-/* v49.4.26 tempo profile */
+/* v49.4.27 tempo profile */
 .tempo-curve-wrap{background:#fff!important}.tempo-curve svg{min-width:900px!important}.tempo-curve svg .tempo-x-label{font-size:11px!important;font-weight:700!important;fill:#1e293b!important}.tempo-curve svg .tempo-band-label{font-size:10px!important;font-weight:800!important}.tempo-curve svg .tempo-y-label{font-size:10px!important;fill:#64748b!important}
