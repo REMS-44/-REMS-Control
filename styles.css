@@ -166,12 +166,12 @@ dialog{border:0;border-radius:16px;padding:0;box-shadow:0 30px 90px #0004;width:
 .dl-scenario-table{min-width:1180px}.dl-explication-table{min-width:1500px}
 .dl-linked-work-table textarea{min-height:64px}
 /* v49.3 teacher tempo-rhythm curve */
-.dl-tempo-curve-wrap{margin-top:16px;padding:14px;border:1px solid #d8dee8;border-radius:14px;background:#fff}
-.dl-tempo-curve{margin-top:8px;overflow-x:auto}
-.dl-tempo-curve svg{display:block;width:100%;min-width:600px;height:auto}
-.dl-tempo-curve svg line,.dl-tempo-curve svg polyline{stroke:currentColor;stroke-width:2}
-.dl-tempo-curve svg .tempo-grid{stroke-width:1;opacity:.18}
-.dl-tempo-curve svg .tempo-axis{stroke-width:1.5;opacity:.65}
-.dl-tempo-curve svg circle{fill:currentColor}
+.dl-tempo-curve-wrap{margin-top:16px;padding:16px 16px 12px;border:1px solid #d8dee8;border-radius:16px;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);box-shadow:0 8px 24px rgba(15,23,42,.05)}
+.dl-tempo-curve{margin-top:10px;overflow-x:auto;padding-bottom:4px}
+.dl-tempo-curve svg{display:block;width:100%;min-width:760px;height:auto}
+.dl-tempo-curve svg .tempo-grid{stroke:#94a3b8;stroke-width:1;opacity:.22}
+.dl-tempo-curve svg .tempo-axis{stroke:#475569;stroke-width:1.5;opacity:.75}
 .dl-tempo-curve svg text{font:12px system-ui;fill:currentColor}
-.dl-tempo-curve svg .tempo-y-label{opacity:.65;font-size:11px}
+.dl-tempo-curve svg .tempo-y-label{opacity:.8;font-size:11px}
+.dl-tempo-curve svg .tempo-band-label{font-size:12px;font-weight:700}
+.dl-tempo-curve svg .tempo-x-label{font-size:11px;fill:#334155}

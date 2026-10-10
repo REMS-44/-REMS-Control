@@ -289,13 +289,11 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 .scenario-table{min-width:1180px}.scenario-table th:nth-child(1){width:70px}.scenario-table th:nth-child(2){width:18%}.scenario-table th:nth-child(3){width:18%}.scenario-table th:nth-child(4){width:34%}.scenario-table th:nth-child(5){width:20%}.scenario-table th:nth-child(6){width:120px}
 .atmosphere-table,.tempo-table{min-width:1050px}
 .tempo-intensity-cell input{width:76px;min-height:44px;text-align:center;font-weight:700}.tempo-intensity-cell small{display:block;margin-top:4px;color:var(--muted,#64748b);font-size:11px}
-.tempo-curve-wrap{margin-top:16px;padding:14px;border:1px solid #d8dee8;border-radius:14px;background:#fff}.tempo-curve{margin-top:8px;overflow-x:auto}.tempo-curve svg{display:block;width:100%;min-width:600px;height:auto}.tempo-curve svg line,.tempo-curve svg polyline{stroke:currentColor;stroke-width:2}.tempo-curve svg circle{fill:currentColor}.tempo-curve svg text{font:12px system-ui;fill:currentColor}
+.tempo-curve-wrap{margin-top:16px;padding:16px 16px 12px;border:1px solid #d8dee8;border-radius:16px;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);box-shadow:0 8px 24px rgba(15,23,42,.05)}.tempo-curve{margin-top:10px;overflow-x:auto;padding-bottom:4px}.tempo-curve svg{display:block;width:100%;min-width:760px;height:auto}.tempo-curve svg text{font:12px system-ui;fill:currentColor}
 .explication-table{min-width:1550px}.explication-table th small{display:block;font-weight:400;font-size:11px;line-height:1.25;margin-top:4px}
 .explication-table .exp-ref-cell{min-width:190px}
 /* v49.3 tempo-rhythm curve readability */
-.tempo-curve svg .tempo-grid{stroke-width:1;opacity:.18}
-.tempo-curve svg .tempo-axis{stroke-width:1.5;opacity:.65}
-.tempo-curve svg .tempo-y-label{opacity:.65;font-size:11px}
+.tempo-curve svg .tempo-grid{stroke:#94a3b8;stroke-width:1;opacity:.22}.tempo-curve svg .tempo-axis{stroke:#475569;stroke-width:1.5;opacity:.75}.tempo-curve svg .tempo-y-label{opacity:.8;font-size:11px}.tempo-curve svg .tempo-band-label{font-size:12px;font-weight:700}.tempo-curve svg .tempo-x-label{font-size:11px;fill:#334155}
 
 /* v49.4  -  explication prioritizes director's solution */
 .explication-table{min-width:1260px!important}
@@ -392,3 +390,13 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 .theory-modal-copy strong{font-weight:800;color:#172554}
 .theory-modal-card{padding:23px 26px}.theory-modal-card h2{margin-bottom:11px}
 @media(max-width:560px){.theory-modal-copy{font-size:13px;line-height:1.48}.theory-modal-card{padding:18px 15px}.theory-modal-copy p{margin-bottom:8px}}
+
+/* v49.4.22 — richer tempo-rhythm graph + detailed explication */
+.tempo-curve-wrap{border:1px solid #cbd5e1!important;background:linear-gradient(180deg,#ffffff 0%,#f5f7ff 48%,#eef6ff 100%)!important;box-shadow:0 12px 30px rgba(15,23,42,.08)!important}
+.tempo-curve svg{border-radius:18px}
+.tempo-curve svg .tempo-grid{stroke:#64748b;opacity:.20}
+.tempo-curve svg .tempo-axis{stroke:#334155;opacity:.85}
+.tempo-curve svg .tempo-band-label{font-size:12px;font-weight:800}
+.tempo-curve svg .tempo-x-label{font-size:11px;font-weight:650;fill:#334155}
+.explication-table textarea[data-exp-field="directorSolution"]{min-height:180px!important;line-height:1.48!important}
+@media(max-width:850px){.explication-table textarea[data-exp-field="directorSolution"]{min-height:210px!important}}
