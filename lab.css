@@ -405,7 +405,7 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 .tempo-curve-wrap{background:#fff!important}.tempo-curve svg{min-width:900px!important}.tempo-curve svg .tempo-x-label{font-size:11px!important;font-weight:700!important;fill:#1e293b!important}.tempo-curve svg .tempo-band-label{font-size:10px!important;font-weight:800!important}.tempo-curve svg .tempo-y-label{font-size:10px!important;fill:#64748b!important}
 
 
-/* v49.4.43 - section 4 implementation builder */
+/* v49.4.44 - section 4 implementation builder */
 .implementation-builder{display:grid;gap:14px}
 .impl-builder-top{display:grid;gap:10px;padding:12px;border:1px solid #dbe4f0;border-radius:14px;background:#f8fbff}
 .impl-add-direction{justify-self:start;border:0;border-radius:10px;padding:10px 14px;background:#202b4c;color:#fff;font-weight:800;cursor:pointer}
@@ -429,3 +429,12 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 .impl-empty-mini{font-size:10px;color:#94a3b8;margin-top:7px}
 @media(max-width:760px){.impl-grid-2{grid-template-columns:1fr}.impl-direction-head{align-items:flex-start}.impl-card-actions{flex-wrap:wrap}.impl-presets{display:none}}
 
+
+
+/* v49.4.44 - Section 4 navigation and per-item workflow */
+.impl-direction-nav,.section-subnav{margin:10px 0 16px;padding:12px 14px;border:1px solid #dbe3ef;border-radius:14px;background:#f8fafc}
+.impl-direction-nav label,.section-subnav label{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0}.impl-direction-nav span,.section-subnav span{font-weight:700;color:#334155}.impl-direction-nav select,.section-subnav select{min-width:min(420px,100%);flex:1;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font:inherit}
+.impl-workflow-status{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;background:#eef2f7;color:#475569;white-space:nowrap}.impl-workflow-status.draft_saved{background:#ecfdf5;color:#047857}.impl-workflow-status.submitted{background:#eef2ff;color:#4338ca}
+.impl-direction-actions,.implementation-document-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0}.impl-direction-note{font-size:12px;color:#64748b}
+.impl-jump-highlight{outline:3px solid #a5b4fc;outline-offset:4px;transition:outline .2s ease}
+#section-implementation-processes > .section-actions,#section-implementation-documents > .section-actions{display:none}

@@ -178,3 +178,7 @@ dialog{border:0;border-radius:16px;padding:0;box-shadow:0 30px 90px #0004;width:
 
 /* v49.4.41 tempo profile */
 .dl-tempo-curve-wrap{background:#fff!important}.dl-tempo-curve svg{min-width:900px!important}.dl-tempo-curve svg .tempo-x-label{font-size:11px!important;font-weight:700!important;fill:#1e293b!important}.dl-tempo-curve svg .tempo-band-label{font-size:10px!important;font-weight:800!important}.dl-tempo-curve svg .tempo-y-label{font-size:10px!important;fill:#64748b!important}
+
+
+/* v49.4.44 - Section 4 quick navigation */
+.dl-impl-jump,.dl-section-quick-nav{margin:10px 0 14px;padding:11px 13px;border:1px solid #dbe3ef;border-radius:12px;background:#f8fafc}.dl-impl-jump label,.dl-section-quick-nav label{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.dl-impl-jump span,.dl-section-quick-nav span{font-weight:700;color:#334155}.dl-impl-jump select,.dl-section-quick-nav select{min-width:min(420px,100%);flex:1;padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px;background:white}.dl-impl-direction-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.dl-impl-status{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#eef2f7;color:#475569}.dl-impl-status.draft_saved{background:#ecfdf5;color:#047857}.dl-impl-status.submitted{background:#eef2ff;color:#4338ca}.dl-jump-highlight{outline:3px solid #a5b4fc;outline-offset:4px}
