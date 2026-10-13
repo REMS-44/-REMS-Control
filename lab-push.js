@@ -32,7 +32,7 @@ export async function enableLabPush(firebaseApp, payload) {
 
   let registration;
   try {
-    registration = await navigator.serviceWorker.register('./service-worker.js?v=49.4.51', {scope:'./', updateViaCache:'none'});
+    registration = await navigator.serviceWorker.register('./service-worker.js?v=49.4.52', {scope:'./', updateViaCache:'none'});
     try { await registration.update(); } catch (_) {}
     registration = (await navigator.serviceWorker.ready) || registration;
   } catch (e) {
@@ -52,7 +52,14 @@ export async function enableLabPush(firebaseApp, payload) {
 
   try {
     const register = httpsCallable(getFunctions(firebaseApp, 'europe-west1'), 'registerDirectingLabPush');
-    await register({...payload, token});
+    const result = await register({...payload, token});
+    const data = result?.data || {};
+    if (data.ok !== true) {
+      const stage = String(data.stage || 'Серверна реєстрація');
+      const code = String(data.code || '').trim();
+      const error = String(data.error || 'Сервер не підтвердив push-підписку');
+      throw new Error(`${stage}: ${code ? code + ': ' : ''}${error}`);
+    }
   } catch (e) {
     throw pushError("Реєстрація в REMS", e);
   }
