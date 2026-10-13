@@ -3,10 +3,20 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js');
 firebase.initializeApp({apiKey:'AIzaSyDKpQYuykXwfmkBxNBUhw317Yg72gZNPic',authDomain:'rems-control.firebaseapp.com',projectId:'rems-control',messagingSenderId:'478170069073',appId:'1:478170069073:web:b4f9df1eb34754bdba2070'});
 const messaging=firebase.messaging();
+function scopedNotificationUrl(raw){
+ const scope=new URL(self.registration.scope);
+ const url=new URL(raw||'./index.html',scope);
+ if(url.origin!==scope.origin)return null;
+ if(url.pathname.includes('/REMS-Control/')||url.pathname.includes('/-REMS-Control/')){
+  const file=url.pathname.endsWith('/lab.html')?'lab.html':'index.html';
+  url.pathname=scope.pathname.replace(/\/?$/,'/')+file;
+ }
+ return url;
+}
 messaging.onBackgroundMessage(payload=>{
  const data=payload.data||{};
- const url=new URL(data.url||'./index.html',self.registration.scope);
- if(url.origin!==self.location.origin)return;
+ const url=scopedNotificationUrl(data.url);
+ if(!url)return;
  self.registration.showNotification(data.title||'Режисерська лабораторія',{body:data.body||'Нове повідомлення',icon:'./icons/icon-192.png',data:{url:url.href},tag:'rems-lab-'+(data.eventId||'update')});
 });
 self.addEventListener('notificationclick',event=>{

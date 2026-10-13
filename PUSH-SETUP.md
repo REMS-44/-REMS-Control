@@ -1,8 +1,8 @@
-# REMS Lab v49.4.13 - увімкнення push
+# REMS Lab v49.4.48 - увімкнення push
 
 **УВАГА:** ZIP містить клієнт і серверний код, але сповіщення НЕ працюватимуть до налаштування та розгортання Firebase.
 
-1. Firebase Console → Project settings → Cloud Messaging → Web push certificates. Створіть VAPID key pair. Вставте **PUBLIC** key у `push-config.js`. Секретний ключ НЕ додавати до сайту.
+1. Для першої перевірки можна залишити `push-config.js` порожнім: Firebase спробує використати стандартний VAPID. Якщо браузер відмовиться видавати FCM token, створіть Web push certificate у Firebase Console і вставте лише PUBLIC key у `push-config.js`.
 2. Firebase Console → Firestore → створити документ `rems_push_settings/teachers` із масивом `emails` (email авторизованого викладача малими літерами). Не відкривати публічний запис цього документа.
 3. Встановити Node.js 20 та Firebase CLI. У корені проєкту: `cd functions && npm install && cd .. && firebase use rems-control && firebase deploy --only functions:registerDirectingLabPush,functions:onDirectingLabTeacherReply,functions:onDirectingLabStudentReply`. Firebase Functions зазвичай потребують тарифу Blaze; можливі платежі.
 4. Завантажити файли сайту на GitHub Pages. `functions/` не є файлами GitHub Pages - вони розгортаються окремо у Firebase.
@@ -14,3 +14,7 @@
 **Обмеження:** push не є гарантованою доставкою (офлайн/економія енергії/заборона ОС). Натискання сповіщення студента відкриває лабораторію, але автоматичне відкриття конкретного діалогу залежить від UI; посилання викладача відкриває REMS Control, але перехід до конкретного пункту потребує вибору студента.
 
 **Безпека:** персональний `labKey` - секрет доступу; його передача у push URL небажана для сторонніх пристроїв. Реєстрація токена студента допускається лише за ключем лабораторії. Для production рекомендовано перевести доступ студента на Firebase Auth і впровадити жорсткі Firestore Rules. Чинні правила лабораторії мають суттєві ризики, зокрема надто широкі дозволи `get` і `update`. Не застосовуйте цей патч без перевірки прав доступу.
+
+
+## v49.4.48
+Push навмисно обмежено важливими подіями: повідомлення в переписці, відповідь викладача, подання розділу або матеріалу на перевірку. Збереження чернеток саме по собі push не створює.
