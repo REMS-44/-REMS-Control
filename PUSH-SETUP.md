@@ -1,20 +1,6 @@
-# REMS Lab v49.4.50 - увімкнення push
+# REMS Lab v49.4.51 - background push test
 
-**УВАГА:** ZIP містить клієнт і серверний код, але сповіщення НЕ працюватимуть до налаштування та розгортання Firebase.
+Client-side VAPID is configured with the previously used REMS-Control public Web Push key.
+The push button now reports the exact failing stage: Service Worker, FCM token, or REMS Cloud Function registration.
 
-1. Для першої перевірки можна залишити `push-config.js` порожнім: Firebase спробує використати стандартний VAPID. Якщо браузер відмовиться видавати FCM token, створіть Web push certificate у Firebase Console і вставте лише PUBLIC key у `push-config.js`.
-2. Firebase Console → Firestore → створити документ `rems_push_settings/teachers` із масивом `emails` (email авторизованого викладача малими літерами). Не відкривати публічний запис цього документа.
-3. Встановити Node.js 20 та Firebase CLI. У корені проєкту: `cd functions && npm install && cd .. && firebase use rems-control && firebase deploy --only functions:registerDirectingLabPush,functions:onDirectingLabTeacherReply,functions:onDirectingLabStudentReply`. Firebase Functions зазвичай потребують тарифу Blaze; можливі платежі.
-4. Завантажити файли сайту на GitHub Pages. `functions/` не є файлами GitHub Pages - вони розгортаються окремо у Firebase.
-5. У браузері викладача увійти до REMS Control, натиснути «🔔 Сповіщення викладачу» і дозволити сповіщення. У студента відкрити персональну лабораторію та натиснути «🔔 Увімкнути сповіщення». Повторити на кожному пристрої.
-6. Перевірити спочатку в тестовій лабораторії: повідомлення в обидва боки із закритими вкладками. Перевірити журнал Functions у Firebase при помилках.
-
-На iPhone/iPad Safari: додати сайт на головний екран і відкрити звідти (iOS/iPadOS 16.4+). Дозвіл потрібно надати окремо.
-
-**Обмеження:** push не є гарантованою доставкою (офлайн/економія енергії/заборона ОС). Натискання сповіщення студента відкриває лабораторію, але автоматичне відкриття конкретного діалогу залежить від UI; посилання викладача відкриває REMS Control, але перехід до конкретного пункту потребує вибору студента.
-
-**Безпека:** персональний `labKey` - секрет доступу; його передача у push URL небажана для сторонніх пристроїв. Реєстрація токена студента допускається лише за ключем лабораторії. Для production рекомендовано перевести доступ студента на Firebase Auth і впровадити жорсткі Firestore Rules. Чинні правила лабораторії мають суттєві ризики, зокрема надто широкі дозволи `get` і `update`. Не застосовуйте цей патч без перевірки прав доступу.
-
-
-## v49.4.50
-Push навмисно обмежено важливими подіями: повідомлення в переписці, відповідь викладача, подання розділу або матеріалу на перевірку. Збереження чернеток саме по собі push не створює.
+If the button reports "Реєстрація в REMS", the client and VAPID/token stages are working and the remaining issue is the Cloud Function deployment or server-side configuration.
