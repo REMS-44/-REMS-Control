@@ -1,4 +1,4 @@
-# REMS Lab v49.4.52 - background push test
+# REMS Lab v49.4.53 - background push test
 
 Client-side VAPID is configured with the previously used REMS-Control public Web Push key.
 The push button now reports the exact failing stage: Service Worker, FCM token, or REMS Cloud Function registration.
