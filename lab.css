@@ -445,3 +445,57 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 
 /* v49.4.50 - deletable student messages and live dialogue refresh */
 .dialogue-message-head{display:flex!important;justify-content:space-between;align-items:center;gap:12px}.dialogue-message-head>span{display:flex;align-items:center;gap:6px}.dialogue-message-delete{border:0;background:transparent;padding:2px 3px;border-radius:6px;cursor:pointer;opacity:.55;font-size:12px;line-height:1}.dialogue-message-delete:hover{opacity:1;background:#fee2e2}.dialogue-message-delete:disabled{opacity:.25;cursor:default}.dialogue-delete-note{display:block;margin-top:7px;color:#64748b;font-size:9px}.dialogue-timeline{max-height:48vh;overflow:auto;padding-right:3px}
+
+/* v49.4.60 - integrated subsection dropdown navigation (visual option 2) */
+.section-nav-combo{
+  display:flex;
+  align-items:stretch;
+  gap:0;
+  flex:0 0 auto;
+  border-radius:999px;
+  overflow:visible;
+}
+.section-nav-combo>a{
+  flex:0 0 auto;
+  border-radius:999px 0 0 999px!important;
+  border-right:0!important;
+  margin:0!important;
+}
+.section-nav-combo>.section-nav-select{
+  width:38px;
+  min-width:38px;
+  height:auto;
+  min-height:37px;
+  margin:0;
+  border-radius:0 999px 999px 0;
+  border:1px solid #ffffff24;
+  border-left:1px solid #ffffff2e;
+  background:#ffffff12;
+  color:#eef2ff;
+  padding:0 6px;
+  font:inherit;
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+  outline:none;
+  box-shadow:none;
+}
+.section-nav-combo:hover>a,
+.section-nav-combo:focus-within>a{background:#ffffff18}
+.section-nav-combo:hover>.section-nav-select,
+.section-nav-combo:focus-within>.section-nav-select{background:#ffffff18;border-color:#ffffff38}
+.section-nav-combo>a.active + .section-nav-select{
+  background:linear-gradient(135deg,#315cff,#6d4aff);
+  color:#fff;
+  border-color:transparent;
+  border-left:1px solid #ffffff38;
+  box-shadow:0 7px 18px #315cff38;
+}
+.section-nav-combo>a.active{
+  border-radius:999px 0 0 999px!important;
+  box-shadow:0 7px 18px #315cff38;
+}
+.section-nav-combo>.section-nav-select option{color:#111827;background:#fff;font-size:12px;font-weight:600}
+@media(max-width:760px){
+  .section-nav-combo>.section-nav-select{width:36px;min-width:36px;min-height:35px}
+}

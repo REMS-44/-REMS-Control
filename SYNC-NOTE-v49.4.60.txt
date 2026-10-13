@@ -1,0 +1,3 @@
+v49.4.60
+- Theory unchanged from v49.4.59 cleanup.
+- Student top navigation subsection control uses integrated split-pill visual: section title left, narrow dropdown arrow zone right, no detached circle.
