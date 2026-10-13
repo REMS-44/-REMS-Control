@@ -7,9 +7,11 @@ export async function enableLabPush(firebaseApp, payload) {
   const vapidKey=String(window.REMS_LAB_VAPID_PUBLIC_KEY||"").trim();
   const permission=await Notification.requestPermission();
   if(permission!=="granted") throw Error("Дозвіл на сповіщення не надано.");
-  const registration=await navigator.serviceWorker.register('./service-worker.js', {scope:'./'});
-  await navigator.serviceWorker.ready;
-  const tokenOptions={serviceWorkerRegistration:registration};
+  const registration=await navigator.serviceWorker.register('./service-worker.js?v=49.4.50', {scope:'./',updateViaCache:'none'});
+  try{await registration.update()}catch{}
+  const ready=await navigator.serviceWorker.ready;
+  const activeRegistration=ready||registration;
+  const tokenOptions={serviceWorkerRegistration:activeRegistration};
   if(vapidKey) tokenOptions.vapidKey=vapidKey;
   const token=await getToken(getMessaging(firebaseApp),tokenOptions);
   if(!token) throw Error("FCM не видав токен цьому пристрою.");
