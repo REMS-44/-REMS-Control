@@ -501,7 +501,7 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 }
 
 
-/* v49.4.65 · дворівнева теорія та читабельні довгі матеріали */
+/* v49.4.66 · дворівнева теорія та читабельні довгі матеріали */
 .section-theory-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .section-theory-row>small{color:#6b7280;font-size:11px;line-height:1.35;max-width:650px}
 .section-theory-full-btn{background:linear-gradient(135deg,#17213a,#29416f)!important;color:#fff!important;border-color:transparent!important;box-shadow:0 7px 18px #17213a20}
@@ -538,3 +538,8 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 .theory-logic-overview i{align-self:center;font-style:normal;color:#aeb9d1}
 .theory-logic-overview>p{margin:10px 0 0!important;color:#dbe3f4;font-size:12px}
 @media(max-width:560px){.section-theory-row>small{display:none}.theory-modal-card{padding:18px 14px}.theory-section-unit{padding:16px 14px 16px 48px}.theory-unit-no{left:12px;top:16px}.theory-section-nav{top:-18px}.theory-section-nav button{font-size:10px;padding:6px 8px}}
+
+
+/* v49.4.66 · contrast fix for dark theory logic cards */
+.theory-logic-overview>p, .theory-logic-overview>p strong, .theory-logic-overview>b, .theory-logic-overview b{color:#f7f9ff!important}
+.theory-logic-overview span strong{color:#c8ff4d!important}
