@@ -1,8 +1,8 @@
-// REMS Control v49.4.51
+// REMS Control v49.4.64
 // Lightweight push service worker. Firebase obtains the token in the page;
 // this worker only receives the Web Push event and shows the notification.
 
-const REMS_SW_VERSION = '49.4.51';
+const REMS_SW_VERSION = '49.4.64';
 
 function remsPayload(event) {
   let raw = {};
