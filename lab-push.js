@@ -32,7 +32,7 @@ export async function enableLabPush(firebaseApp, payload) {
 
   let registration;
   try {
-    registration = await navigator.serviceWorker.register('./service-worker.js?v=49.4.64', {scope:'./', updateViaCache:'none'});
+    registration = await navigator.serviceWorker.register('./service-worker.js?v=49.4.65', {scope:'./', updateViaCache:'none'});
     try { await registration.update(); } catch (_) {}
     registration = (await navigator.serviceWorker.ready) || registration;
   } catch (e) {

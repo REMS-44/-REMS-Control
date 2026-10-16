@@ -1,0 +1,8 @@
+v49.4.65
+- Two-level theory: full section theory + deeper theory for each field.
+- Long theory modal redesigned with navigation, cards, callouts, lists.
+- Through action: search with a verb, enter the process as a noun (демонстрація / розкриття / простеження).
+- Montage intro rewritten as theoretical material, not third-person narration about a student.
+- Similar “student should…” phrasing normalized where found.
+- Restored “Образ дії” as a separate component of the general stage image; visual/sound fields preserved and renumbered.
+- Schema contentVersion 25; student/teacher canonical schemas synchronized.
