@@ -1,0 +1,7 @@
+v49.4.61
+- Theory-only targeted corrections in sections 1.1 and 1.2; composition not changed.
+- 1.1.6 final justification now requires a full cohesive section, without a 2-4 paragraph limit.
+- 1.2.1 title explicitly emphasizes reflecting the project idea.
+- 1.2.2 adds context before the established forms list; Presentation moved after Contest; Festival includes demonstration of achievements; form-entry examples added.
+- 1.2.3 removes duplicated genre-entry examples from the final instruction.
+- Teacher constructor and student laboratory schemas are identical for these sections.
