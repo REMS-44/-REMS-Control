@@ -1,0 +1,4 @@
+v49.4.68
+- Contrast-only fix for dark theory logic cards.
+- Markdown bold text inside logic notes is forced to light text on dark background.
+- No theoretical content changed.

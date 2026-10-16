@@ -543,3 +543,10 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 /* v49.4.66 · contrast fix for dark theory logic cards */
 .theory-logic-overview>p, .theory-logic-overview>p strong, .theory-logic-overview>b, .theory-logic-overview b{color:#f7f9ff!important}
 .theory-logic-overview span strong{color:#c8ff4d!important}
+
+/* v49.4.68 · ensure markdown emphasis remains readable on dark logic-chain cards */
+.logic-chain-block .logic-note,
+.logic-chain-block .logic-note strong,
+.logic-chain-block .logic-note b{color:#f7f9ff!important}
+.logic-chain-block .logic-note strong,
+.logic-chain-block .logic-note b{font-weight:900}
