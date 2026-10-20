@@ -1,0 +1,4 @@
+v49.4.69
+- Fixed contrast specifically inside the pop-up “Теоретичний матеріал”.
+- The explanatory note under dark theory logic diagrams is forced to light text, including markdown bold fragments.
+- Main-page styling and theoretical content were not changed.

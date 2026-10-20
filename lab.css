@@ -550,3 +550,18 @@ main{padding-left:clamp(6px,1vw,16px)!important;padding-right:clamp(6px,1vw,16px
 .logic-chain-block .logic-note b{color:#f7f9ff!important}
 .logic-chain-block .logic-note strong,
 .logic-chain-block .logic-note b{font-weight:900}
+
+/* v49.4.69 · contrast fix INSIDE the theoretical-material popup */
+.theory-modal-copy .theory-logic-overview .theory-logic-note,
+.theory-modal-copy .theory-logic-overview .theory-logic-note p,
+.theory-modal-copy .theory-logic-overview .theory-logic-note strong,
+.theory-modal-copy .theory-logic-overview .theory-logic-note b,
+.theory-modal-copy .theory-logic-overview .theory-logic-note em,
+.theory-modal-copy .theory-logic-overview .theory-logic-note span {
+  color:#f7f9ff !important;
+}
+.theory-modal-copy .theory-logic-overview .theory-logic-note {
+  margin-top:10px;
+  font-size:12px;
+  line-height:1.55;
+}
